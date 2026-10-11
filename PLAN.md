@@ -201,7 +201,7 @@ something runnable.
 | Phase | Deliverable | Size |
 |---|---|---|
 | **0. Skeleton** ✅ | Monorepo, Vite app with a three.js workplane, Fastify server, Dockerfile running it, Electron shell loading it, unit + Playwright tests (web and packaged desktop), CI. **Done 2026-10-11** | 1 wk |
-| **1. Viewport** | Workplane grid, Tinkercad camera controls, view cube, home/fit, ortho toggle, drag a Box/Cylinder/Sphere from the panel onto the grid | 2 wk |
+| **1. Viewport** ✅ | Workplane grid, own camera controls (right-drag orbit, middle-drag pan, wheel zoom), view cube + standard-views menu, home/fit, ortho toggle, drag a Box/Cylinder/Sphere from the panel onto the grid (snapped, clamped to the workplane). Built on a pure camera/picking/shape-ops layer in `packages/core`. **Done 2026-10-11** | 2 wk |
 | **2. Manipulation** | Selection (click, shift, marquee), move with snap, lift cone, resize handles with live dimension labels + typed input, rotation arcs with snaps, nudge keys, drop-to-plane, undo/redo, inspector (color, solid/hole, params) | 3–4 wk |
 | **3. CSG** | Geometry worker with manifold, Group/Ungroup with holes, cached subtree evaluation, hole transparency rendering, delete/copy/paste/duplicate | 2 wk |
 | **4. Persistence + I/O** | Dashboard, autosave, thumbnails (offscreen render), STL/OBJ import, STL/OBJ/3MF/GLB export | 2 wk |

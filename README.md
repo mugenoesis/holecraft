@@ -13,8 +13,22 @@ independent project with its own code and design, and it runs entirely on your o
 - **Docker**: self-host it and open it from any browser on your network.
 - **Linux desktop app**: AppImage or .deb that works fully offline.
 
-> **Status: early development (Phase 0 of the [plan](PLAN.md)).** The app shell, server,
-> Docker image, desktop packaging, and test harness work. Modeling features start in Phase 1.
+> **Status: early development (Phase 1 of the [plan](PLAN.md) done).** You can navigate a 3D
+> workplane and drag boxes, cylinders and spheres onto it. Moving, resizing, holes and saving
+> come in the next phases.
+
+## Using the editor
+
+| Action | How |
+|---|---|
+| Add a shape | Drag it from the Shapes panel onto the workplane, or click it (or press Enter) to add at the centre. Drops snap to the grid |
+| Orbit | Right-drag |
+| Pan | Middle-drag, or Shift + right-drag |
+| Zoom | Mouse wheel |
+| Home view | **Home** button or the `Home` key |
+| Fit all | **Fit** button or `F` |
+| Perspective / orthographic | **Ortho** toggle |
+| Look from a side | Click a visible face of the view cube, or use the **View…** menu |
 
 ## Run it
 
@@ -85,8 +99,8 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/e2e.sh` | Playwright tests in the Playwright Docker image |
 | `scripts/docker-smoke.sh` | Build the image, run it, verify health and non-root user |
 | `scripts/package-desktop.sh` | Build the AppImage and .deb (in a Debian container) |
-| `scripts/screenshot.sh` | Screenshot a running instance with software WebGL |
-| `scripts/make-icon.sh` | Regenerate the desktop icon PNG from the SVG logo |
+| `scripts/screenshot.sh` | Screenshot a running instance with software WebGL (`DEMO=1` adds shapes, `VIEW=top` picks a view) |
+| `scripts/make-icon.sh` | Regenerate the app icons from the cube mark cropped out of `branding/logo.jpg` |
 
 ## License
 

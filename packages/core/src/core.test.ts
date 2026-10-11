@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DESIGN_FORMAT_VERSION, DEFAULT_GRID, createEmptyDesign, mmToUnits, newId, snapToGrid, unitsToMm } from './index.ts';
+import { DESIGN_FORMAT_VERSION, DEFAULT_GRID, clampToWorkplane, createEmptyDesign, mmToUnits, newId, snapToGrid, unitsToMm } from './index.ts';
 
 describe('snapToGrid', () => {
   it('rounds to the nearest step', () => {
@@ -15,6 +15,16 @@ describe('snapToGrid', () => {
 
   it('returns the value unchanged when snapping is off', () => {
     expect(snapToGrid(3.14159, 0)).toBe(3.14159);
+  });
+});
+
+describe('clampToWorkplane', () => {
+  it('leaves points inside the plane alone', () => {
+    expect(clampToWorkplane([10, -20], [200, 200])).toEqual([10, -20]);
+  });
+
+  it('clamps points outside to the edge', () => {
+    expect(clampToWorkplane([500, -500], [200, 100])).toEqual([100, -50]);
   });
 });
 

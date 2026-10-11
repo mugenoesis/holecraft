@@ -1,12 +1,13 @@
-import { createEmptyDesign, newId } from '@holecraft/core';
-import { useEffect, useState } from 'react';
+import { addShape, createEmptyDesign, newId, type ShapeType } from '@holecraft/core';
+import { useCallback, useEffect, useState } from 'react';
 import { fetchHealth, type Health } from './api.ts';
+import { ShapesPanel } from './ShapesPanel.tsx';
 import { ViewportCanvas } from './viewport/ViewportCanvas.tsx';
 
 type ServerState = { kind: 'checking' } | { kind: 'online'; health: Health } | { kind: 'offline' };
 
 export function App() {
-  const [design] = useState(() => createEmptyDesign(newId()));
+  const [design, setDesign] = useState(() => createEmptyDesign(newId()));
   const [server, setServer] = useState<ServerState>({ kind: 'checking' });
 
   useEffect(() => {
@@ -18,13 +19,17 @@ export function App() {
     return () => ctrl.abort();
   }, []);
 
+  const add = useCallback((type: ShapeType, at: [number, number] = [0, 0]) => {
+    setDesign((d) => addShape(d, type, at).design);
+  }, []);
+
   const [width, depth] = design.grid.size;
 
   return (
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <img src="/favicon.svg" alt="" width={22} height={22} />
+          <img src="/icon-192.png" alt="" width={24} height={24} />
           <span>Holecraft</span>
         </div>
         <div className="design-name">{design.name}</div>
@@ -32,18 +37,18 @@ export function App() {
       </header>
 
       <main className="workspace">
-        <ViewportCanvas width={width} depth={depth} />
-        <aside className="panel">
-          <h2>Shapes</h2>
-          <p className="muted">The shape library arrives in Phase 1.</p>
-        </aside>
+        <ViewportCanvas design={design} onDropShape={add} />
+        <ShapesPanel design={design} onAddShape={add} />
       </main>
 
       <footer className="statusbar">
         <span>
           Workplane {width} × {depth} {design.units}
         </span>
-        <span>Snap {design.grid.snap} {design.units}</span>
+        <span>
+          Snap {design.grid.snap} {design.units}
+        </span>
+        <span>Objects: {design.roots.length}</span>
       </footer>
     </div>
   );
