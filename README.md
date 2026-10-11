@@ -19,6 +19,22 @@ independent project with its own code and design, and it runs entirely on your o
 > group them to cut real holes out of solids, undo/redo, **import** existing models (STL, OBJ,
 > 3MF) and **export for 3D printing** (STL, OBJ, 3MF). Phase 5 tools (align, mirror, ruler...) come next.
 
+## Colours and multi-colour printing
+
+Every design has a **palette** of filament colours (the **Colours** panel): four to start, the usual
+multi-material setup, up to sixteen, which is what a Bambu printer can address. Click a colour to paint the
+selected shapes with it. **Change the chosen colour** and everything painted with it changes too, so a colour
+always means "this filament". **Add colour** and **Remove colour** manage the palette; shapes keep their colour
+if its slot is removed (they print with the nearest remaining filament). Shapes can still be any colour via the
+Color field in Properties; they print with the nearest palette colour.
+
+**Export as 3MF for OrcaSlicer** writes the palette as the file's filament list and gives each object the
+filament (numbered from 1) of its colour, in the form OrcaSlicer, Bambu Studio and Trident read for
+multi-material projects. Only filament settings are written (at OrcaSlicer's generic PLA values), never your
+printer or print profile. It was checked against the real OrcaSlicer engine (`scripts/verify-orca-export.sh`),
+which loads it and keeps every object's filament and all the colours, for 4 and for 16 filaments. Painting
+parts of a single model (several colours on one object) is planned, not built yet.
+
 ## On a phone or tablet
 
 The editor works from a phone's browser (open the server's address on your home network). On a narrow
@@ -54,6 +70,7 @@ The **Export** button in the top bar downloads the whole design as (tick **Only 
 | **STL** | Slicers and printing. Binary, in millimetres |
 | **OBJ** | Other 3D programs. Text, in millimetres, one named object per shape |
 | **3MF** | Modern slicers. Keeps each object's name and colour, in millimetres |
+| **3MF for OrcaSlicer** | Multi-colour printing in OrcaSlicer, Bambu Studio and Trident: each object is assigned the filament of its colour (see below) |
 
 What you get is what you see: holes are cut out of the solids they share a group with, every
 shape is placed where it sits (moved, lifted, turned), and each top-level shape or group becomes its
@@ -176,6 +193,8 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/e2e.sh` | Playwright tests in the Playwright Docker image |
 | `scripts/docker-smoke.sh` | Build the image, run it, verify health and non-root user |
 | `scripts/package-desktop.sh` | Build the AppImage and .deb (in a Debian container) |
+| `scripts/verify-orca-export.sh` | Write the OrcaSlicer-flavoured 3MF and have the real OrcaSlicer engine (from the local Trident image, in throwaway containers) load it, checking it does not crash and keeps every object's filament and the palette |
+| `scripts/update-orca-filament-defaults.sh` | Regenerate `orcaFilamentDefaults.ts` (the per-filament project settings) from the real engine; run after changing the Trident/OrcaSlicer version |
 | `scripts/verify-exports.sh` | Write sample STL/OBJ/3MF files with the real writers and check them with an independent mesh library (trimesh, in a Python container) |
 | `scripts/deploy-local.sh` | Rebuild the Docker image from `origin/main` and restart the local test container (default port 8200, keeps its data volume) |
 | `scripts/screenshot.sh` | Screenshot a running instance with software WebGL (`DEMO=1` adds shapes, `VIEW=top` picks a view, `CLICK=0,0` selects, `PRESS=Control+a` presses keys) |

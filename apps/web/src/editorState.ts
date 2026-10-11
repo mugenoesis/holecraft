@@ -1,5 +1,6 @@
 import {
   addMeshShape,
+  addPaletteColor,
   addShape,
   canUndo,
   createHistory,
@@ -12,6 +13,7 @@ import {
   pruneSelection,
   pushHistory,
   redo,
+  removePaletteColor,
   renameDesign,
   renameNode,
   replacePresent,
@@ -21,8 +23,10 @@ import {
   setNodeMode,
   setNodePosition,
   setNodeRotation,
+  setPaletteColor,
   setShapeGeometry,
   setShapeSize,
+  suggestPaletteColor,
   toggleSelection,
   undo,
   ungroupNodes,
@@ -79,7 +83,12 @@ export type EditorAction =
   | { type: 'setPosition'; id: NodeId; at: [number, number, number?] }
   | { type: 'setSize'; id: NodeId; size: Partial<Record<'width' | 'depth' | 'height', number>> }
   | { type: 'rename'; id: NodeId; name: string }
-  | { type: 'setColor'; ids: NodeId[]; color: string };
+  | { type: 'setColor'; ids: NodeId[]; color: string }
+  /** Adds a filament colour to the palette (a suggested one when none is given). */
+  | { type: 'paletteAdd'; color?: string }
+  /** Changes a palette slot, and everything coloured with it. */
+  | { type: 'paletteSet'; slot: number; color: string }
+  | { type: 'paletteRemove'; slot: number };
 
 export const canUndoState = (state: EditorState): boolean => canUndo(state.history);
 
@@ -202,6 +211,15 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     case 'rename':
       return commit(state, renameNode(design, action.id, action.name));
+
+    case 'paletteAdd':
+      return commit(state, addPaletteColor(design, action.color ?? suggestPaletteColor(design.palette)));
+
+    case 'paletteSet':
+      return commit(state, setPaletteColor(design, action.slot, action.color));
+
+    case 'paletteRemove':
+      return commit(state, removePaletteColor(design, action.slot));
 
     case 'setColor':
       return commit(state, setNodeColor(design, action.ids, action.color));

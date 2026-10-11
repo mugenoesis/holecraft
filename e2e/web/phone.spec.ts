@@ -94,6 +94,18 @@ test.describe('on a phone', () => {
     for (const s of sizes) expect(s).toBeGreaterThanOrEqual(24);
   });
 
+  test('the colour swatches fit on screen and are big enough to tap', async ({ page }) => {
+    await page.getByRole('button', { name: 'Add colour' }).click();
+    const tiles = page.locator('.palette-tile');
+    await expect(tiles).toHaveCount(5);
+    const boxes = await tiles.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON() as { x: number; width: number; height: number }));
+    for (const b of boxes) {
+      expect(b.x).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width).toBeLessThanOrEqual(PHONE.width);
+      expect(Math.min(b.width, b.height)).toBeGreaterThanOrEqual(40);
+    }
+  });
+
   test('importing a file still works from the phone layout', async ({ page }) => {
     await page.getByTestId('import-file').setInputFiles({ name: 'Cube.stl', mimeType: 'application/octet-stream', buffer: cubeStl(20) });
     await expect(page.getByTestId('object-list').getByRole('button', { name: /Cube/ })).toBeVisible();

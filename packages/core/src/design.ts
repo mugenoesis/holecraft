@@ -1,9 +1,10 @@
 import type { GridSettings } from './grid.ts';
 import { DEFAULT_GRID } from './grid.ts';
+import { DEFAULT_PALETTE } from './palette.ts';
 import type { Units } from './units.ts';
 
 /** Bump when the on-disk design format changes, and add a migration. */
-export const DESIGN_FORMAT_VERSION = 1;
+export const DESIGN_FORMAT_VERSION = 2;
 
 /** What the designs list shows about each saved design. */
 export interface DesignSummary {
@@ -71,6 +72,8 @@ export interface Design {
   name: string;
   units: Units;
   grid: GridSettings;
+  /** The design's filament colours, 1 to 16 of them: slot 1 is the first. Used for multi-material printing. */
+  palette: string[];
   nodes: Record<NodeId, DesignNode>;
   roots: NodeId[];
   createdAt: string;
@@ -85,6 +88,7 @@ export function createEmptyDesign(id: string, name = 'Untitled design', now = ne
     name,
     units: 'mm',
     grid: { ...DEFAULT_GRID, size: [...DEFAULT_GRID.size] },
+    palette: [...DEFAULT_PALETTE],
     nodes: {},
     roots: [],
     createdAt: timestamp,
