@@ -13,15 +13,21 @@ independent project with its own code and design, and it runs entirely on your o
 - **Docker**: self-host it and open it from any browser on your network.
 - **Linux desktop app**: AppImage or .deb that works fully offline.
 
-> **Status: early development (Phase 1 of the [plan](PLAN.md) done).** You can navigate a 3D
-> workplane and drag boxes, cylinders and spheres onto it. Moving, resizing, holes and saving
-> come in the next phases.
+> **Status: early development (Phase 2a of the [plan](PLAN.md) done).** You can navigate a 3D
+> workplane, add boxes, cylinders and spheres, select and move them, edit their size and color,
+> and undo/redo. Resize and rotate handles, holes/groups and saving come in the next phases.
 
 ## Using the editor
 
 | Action | How |
 |---|---|
 | Add a shape | Drag it from the Shapes panel onto the workplane, or click it (or press Enter) to add at the centre. Drops snap to the grid |
+| Select | Click a shape (or its row in the Objects list). Shift-click adds or removes. Drag a box around shapes to select several. `Ctrl+A` selects all, `Esc` clears |
+| Move | Drag a shape. It snaps to the grid and stays on the workplane. Dragging one of several selected shapes moves them all |
+| Nudge | Arrow keys move the selection along the nearest workplane axis by the grid step (`Shift` for ten times as far) |
+| Edit properties | Select a shape, then type a name, position (X, Y), size (width, depth, height) or color in the Properties panel. Press Enter or click away to apply; invalid values are rejected |
+| Duplicate / delete | `Ctrl+D` / `Delete`, or the buttons in the Properties panel |
+| Undo / redo | `Ctrl+Z` / `Ctrl+Shift+Z` (or `Ctrl+Y`), or the Undo and Redo buttons. A whole drag is one step |
 | Orbit | Right-drag |
 | Pan | Middle-drag, or Shift + right-drag |
 | Zoom | Mouse wheel |

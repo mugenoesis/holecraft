@@ -71,6 +71,18 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Workspace packages export TypeScript source directly (`"exports": "./src/index.ts"`). Vite,
   esbuild, tsx, and Vitest consume it, and there is no per-package build step.
 
+## Editor state
+- All editing goes through `editorReducer` (`apps/web/src/editorState.ts`): design history,
+  selection and the in-flight drag live there, and it is unit-tested without a browser. UI code
+  dispatches actions; it never edits a Design directly.
+- Pure design edits live in `packages/core/src/edit.ts`. Each returns the **same object** when
+  nothing changed, and the reducer relies on that to skip empty undo steps.
+- Live previews (dragging) use `replacePresent`; the release commits one step with
+  `pushHistory(h, present, base)`.
+- The `Viewport` class outlives renders and reads handlers through a ref in `ViewportCanvas`.
+- Shortcuts: viewport ones (Home, F, arrows) in `ViewportCanvas`, editing ones (Ctrl+Z/D/A,
+  Delete, Esc) in `App`. Both skip typing targets via `isTypingTarget` in `keyboard.ts`.
+
 ## Testing the viewport
 - Put maths in `packages/core` (camera, picking, snapping, shape ops) and unit-test it there.
   three.js classes that need no WebGL (`CameraRig`, `DesignScene`) are unit-tested under
