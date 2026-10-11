@@ -62,8 +62,36 @@ export function handlePosition(g: ShapeGeometry, id: HandleId): Vec3 {
   return id[6] === 'x' ? [g.x + (s * g.width) / 2, g.y, g.z] : [g.x, g.y + (s * g.depth) / 2, g.z];
 }
 
+const rotateXY = (x: number, y: number, degrees: number): [number, number] => {
+  const a = (degrees * Math.PI) / 180;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  return [x * c - y * s, x * s + y * c];
+};
+
+/** World position of a handle on a shape turned `yaw` degrees about the vertical axis through its centre. */
+export function handlePositionYawed(g: ShapeGeometry, yaw: number, id: HandleId): Vec3 {
+  if (id === 'height' || id === 'lift') return handlePosition(g, id);
+  const local = handlePosition({ ...g, x: 0, y: 0 }, id);
+  const [dx, dy] = rotateXY(local[0], local[1], yaw);
+  return [g.x + dx, g.y + dy, local[2]];
+}
+
 /**
- * The geometry after dragging a handle to `target` (a world position, already corrected for
+ * dragHandle for a shape turned \`yaw\` degrees about Z: the drag is worked out in the shape's own
+ * frame (so a side handle always changes the dimension it belongs to), then the new centre is
+ * turned back into world coordinates. With no turn it behaves exactly like dragHandle.
+ */
+export function dragHandleYawed(start: ShapeGeometry, yaw: number, id: HandleId, target: Vec3, opts: DragOptions): ShapeGeometry {
+  if (Math.abs(yaw % 360) < 1e-9 || id === 'height' || id === 'lift') return dragHandle(start, id, target, opts);
+  const [lx, ly] = rotateXY(target[0] - start.x, target[1] - start.y, -yaw);
+  const local = dragHandle({ ...start, x: 0, y: 0 }, id, [lx, ly, target[2]], opts);
+  const [wx, wy] = rotateXY(local.x, local.y, yaw);
+  return { ...local, x: tidy(start.x + wx), y: tidy(start.y + wy) };
+}
+
+/**
+ * The geometry after dragging a handle to \`target\` (a world position, already corrected for
  * where on the handle it was grabbed). By default the opposite corner or side stays fixed and
  * the dragged edge snaps to the grid. The shape can shrink to a sliver but never flips or
  * passes through its fixed side.

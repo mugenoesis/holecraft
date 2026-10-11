@@ -1,8 +1,12 @@
 import {
   HOME_VIEW,
   clampToWorkplane,
+  eulerOfTransform,
   isShapeType,
+  isUpright,
   nudgeDirections,
+  rotationOfTransform,
+  shapeCenter,
   snapToGrid,
   translationOf,
   type Design,
@@ -10,6 +14,7 @@ import {
   type OrbitState,
   type ShapeGeometry,
   type ShapeType,
+  type Vec3,
   type ViewPresetName,
 } from '@holecraft/core';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
@@ -17,6 +22,7 @@ import { isTypingTarget } from '../keyboard.ts';
 import { SHAPE_DRAG_TYPE } from '../shapeDrag.ts';
 import type { Projection } from './CameraRig.ts';
 import { HandlesOverlay } from './HandlesOverlay.tsx';
+import { RotationRings } from './RotationRings.tsx';
 import { ViewCube } from './ViewCube.tsx';
 import { Viewport, type PixelRect } from './Viewport.ts';
 
@@ -32,16 +38,41 @@ interface Props {
   onNudge: (delta: [number, number]) => void;
   /** A resize or lift handle is dragging the selected shape into this geometry. */
   onGeometry: (id: NodeId, geometry: ShapeGeometry) => void;
+  /** A rotation ring is turning the selected shape into this orientation (row-major 3x3). */
+  onRotation: (id: NodeId, rotation: number[]) => void;
 }
 
-/** Geometry of the single selected shape, or null when handles should not be shown. */
-function selectedGeometry(design: Design, selection: readonly NodeId[]): { id: NodeId; geometry: ShapeGeometry } | null {
+interface SelectedShape {
+  id: NodeId;
+  geometry: ShapeGeometry;
+  /** Orientation as a row-major 3x3. */
+  rotation: number[];
+  /** Turn about the vertical axis in degrees; only meaningful when `upright`. */
+  yaw: number;
+  /** False once tipped over, when resizing and lifting are not offered. */
+  upright: boolean;
+  /** Middle of the shape in world space, and the radius of its rotation rings. */
+  center: Vec3;
+  ringRadius: number;
+}
+
+/** The single selected shape with everything the handles need, or null when none should show. */
+function selectedShape(design: Design, selection: readonly NodeId[]): SelectedShape | null {
   const id = selection.length === 1 ? selection[0]! : undefined;
   const node = id !== undefined ? design.nodes[id] : undefined;
   if (!id || !node || node.kind !== 'shape' || node.locked || node.hidden) return null;
   const [x, y, z] = translationOf(node.transform);
   const { width, depth, height } = node.params as { width: number; depth: number; height: number };
-  return { id, geometry: { x, y, z, width, depth, height } };
+  const rotation = rotationOfTransform(node.transform);
+  return {
+    id,
+    geometry: { x, y, z, width, depth, height },
+    rotation,
+    yaw: eulerOfTransform(node.transform)[2],
+    upright: isUpright(rotation),
+    center: shapeCenter(node.transform, height),
+    ringRadius: Math.hypot(width, depth, height) / 2 + 6,
+  };
 }
 
 const VIEW_OPTIONS: ReadonlyArray<{ value: ViewPresetName; label: string }> = [
@@ -151,7 +182,7 @@ export function ViewportCanvas(props: Props) {
   };
 
   const { state, projection } = camera;
-  const selected = selectedGeometry(design, selection);
+  const selected = selectedShape(design, selection);
 
   return (
     <div
@@ -214,15 +245,30 @@ export function ViewportCanvas(props: Props) {
             </select>
           </div>
           <ViewCube camera={state} onSelect={(view) => viewportRef.current?.setView(view)} />
-          {selected && (
+          {selected?.upright && (
             <HandlesOverlay
               key={selected.id}
               nodeId={selected.id}
               geometry={selected.geometry}
+              yaw={selected.yaw}
               snap={design.grid.snap}
               getViewport={() => viewportRef.current}
               onStart={() => latest.current.onMoveStart()}
               onGeometry={(id, g) => latest.current.onGeometry(id, g)}
+              onEnd={() => latest.current.onMoveEnd()}
+              onLabel={setDimensionLabel}
+            />
+          )}
+          {selected && (
+            <RotationRings
+              key={`rings-${selected.id}`}
+              nodeId={selected.id}
+              center={selected.center}
+              radius={selected.ringRadius}
+              rotation={selected.rotation}
+              getViewport={() => viewportRef.current}
+              onStart={() => latest.current.onMoveStart()}
+              onRotation={(id, r) => latest.current.onRotation(id, r)}
               onEnd={() => latest.current.onMoveEnd()}
               onLabel={setDimensionLabel}
             />

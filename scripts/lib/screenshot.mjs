@@ -3,6 +3,7 @@
 // Env:   DEMO=1        drop a few shapes on the workplane first
 //        VIEW=<name>   pick a standard view first (front, back, left, right, top, bottom, iso)
 //        CLICK=dx,dy   click this many pixels from the viewport centre (selects what is there)
+//        FILL="Rotate Z=45;Width=30"  type into Properties fields of the selected shape (after CLICK)
 //        PRESS=a,b     press these keys (Playwright names, comma-separated) after DEMO, e.g. Control+a
 import { chromium } from '@playwright/test';
 
@@ -39,6 +40,12 @@ if (process.env.CLICK) {
   const [dx, dy] = process.env.CLICK.split(',').map(Number);
   const box = await page.getByTestId('viewport').boundingBox();
   await page.mouse.click(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy);
+}
+for (const pair of (process.env.FILL ?? '').split(';').filter(Boolean)) {
+  const [label, value] = pair.split('=');
+  const input = page.getByRole('region', { name: 'Properties' }).getByLabel(label.trim(), { exact: true });
+  await input.fill(value.trim());
+  await input.press('Enter');
 }
 for (const key of (process.env.PRESS ?? '').split(',').filter(Boolean)) {
   await page.keyboard.press(key);

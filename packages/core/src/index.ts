@@ -7,5 +7,7 @@ export * from './ids.ts';
 export * from './ops.ts';
 export * from './picking.ts';
 export * from './resize.ts';
+export * from './ring.ts';
+export * from './rotation.ts';
 export * from './shapes.ts';
 export * from './units.ts';

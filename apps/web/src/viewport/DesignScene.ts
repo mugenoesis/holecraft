@@ -1,4 +1,4 @@
-import { translationOf, type Design, type DesignNode, type NodeId, type ShapeType } from '@holecraft/core';
+import type { Design, DesignNode, NodeId, ShapeType } from '@holecraft/core';
 import * as THREE from 'three';
 
 const SELECTED_TINT = 0x1f6f8b;
@@ -121,7 +121,9 @@ export class DesignScene {
       this.applySelection(id, mesh);
     }
     const { width, depth, height } = node.params as { width: number; depth: number; height: number };
-    mesh.position.set(...translationOf(node.transform));
+    const transform = new THREE.Matrix4().fromArray(node.transform);
+    mesh.position.setFromMatrixPosition(transform);
+    mesh.quaternion.setFromRotationMatrix(transform);
     mesh.scale.set(width, depth, height);
     (mesh.material as THREE.MeshStandardMaterial).color.set(node.color);
     mesh.visible = !node.hidden;

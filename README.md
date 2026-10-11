@@ -13,9 +13,9 @@ independent project with its own code and design, and it runs entirely on your o
 - **Docker**: self-host it and open it from any browser on your network.
 - **Linux desktop app**: AppImage or .deb that works fully offline.
 
-> **Status: early development (Phase 2b of the [plan](PLAN.md) done).** You can navigate a 3D
-> workplane, add boxes, cylinders and spheres, select, move, resize and lift them, edit their
-> properties, and undo/redo. Rotation, holes/groups and saving come in the next phases.
+> **Status: early development (Phase 2 of the [plan](PLAN.md) done).** You can navigate a 3D
+> workplane, add boxes, cylinders and spheres, select, move, resize, lift and rotate them, edit
+> their properties, and undo/redo. Holes/groups, saving and import/export come in the next phases.
 
 ## Using the editor
 
@@ -25,9 +25,11 @@ independent project with its own code and design, and it runs entirely on your o
 | Select | Click a shape (or its row in the Objects list). Shift-click adds or removes. Drag a box around shapes to select several. `Ctrl+A` selects all, `Esc` clears |
 | Move | Drag a shape. It snaps to the grid and stays on the workplane. Dragging one of several selected shapes moves them all |
 | Resize | Select one shape and drag a handle. Corner handles resize width and depth, side handles one dimension, the top round handle the height. The opposite corner or side stays fixed, and the edge you drag snaps to the grid. Hold `Shift` to scale all three dimensions together, `Alt` to resize about the centre. The size shows live while you drag |
+| Rotate | Select one shape and drag a coloured ring handle: red turns it about the X axis, green about Y, blue about Z. It turns about the shape's centre and snaps to 22.5° (hold `Shift` for 1° steps). The angle shows live while you drag. You can also type **Rotate X / Y / Z** in degrees in the Properties panel |
 | Lift | Drag the black cone above a shape to raise it off the workplane. Press `D` (or **Drop to workplane**) to put it back down |
 | Nudge | Arrow keys move the selection along the nearest workplane axis by the grid step (`Shift` for ten times as far) |
 | Edit properties | Select a shape, then type a name, position (X, Y, Z), size (width, depth, height) or color in the Properties panel. Press Enter or click away to apply; invalid values are rejected |
+| Tilted shapes | A shape tipped about X or Y has no resize or lift handles (rotate it back to use them); its X, Y and Z fields show its base point, which moves when it tips. **Drop to workplane** rests its lowest corner on the plane. Shapes turned only about Z keep every handle |
 | Duplicate / delete | `Ctrl+D` / `Delete`, or the buttons in the Properties panel |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Shift+Z` (or `Ctrl+Y`), or the Undo and Redo buttons. A whole drag is one step |
 | Orbit | Right-drag |
