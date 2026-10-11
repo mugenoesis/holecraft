@@ -1,6 +1,7 @@
 // Screenshots a page with software WebGL and prints any console errors.
 // Usage: node scripts/lib/screenshot.mjs <url> <out.png> [width] [height]
-// Env:   DEMO=1        drop a few shapes on the workplane first
+// Env:   DASHBOARD=1   stay on the designs list instead of opening a new design
+//        DEMO=1        drop a few shapes on the workplane first
 //        VIEW=<name>   pick a standard view first (front, back, left, right, top, bottom, iso)
 //        CLICK=dx,dy   click this many pixels from the viewport centre (selects what is there)
 //        FILL="Rotate Z=45;Width=30"  type into Properties fields of the selected shape (after CLICK)
@@ -21,6 +22,12 @@ page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 
 await page.goto(url, { waitUntil: 'networkidle' });
+
+// The app opens on the list of designs. Make a new one to get to the editor, unless DASHBOARD=1.
+if (process.env.DASHBOARD !== '1' && new URL(url).pathname === '/') {
+  await page.getByRole('button', { name: 'New design' }).click();
+  await page.getByTestId('viewport').waitFor();
+}
 
 if (process.env.DEMO === '1') {
   const viewport = page.getByTestId('viewport');

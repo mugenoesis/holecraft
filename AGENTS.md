@@ -146,6 +146,30 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - A test that passes alone but fails in a group is a real race, not noise. Reproduce it in a loop
   before touching anything.
 
+## Saving and the designs list
+- The app opens on a **designs list** (`/`); a design lives at `/design/<32 hex id>`. Every e2e test
+  starts with `newDesign(page)` from `e2e/web/helpers.ts`, never `page.goto('/')` alone. The e2e server
+  starts from an empty data folder each run, but is shared by all tests, so tests find their own designs
+  by `uniqueName(...)` and must not assume the list is empty (use `page.route` to fake an empty list).
+- Designs are one JSON file each in `<data>/designs/<id>.json`, written atomically (temp file + rename)
+  and queued per design (`apps/server/src/designs.ts`). Ids are 32 lower-case hex digits and are the
+  **only** thing that becomes a file name: keep `isValidDesignId` in front of every file access.
+- **Never trust a design that comes from outside.** `parseDesign` in core validates and cleans every
+  design read from disk or sent by a client (shape, limits, a proper node tree, unknown fields dropped).
+  The server also sets `updatedAt` and keeps the stored `createdAt`. When the format changes, bump
+  `DESIGN_FORMAT_VERSION` and add a migration in `validate.ts`.
+- Autosave is `SaveController` (web): debounce, one save in flight, retry with backoff, permanent
+  failures (404, 4xx) are not retried. It is injected with the save function and tested with fake timers.
+  The editor flushes pending changes when you leave the page for the list, and sends them with
+  `keepalive` on `pagehide`. Undo history is deliberately not persisted.
+- The design name is part of the design and renaming it is an undoable edit (`renameDesign`).
+
+## Local test container
+- After the user merges a phase, run `scripts/deploy-local.sh` so they can try it by hand: it
+  rebuilds from `origin/main` and restarts the `holecraft` container on port 8200, keeping the
+  `holecraft-data` volume. Never touch other containers (ports 8080, 8090 and 8765 on this server
+  belong to other things).
+
 ## Handles
 - Resize and lift handles are **DOM buttons** over the canvas (`HandlesOverlay`), positioned
   with `Viewport.project`, not three.js objects. That keeps them a constant size, keyboard- and

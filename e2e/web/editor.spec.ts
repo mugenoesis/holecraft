@@ -1,9 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
-import { camera, center, objects, selectView, viewport } from './helpers.ts';
+import { camera, center, newDesign, objects, selectView, viewport } from './helpers.ts';
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-  await expect(viewport(page).locator('canvas')).toBeVisible();
+  await newDesign(page);
 });
 
 test.describe('app icon', () => {
@@ -202,6 +201,7 @@ test.describe('view cube', () => {
       HTMLCanvasElement.prototype.getContext = () => null;
     });
     await page.goto('/');
+    await page.getByRole('button', { name: 'New design' }).click();
     await expect(page.getByRole('alert')).toBeVisible();
     await expect(page.getByTestId('view-cube-body')).toHaveCount(0);
   });

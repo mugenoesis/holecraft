@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { camera, center, drag, dropShape, field, objects, properties, selectedNames, viewport } from './helpers.ts';
+import { camera, center, drag, dropShape, field, newDesign, objects, properties, selectedNames, viewport } from './helpers.ts';
 
 const handle = (page: Page, id: string) => page.getByTestId(`handle-${id}`);
 const ALL_HANDLES = ['corner-pp', 'corner-np', 'corner-pn', 'corner-nn', 'side-px', 'side-nx', 'side-py', 'side-ny', 'height', 'lift'];
@@ -43,8 +43,7 @@ async function dragBy(page: Page, id: string, dx: number, dy: number) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-  await expect(viewport(page).locator('canvas')).toBeVisible();
+  await newDesign(page);
   await dropShape(page, 'Box');
   const mid = await centerOf(viewport(page));
   await page.mouse.click(mid.x, mid.y);

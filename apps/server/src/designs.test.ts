@@ -1,0 +1,228 @@
+import { addShape, createEmptyDesign, parseDesign, type Design } from '@holecraft/core';
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { DesignStore, isValidDesignId, StoredDesignError } from './designs.ts';
+
+let dir: string;
+let store: DesignStore;
+
+beforeEach(async () => {
+  dir = await mkdtemp(path.join(os.tmpdir(), 'holecraft-designs-'));
+  store = new DesignStore(dir);
+});
+
+afterEach(async () => {
+  await rm(dir, { recursive: true, force: true });
+});
+
+const files = async () => (await readdir(path.join(dir, 'designs')).catch(() => [])).sort();
+const withBox = (d: Design) => addShape(d, 'box', [0, 0]).design;
+
+describe('isValidDesignId', () => {
+  it('accepts the ids the app generates and nothing that could escape the folder', () => {
+    expect(isValidDesignId('0123456789abcdef0123456789abcdef')).toBe(true);
+    for (const bad of ['', 'abc', '../etc/passwd', '..', '.', 'a/b', 'a\\b', '0123456789abcdef0123456789abcdeg', '0123456789ABCDEF0123456789ABCDEF', 'x'.repeat(64), '0123456789abcdef0123456789abcdef.json']) {
+      expect(isValidDesignId(bad), bad).toBe(false);
+    }
+  });
+});
+
+describe('DesignStore.create and get', () => {
+  it('creates an empty design with a fresh id and stores it on disk', async () => {
+    const d = await store.create();
+    expect(isValidDesignId(d.id)).toBe(true);
+    expect(d).toMatchObject({ name: 'Untitled design', roots: [], units: 'mm' });
+    expect(await files()).toEqual([`${d.id}.json`]);
+    expect(await store.get(d.id)).toEqual(d);
+  });
+
+  it('uses the name it is given, trimmed and limited in length', async () => {
+    expect((await store.create('  Gear  ')).name).toBe('Gear');
+    expect((await store.create('x'.repeat(500))).name).toHaveLength(120);
+    expect((await store.create('   ')).name).toBe('Untitled design');
+  });
+
+  it('gives every design its own id', async () => {
+    const [a, b] = [await store.create(), await store.create()];
+    expect(a.id).not.toBe(b.id);
+  });
+
+  it('returns null for unknown ids and for ids that are not ids at all', async () => {
+    expect(await store.get('0123456789abcdef0123456789abcdef')).toBeNull();
+    expect(await store.get('../../etc/passwd')).toBeNull();
+    expect(await store.get('')).toBeNull();
+  });
+
+  it('survives a restart: a new store over the same folder sees the same designs', async () => {
+    const d = await store.create('Kept');
+    expect(await new DesignStore(dir).get(d.id)).toEqual(d);
+  });
+
+  it('refuses to hand out a file that is damaged, rather than pretending it is not there', async () => {
+    const d = await store.create();
+    await writeFile(path.join(dir, 'designs', `${d.id}.json`), '{ not json');
+    await expect(store.get(d.id)).rejects.toBeInstanceOf(StoredDesignError);
+  });
+
+  it('refuses a file that parses but is not a valid design', async () => {
+    const d = await store.create();
+    await writeFile(path.join(dir, 'designs', `${d.id}.json`), JSON.stringify({ formatVersion: 1, id: d.id }));
+    await expect(store.get(d.id)).rejects.toBeInstanceOf(StoredDesignError);
+  });
+});
+
+describe('DesignStore.save', () => {
+  it('stores the design and survives a restart', async () => {
+    const created = await store.create('Plate');
+    const saved = await store.save(created.id, withBox(created));
+    expect(saved!.roots).toHaveLength(1);
+    expect((await new DesignStore(dir).get(created.id))!.roots).toHaveLength(1);
+  });
+
+  it('keeps the server\'s creation date and stamps its own modification time', async () => {
+    const created = await store.create();
+    const forged = { ...withBox(created), createdAt: '1999-01-01T00:00:00.000Z', updatedAt: '1999-01-01T00:00:00.000Z' };
+    const saved = (await store.save(created.id, forged))!;
+    expect(saved.createdAt).toBe(created.createdAt);
+    expect(Date.parse(saved.updatedAt)).toBeGreaterThanOrEqual(Date.parse(created.updatedAt));
+    expect(saved.updatedAt).not.toBe('1999-01-01T00:00:00.000Z');
+  });
+
+  it('rejects a design that is not valid, leaving the stored one untouched', async () => {
+    const created = await withSaved(store, withBox);
+    const broken = JSON.parse(JSON.stringify(created)) as Design;
+    broken.roots.push('ghost');
+    await expect(store.save(created.id, broken)).rejects.toThrow(/ghost/);
+    expect((await store.get(created.id))!.roots).toHaveLength(1);
+  });
+
+  it('rejects a design whose id is not the one being saved to', async () => {
+    const [a, b] = [await store.create(), await store.create()];
+    await expect(store.save(a.id, { ...b })).rejects.toThrow(/id/);
+  });
+
+  it('returns null for a design that does not exist, rather than creating it', async () => {
+    const ghost = createEmptyDesign('0123456789abcdef0123456789abcdef');
+    expect(await store.save(ghost.id, ghost)).toBeNull();
+    expect(await files()).toEqual([]);
+  });
+
+  it('refuses ids that could escape the folder', async () => {
+    expect(await store.save('../evil', createEmptyDesign('../evil'))).toBeNull();
+    await expect(readFile(path.join(dir, 'evil.json'))).rejects.toThrow();
+  });
+
+  it('writes atomically: no temporary files are left behind', async () => {
+    const d = await store.create();
+    for (let i = 0; i < 5; i++) await store.save(d.id, withBox(d));
+    expect(await files()).toEqual([`${d.id}.json`]);
+  });
+
+  it('copes with many saves at once, ending on a valid file', async () => {
+    const d = await store.create();
+    await Promise.all(Array.from({ length: 12 }, (_, i) => store.save(d.id, { ...d, name: `v${i}` })));
+    const final = await store.get(d.id);
+    expect(final!.name).toMatch(/^v\d+$/);
+    expect(await files()).toEqual([`${d.id}.json`]);
+  });
+
+  it('ignores properties it does not know about', async () => {
+    const d = await store.create();
+    const saved = await store.save(d.id, { ...d, evil: '<script>' } as Design);
+    expect((saved as unknown as Record<string, unknown>).evil).toBeUndefined();
+    expect(await readFile(path.join(dir, 'designs', `${d.id}.json`), 'utf8')).not.toContain('script');
+  });
+});
+
+describe('DesignStore.list', () => {
+  it('is empty when nothing has been saved, even before the folder exists', async () => {
+    expect(await store.list()).toEqual([]);
+  });
+
+  it('summarises each design, newest first', async () => {
+    const a = await store.create('Older');
+    await new Promise((r) => setTimeout(r, 5));
+    const b = await store.create('Newer');
+    await store.save(b.id, withBox(b));
+    const list = await store.list();
+    expect(list.map((s) => s.name)).toEqual(['Newer', 'Older']);
+    expect(list[0]).toMatchObject({ id: b.id, name: 'Newer', objectCount: 1 });
+    expect(list[1]).toMatchObject({ id: a.id, objectCount: 0 });
+    expect(Object.keys(list[0]!).sort()).toEqual(['createdAt', 'id', 'name', 'objectCount', 'updatedAt']);
+  });
+
+  it('skips damaged and unrelated files instead of failing', async () => {
+    const good = await store.create('Good');
+    await writeFile(path.join(dir, 'designs', 'ffffffffffffffffffffffffffffffff.json'), 'garbage');
+    await writeFile(path.join(dir, 'designs', 'notes.txt'), 'hello');
+    await mkdir(path.join(dir, 'designs', 'subfolder'));
+    expect((await store.list()).map((s) => s.id)).toEqual([good.id]);
+  });
+});
+
+describe('DesignStore.rename', () => {
+  it('changes the name, trimmed and limited', async () => {
+    const d = await store.create('Old');
+    expect((await store.rename(d.id, '  New  '))!.name).toBe('New');
+    expect((await store.get(d.id))!.name).toBe('New');
+    expect((await store.rename(d.id, 'x'.repeat(500)))!.name).toHaveLength(120);
+  });
+
+  it('rejects a blank name and reports an unknown design as null', async () => {
+    const d = await store.create('Old');
+    await expect(store.rename(d.id, '   ')).rejects.toThrow(/name/);
+    expect(await store.rename('0123456789abcdef0123456789abcdef', 'x')).toBeNull();
+  });
+});
+
+describe('DesignStore.duplicate', () => {
+  it('makes an independent copy with a new id and a "Copy of" name', async () => {
+    const original = await withSaved(store, withBox, 'Gear');
+    const copy = (await store.duplicate(original.id))!;
+    expect(copy.id).not.toBe(original.id);
+    expect(copy.name).toBe('Copy of Gear');
+    expect(copy.roots).toHaveLength(1);
+    await store.save(copy.id, { ...copy, name: 'Changed' });
+    expect((await store.get(original.id))!.name).toBe('Gear');
+  });
+
+  it('keeps the copy\'s name within the limit', async () => {
+    const d = await store.create('n'.repeat(120));
+    expect((await store.duplicate(d.id))!.name.length).toBeLessThanOrEqual(120);
+  });
+
+  it('returns null for an unknown design', async () => {
+    expect(await store.duplicate('0123456789abcdef0123456789abcdef')).toBeNull();
+  });
+});
+
+describe('DesignStore.delete', () => {
+  it('removes the design, and reports whether it was there', async () => {
+    const d = await store.create();
+    expect(await store.delete(d.id)).toBe(true);
+    expect(await store.get(d.id)).toBeNull();
+    expect(await store.delete(d.id)).toBe(false);
+    expect(await files()).toEqual([]);
+  });
+
+  it('refuses ids that could escape the folder', async () => {
+    await writeFile(path.join(dir, 'precious.json'), '{}');
+    expect(await store.delete('../precious')).toBe(false);
+    expect((await readFile(path.join(dir, 'precious.json'), 'utf8'))).toBe('{}');
+  });
+});
+
+describe('what is stored', () => {
+  it('is valid design JSON that parseDesign accepts', async () => {
+    const d = await withSaved(store, withBox);
+    const onDisk = JSON.parse(await readFile(path.join(dir, 'designs', `${d.id}.json`), 'utf8')) as unknown;
+    expect(parseDesign(onDisk)).toEqual(d);
+  });
+});
+
+async function withSaved(s: DesignStore, edit: (d: Design) => Design, name?: string): Promise<Design> {
+  const created = await s.create(name);
+  return (await s.save(created.id, edit(created)))!;
+}

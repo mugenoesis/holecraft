@@ -5,6 +5,19 @@ import type { Units } from './units.ts';
 /** Bump when the on-disk design format changes, and add a migration. */
 export const DESIGN_FORMAT_VERSION = 1;
 
+/** What the designs list shows about each saved design. */
+export interface DesignSummary {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  /** Top-level shapes and groups. */
+  objectCount: number;
+}
+
+/** Longest name the editor will give a design or a shape. */
+export const MAX_NAME_LENGTH = 120;
+
 export type NodeId = string;
 
 /** Column-major 4x4 matrix, same layout as three.js `Matrix4.elements`. */

@@ -204,10 +204,12 @@ something runnable.
 | **1. Viewport** ✅ | Workplane grid, own camera controls (right-drag orbit, middle-drag pan, wheel zoom), view cube + standard-views menu, home/fit, ortho toggle, drag a Box/Cylinder/Sphere from the panel onto the grid (snapped, clamped to the workplane). Built on a pure camera/picking/shape-ops layer in `packages/core`. **Done 2026-10-11** | 2 wk |
 | **2. Manipulation** | Built in slices, one PR each. **2a ✅ (2026-10-11): selection (click, shift, marquee), drag-move with snap, nudge keys, delete/duplicate, undo/redo (a drag is one step), properties panel with typed name/position/size/color.** **2b ✅ (2026-10-11): resize handles (corners, sides, height) with live dimension label, Shift = uniform, Alt = from centre, lift handle, Z field, drop-to-workplane (`D`).** **2c ✅ (2026-10-11): three rotation rings (X, Y, Z) that turn a shape about its centre with 22.5° / 1° snapping, typed Rotate X/Y/Z, rotated bounds, drop-to-plane for tilted shapes, and resize handles that follow a shape turned about Z. Phase 2 is complete.** Solid/hole toggle lands with Phase 3 (CSG) | 3–4 wk |
 | **3. CSG** | Built in slices. **3a ✅ (2026-10-11): solid/hole toggle, group/ungroup (nested, lossless), groups move/nudge/duplicate/delete/recolour/drop as a unit, hole ghosts, group-aware bounds and picking.** **3b ✅ (2026-10-11): `packages/geometry` evaluates a group (solids joined, minus holes, nested groups and hole groups) with manifold-3d in a Web Worker; results cached by content hash, stale-while-recomputing, rapid edits coalesced; computed mesh drawn in the group's colour with creased normals. Verified in the web app, the Docker image and the packaged desktop app. Phase 3 is complete.** Still to do: group resize/rotate handles, per-solid colours in a group (`multicolor`), the `intersect` op in the UI | 2 wk |
-| **4. Persistence + I/O** | Dashboard, autosave, thumbnails (offscreen render), STL/OBJ import, STL/OBJ/3MF/GLB export | 2 wk |
+| **4. Persistence + I/O** | Built in slices. **4a ✅ (2026-10-11): validated JSON-file storage API, designs list (new, open, rename, duplicate, delete), routing, autosave with retry and status, rename in the top bar.** 4b: thumbnails (offscreen render) on the list. 4c: STL/OBJ/3MF/GLB export. 4d: STL/OBJ import. Note: storage is plain JSON files rather than the SQLite first planned, which is simpler to back up and inspect for a single-user appliance | 2 wk |
 | ***MVP checkpoint*** | Usable for real 3D-print design, both Docker and desktop | ~10–11 wk |
 | **5. Tinkercad tools** | Align, Mirror, Duplicate & Repeat, Workplane tool, Ruler, lock/hide, multicolor groups | 3 wk |
+| **5b. Chamfers & fillets** *(added 2026-10-11, a feature Tinkercad lacks)* | Stage A: a **Chamfer** size on boxes and cylinders (all / top / bottom edges), plus a **Countersink** option for holes. Stage B: an **Edge tool** to chamfer or round any edge of a solid or cut group. See §11 | 2–3 wk |
 | **6. Shape library** | Remaining basic shapes, Text (bundled OFL fonts), SVG import, saved user shapes, search/categories | 2–3 wk |
+| **6b. Threads & fasteners** *(added 2026-10-11)* | A **Threads** category: Bolt, Threaded rod, Nut and Threaded hole, picked by standard size (M3…M12, imperial) with a **Length** field, head style and a printing-fit setting. Needs the parametric shape system and procedural shapes in the worker. See §12 | 2–3 wk |
 | **7. Sketch** | 2D sketch workspace, extrude, revolve, Scribble | 3–4 wk |
 | **8. Packaging & polish** | Flatpak, .deb/.rpm, multi-arch Docker (amd64/arm64), optional login for multi-user Docker, version history, keyboard-shortcut sheet, touch support, i18n scaffolding | 2 wk |
 | **9. Stretch** | Shape Generators (sandboxed JS), Cruise, Intersect, Codeblocks (Blockly), Sim Lab (Rapier), Bricks view | open |
@@ -257,6 +259,100 @@ An Unraid Community Apps template can follow.
 - **Server**: Fastify `inject` tests for every route.
 - **Smoke**: `scripts/docker-smoke.sh` for the image, and the desktop e2e for packages.
 - **Visual regression**: screenshot the viewport for key scenes.
+
+## 11. Chamfers and fillets (added 2026-10-11)
+
+**Why:** printable parts need chamfered edges (no elephant's foot, easier fit, stronger corners, nicer
+holes for screws), and Tinkercad has no way to do it short of building wedges by hand. It should feel
+like the rest of Holecraft: one obvious control, instant feedback, and no CAD vocabulary to learn.
+
+**Principle:** no mesh surgery. manifold has no chamfer operation, and editing triangle topology is
+fragile. But Holecraft already works by boolean CSG, and **a chamfer is just a wedge**: remove a
+triangular prism along a convex edge (or add one into a concave edge). That is robust, reuses the
+existing geometry worker and cache, and always yields a printable manifold. A fillet is the same idea
+with a rounded wedge, so it comes almost free once chamfers work.
+
+**Two stages, simplest first:**
+
+1. **Stage A: chamfer as a shape property (the 80% case, almost no new interaction).**
+   - Boxes and cylinders get a **Chamfer** field in Properties, plus an **Edges** choice
+     (all / top / bottom), and a live preview as you type or drag a slider.
+   - Built parametrically (a chamfered box is the hull of three inset boxes; a cylinder gets cone ends),
+     so it stays crisp when resized, rotated and grouped, and survives edits with no stale references.
+   - **Holes get a Countersink**: a cone flaring the entrance, ready for screw heads. (A chamfered
+     *hole* shape would shrink the hole, which is the wrong way round, so this is its own option.)
+   - Data: `chamfer` and `chamferEdges` in the shape's `params`. No format change needed.
+2. **Stage B: an Edge tool for any edge, including edges of cut holes and joined shapes.**
+   - Select a solid or group, press **Chamfer** (or `C`). Sharp edges highlight on hover; click to
+     choose (Shift adds, "All outer edges" is one button), drag to set the distance with a live
+     label, Enter to apply. Right-click or a toggle switches Chamfer ↔ Round (fillet).
+   - Applied **after** the group's cut, as wedge booleans along each chosen edge, so it composes with
+     everything else.
+   - Edges are stored as **geometry in the group's own frame** (a polyline), not triangle ids, so they
+     survive moving, renaming and re-saving. If a later edit changes the geometry so an edge no longer
+     exists, that treatment is dropped *visibly* (a notice and a one-click undo), never silently.
+   - Needs the face/edge hit-testing built for the Workplane and Ruler tools in Phase 5, which is why
+     it follows that phase.
+   - Data: `edgeTreatments: [{ kind, size, edge }]` on groups (and on shapes that are chamfered alone),
+     which needs a format-version bump and a migration.
+
+**Keeping it simple:** a single size for the whole treatment, sensible default (about 5% of the part),
+snapping to the grid, a visible preview before anything is committed, and one-click removal. No
+"select reference geometry", no feature tree.
+
+**Tests:** volume checks for chamfered shapes against an independent calculation (derived in the
+test, not copied from the implementation), watertight output, chamfer preserved through group, move,
+rotate and resize, and pixel tests that a chamfer is visible from the front view.
+
+**Open questions for the user:** whether Stage A should land before Phase 5 (it is cheap and useful
+immediately), and whether chamfer sizes should be shown in mm only or also as a percentage.
+
+## 12. Threads and fasteners (added 2026-10-11)
+
+**Why:** printed parts constantly need screws: threaded holes to bolt things together, bolts and rods
+to do the bolting, nuts to match. Tinkercad can't make real threads. The goal is that you can drop in
+"M5 threaded hole, 20 mm deep" or "M5 bolt, 30 mm long" and have it just fit.
+
+**Key insight: a thread is a twisted extrusion.** manifold can extrude a 2D profile with a twist
+(`Manifold.extrude(profile, height, divisions, twistDegrees)`). A single-start thread's cross-section
+perpendicular to the axis is a slightly lopsided round shape whose radius at each angle is the thread
+profile evaluated at the matching height; extruding that shape while twisting it by 360° per pitch
+produces an exact helix in one operation. No sweeping, no mesh surgery, and the result is a valid
+manifold, so it works with our CSG (a threaded hole is just a hole-mode threaded cylinder) and prints.
+
+**Shapes (new "Threads" category):**
+- **Threaded rod**: a plain threaded cylinder, length chosen freely.
+- **Bolt**: threaded shank plus a head (hex, socket-cap, or none).
+- **Nut**: hex body with an internal thread that mates the bolt of the same size.
+- **Threaded hole**: a cutter (hole mode) with the internal thread and an optional plain lead-in,
+  for putting a screw thread into any solid.
+- Follow-ups worth having: washer, standoff, heat-set insert pocket, countersunk screw head.
+
+**Controls (kept to four):** **Size** (a dropdown of standard threads: ISO metric M2 to M12 to start,
+coarse pitch; imperial UNC later), **Length** (mm), **Head** (bolt only), and **Fit**
+(Tight / Normal / Loose: the clearance printers need, so a bolt and nut of the same size really
+mate). A **Thread detail** switch (Real / Simple) trades speed for realism on long threads: "Simple"
+draws a plain cylinder at the pitch diameter while editing, and real threads are always used on export.
+
+**What this needs first:**
+1. **A parametric shape system.** Today every shape is a width/depth/height box that is scaled. Threads
+   are defined by a standard size and a length, so shapes need a declared parameter schema (numbers,
+   choices), which axes may be resized (a bolt's diameter is locked to its standard, its length is
+   free), and generated, validated properties panels. This is the `defineShape` API already sketched in §2.
+2. **Procedural shapes that render on their own.** Today only groups get a computed mesh from the
+   worker. Threaded shapes must be evaluated by the worker even when loose, so `GeometryService`
+   generalises from "top-level solid groups" to "anything that needs a computed mesh".
+3. **A standards table** (`packages/geometry`): nominal diameter, pitch, hex head and nut sizes per size.
+
+**Tests that mean something:** the mating check is automatic: intersect a bolt with a nut (or a
+threaded hole's cutter) of the same size at Normal fit and assert the overlapping volume is about zero,
+while at a deliberately too-tight setting it is not. Also: pitch measured by slicing the mesh at two
+heights, thread length and head height as specified, volume bounded between a plain cylinder at the
+minor and major diameters, and watertight output.
+
+**Open questions for the user:** which sizes matter most (metric only at first?), whether the printing
+fit presets should be configurable per design (printers differ), and whether Simple/Real detail is
+needed or real threads are fast enough everywhere.
 
 ## 9. Open-source identity, licensing & prior art
 - **Inspired by, not a copy.** The general idea (primitives, holes, group) is common CAD practice.

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { center, drag, dropShape, field, objects, properties, selectedNames, viewport } from './helpers.ts';
+import { center, drag, dropShape, field, newDesign, objects, properties, selectedNames, viewport } from './helpers.ts';
 
 const groupButton = (page: Page) => page.getByRole('button', { name: 'Group', exact: true });
 const ungroupButton = (page: Page) => page.getByRole('button', { name: 'Ungroup', exact: true });
@@ -24,8 +24,7 @@ async function twoSelected(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-  await expect(viewport(page).locator('canvas')).toBeVisible();
+  await newDesign(page);
 });
 
 test.describe('grouping', () => {
