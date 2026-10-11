@@ -83,6 +83,24 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Shortcuts: viewport ones (Home, F, arrows) in `ViewportCanvas`, editing ones (Ctrl+Z/D/A,
   Delete, Esc) in `App`. Both skip typing targets via `isTypingTarget` in `keyboard.ts`.
 
+## Input fields
+- Properties fields edit a local draft and commit on Enter/blur (`useDraft`). After a commit,
+  re-read the document value from an effect that runs *after* the dispatch rendered. Never
+  `setDraft(oldValue)` straight away: a blur in that gap commits the stale value and silently
+  undoes the edit. The "edits typed in quick succession" e2e test guards this.
+- A test that passes alone but fails in a group is a real race, not noise. Reproduce it in a loop
+  before touching anything.
+
+## Handles
+- Resize and lift handles are **DOM buttons** over the canvas (`HandlesOverlay`), positioned
+  with `Viewport.project`, not three.js objects. That keeps them a constant size, keyboard- and
+  screen-reader-reachable, and easy to drive from tests (`data-testid="handle-<id>"`).
+- The maths is pure and lives in `packages/core/src/resize.ts` (`dragHandle`, `handlePosition`).
+  A handle drag runs through the same `moveStart` / `setGeometry` / `moveEnd` reducer flow as a
+  move, so it is a single undo step.
+- Heights are read from the pointer on a vertical plane facing the camera
+  (`Viewport.pickHeight`). Looking straight down there is no usable plane, so lifting does nothing.
+
 ## Testing the viewport
 - Put maths in `packages/core` (camera, picking, snapping, shape ops) and unit-test it there.
   three.js classes that need no WebGL (`CameraRig`, `DesignScene`) are unit-tested under

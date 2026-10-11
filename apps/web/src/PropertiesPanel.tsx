@@ -1,5 +1,5 @@
 import { translationOf, type Design, type NodeId } from '@holecraft/core';
-import { useEffect, useState, type Dispatch, type KeyboardEvent } from 'react';
+import { useEffect, useState, type Dispatch, type FocusEvent, type KeyboardEvent } from 'react';
 import type { EditorAction } from './editorState.ts';
 
 const fmt = (n: number) => String(Number(n.toFixed(2)));
@@ -26,6 +26,9 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
     <div className="button-row">
       <button type="button" onClick={() => dispatch({ type: 'duplicate' })} title="Duplicate (Ctrl+D)">
         Duplicate
+      </button>
+      <button type="button" onClick={() => dispatch({ type: 'dropToPlane' })} title="Drop to workplane (D)">
+        Drop to workplane
       </button>
       <button type="button" onClick={() => dispatch({ type: 'delete' })} title="Delete (Delete)">
         Delete
@@ -57,7 +60,7 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
     );
   }
 
-  const [x, y] = translationOf(only.transform);
+  const [x, y, z] = translationOf(only.transform);
   const size = only.kind === 'shape' ? (only.params as { width: number; depth: number; height: number }) : null;
 
   return (
@@ -68,6 +71,7 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
         <TextField label="Name" value={only.name} onCommit={(name) => dispatch({ type: 'rename', id: only.id, name })} />
         <NumberField label="X" value={x} onCommit={(v) => dispatch({ type: 'setPosition', id: only.id, at: [v, y] })} />
         <NumberField label="Y" value={y} onCommit={(v) => dispatch({ type: 'setPosition', id: only.id, at: [x, v] })} />
+        <NumberField label="Z" value={z} onCommit={(v) => dispatch({ type: 'setPosition', id: only.id, at: [x, y, v] })} />
         {size && (
           <>
             <NumberField label="Width" value={size.width} onCommit={(width) => dispatch({ type: 'setSize', id: only.id, size: { width } })} />
@@ -88,16 +92,22 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
  */
 function useDraft(value: string, onCommit: (draft: string) => void) {
   const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
-  const commit = () => {
-    if (draft !== value) onCommit(draft);
-    setDraft(value);
+  // After a commit the box must show whatever the document decided, whether it accepted the
+  // edit (value changed), rejected it (value unchanged) or normalised it. Bumping `settled`
+  // makes the effect below re-read the value *after* the dispatch has rendered. Resetting the
+  // draft straight away would flash the old value, and a blur landing in that gap would
+  // commit it and silently undo the edit.
+  const [settled, setSettled] = useState(0);
+  useEffect(() => setDraft(value), [value, settled]);
+  const commit = (typed: string) => {
+    if (typed !== value) onCommit(typed);
+    setSettled((n) => n + 1);
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') commit();
+    if (e.key === 'Enter') commit(e.currentTarget.value);
     else if (e.key === 'Escape') setDraft(value);
   };
-  return { value: draft, onChange: setDraft, onBlur: commit, onKeyDown };
+  return { value: draft, onChange: setDraft, onBlur: (e: FocusEvent<HTMLInputElement>) => commit(e.currentTarget.value), onKeyDown };
 }
 
 function TextField({ label, value, onCommit }: { label: string; value: string; onCommit: (v: string) => void }) {

@@ -2,6 +2,7 @@ import {
   addShape,
   createHistory,
   deleteNodes,
+  dropToWorkplane,
   duplicateNodes,
   moveNodes,
   moveSelection,
@@ -13,12 +14,14 @@ import {
   selectAll,
   setNodeColor,
   setNodePosition,
+  setShapeGeometry,
   setShapeSize,
   toggleSelection,
   undo,
   type Design,
   type History,
   type NodeId,
+  type ShapeGeometry,
   type ShapeType,
 } from '@holecraft/core';
 
@@ -42,12 +45,16 @@ export type EditorAction =
   | { type: 'moveStart' }
   | { type: 'move'; delta: [number, number] }
   | { type: 'moveEnd' }
+  // A resize or lift handle being dragged: previews the shape's whole geometry. Runs between
+  // moveStart and moveEnd, like a move.
+  | { type: 'setGeometry'; id: NodeId; geometry: ShapeGeometry }
+  | { type: 'dropToPlane' }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'delete' }
   | { type: 'duplicate' }
   | { type: 'nudge'; delta: [number, number] }
-  | { type: 'setPosition'; id: NodeId; at: [number, number] }
+  | { type: 'setPosition'; id: NodeId; at: [number, number, number?] }
   | { type: 'setSize'; id: NodeId; size: Partial<Record<'width' | 'depth' | 'height', number>> }
   | { type: 'rename'; id: NodeId; name: string }
   | { type: 'setColor'; ids: NodeId[]; color: string };
@@ -104,6 +111,14 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       // The whole drag becomes a single undo step back to where it began.
       return { ...state, history: pushHistory(state.history, design, state.drag.base), drag: null };
     }
+
+    case 'setGeometry': {
+      if (!state.drag || !state.drag.ids.includes(action.id)) return state;
+      return { ...state, history: replacePresent(state.history, setShapeGeometry(state.drag.base, action.id, action.geometry)) };
+    }
+
+    case 'dropToPlane':
+      return commit(state, dropToWorkplane(design, state.selection));
 
     case 'undo':
     case 'redo': {

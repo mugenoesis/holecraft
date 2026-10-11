@@ -2,6 +2,7 @@
 // Usage: node scripts/lib/screenshot.mjs <url> <out.png> [width] [height]
 // Env:   DEMO=1        drop a few shapes on the workplane first
 //        VIEW=<name>   pick a standard view first (front, back, left, right, top, bottom, iso)
+//        CLICK=dx,dy   click this many pixels from the viewport centre (selects what is there)
 //        PRESS=a,b     press these keys (Playwright names, comma-separated) after DEMO, e.g. Control+a
 import { chromium } from '@playwright/test';
 
@@ -33,6 +34,11 @@ if (process.env.DEMO === '1') {
       targetPosition: { x: box.width / 2 + dx * 2, y: box.height / 2 + dy * 2 },
     });
   }
+}
+if (process.env.CLICK) {
+  const [dx, dy] = process.env.CLICK.split(',').map(Number);
+  const box = await page.getByTestId('viewport').boundingBox();
+  await page.mouse.click(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy);
 }
 for (const key of (process.env.PRESS ?? '').split(',').filter(Boolean)) {
   await page.keyboard.press(key);

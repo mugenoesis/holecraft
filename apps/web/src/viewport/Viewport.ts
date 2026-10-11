@@ -4,9 +4,12 @@ import {
   designBounds,
   fitToBounds,
   rayPlaneIntersection,
+  rayVerticalPlaneIntersection,
+  translationOf,
   type Design,
   type NodeId,
   type OrbitState,
+  type Vec3,
   type ViewPresetName,
 } from '@holecraft/core';
 import * as THREE from 'three';
@@ -49,6 +52,8 @@ interface LeftPress {
   additive: boolean;
   startX: number;
   startY: number;
+  /** Height of the pressed shape's base; dragging follows the horizontal plane at that height. */
+  planeZ: number;
   startGround: [number, number] | null;
   mode: 'move' | 'marquee' | 'none' | null;
 }
@@ -142,12 +147,39 @@ export class Viewport {
     this.rig.setProjection(projection);
   }
 
-  /** Workplane (x, y) in mm under a screen position, or null if it points at the sky. */
-  pickWorkplane(clientX: number, clientY: number): [number, number] | null {
+  /** (x, y) in mm where a screen position meets the horizontal plane at `planeZ`, or null if it never does. */
+  pickWorkplane(clientX: number, clientY: number, planeZ = 0): [number, number] | null {
     if (!this.aim(clientX, clientY)) return null;
     const { origin, direction } = this.raycaster.ray;
-    const hit = rayPlaneIntersection([origin.x, origin.y, origin.z], [direction.x, direction.y, direction.z], 0);
+    const hit = rayPlaneIntersection([origin.x, origin.y, origin.z], [direction.x, direction.y, direction.z], planeZ);
     return hit ? [hit[0], hit[1]] : null;
+  }
+
+  /**
+   * The height in mm under a screen position, measured on the vertical plane through workplane
+   * point `at` that faces the camera. Null when looking straight down (no usable plane).
+   */
+  pickHeight(clientX: number, clientY: number, at: [number, number]): number | null {
+    if (!this.aim(clientX, clientY)) return null;
+    const { origin, direction } = this.raycaster.ray;
+    const cam = this.rig.active.position;
+    const hit = rayVerticalPlaneIntersection(
+      [origin.x, origin.y, origin.z],
+      [direction.x, direction.y, direction.z],
+      at,
+      [cam.x - at[0], cam.y - at[1]],
+    );
+    return hit ? hit[2] : null;
+  }
+
+  /** Pixel position within the viewport of a world point, or null if it is behind the camera. */
+  project(point: Vec3): { x: number; y: number } | null {
+    const camera = this.rig.active;
+    camera.updateMatrixWorld();
+    const p = new THREE.Vector3(...point);
+    if (p.clone().applyMatrix4(camera.matrixWorldInverse).z >= 0) return null;
+    p.project(camera);
+    return { x: ((p.x + 1) / 2) * this.host.clientWidth, y: ((1 - p.y) / 2) * this.host.clientHeight };
   }
 
   /** The shape under a screen position, or null. */
@@ -237,12 +269,15 @@ export class Viewport {
     const additive = e.shiftKey;
     this.canvas.setPointerCapture(e.pointerId);
     this.opts.onPick(id, additive, 'down');
+    const node = id !== null ? this.design?.nodes[id] : undefined;
+    const planeZ = node ? translationOf(node.transform)[2] : 0;
     this.left = {
       id,
       additive,
       startX: e.clientX,
       startY: e.clientY,
-      startGround: this.pickWorkplane(e.clientX, e.clientY),
+      planeZ,
+      startGround: this.pickWorkplane(e.clientX, e.clientY, planeZ),
       mode: null,
     };
   }
@@ -256,7 +291,7 @@ export class Viewport {
       if (press.mode === 'move') this.opts.onMoveStart();
     }
     if (press.mode === 'move') {
-      const ground = this.pickWorkplane(e.clientX, e.clientY);
+      const ground = this.pickWorkplane(e.clientX, e.clientY, press.planeZ);
       if (ground && press.startGround) this.opts.onMove([ground[0] - press.startGround[0], ground[1] - press.startGround[1]]);
     } else if (press.mode === 'marquee') {
       this.opts.onMarqueeRect(this.marqueeRect(press, e));

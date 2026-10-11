@@ -13,6 +13,9 @@ export async function camera(page: Page) {
   };
 }
 
+export const properties = (page: Page) => page.getByRole('region', { name: 'Properties' });
+export const field = (page: Page, name: string) => properties(page).getByLabel(name, { exact: true });
+
 export async function selectView(page: Page, view: string) {
   await page.getByLabel('Standard views').selectOption(view);
 }

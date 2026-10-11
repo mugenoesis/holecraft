@@ -4,9 +4,11 @@ import {
   isShapeType,
   nudgeDirections,
   snapToGrid,
+  translationOf,
   type Design,
   type NodeId,
   type OrbitState,
+  type ShapeGeometry,
   type ShapeType,
   type ViewPresetName,
 } from '@holecraft/core';
@@ -14,6 +16,7 @@ import { useEffect, useRef, useState, type DragEvent } from 'react';
 import { isTypingTarget } from '../keyboard.ts';
 import { SHAPE_DRAG_TYPE } from '../shapeDrag.ts';
 import type { Projection } from './CameraRig.ts';
+import { HandlesOverlay } from './HandlesOverlay.tsx';
 import { ViewCube } from './ViewCube.tsx';
 import { Viewport, type PixelRect } from './Viewport.ts';
 
@@ -27,6 +30,18 @@ interface Props {
   onMoveEnd: () => void;
   onMarquee: (ids: NodeId[], additive: boolean) => void;
   onNudge: (delta: [number, number]) => void;
+  /** A resize or lift handle is dragging the selected shape into this geometry. */
+  onGeometry: (id: NodeId, geometry: ShapeGeometry) => void;
+}
+
+/** Geometry of the single selected shape, or null when handles should not be shown. */
+function selectedGeometry(design: Design, selection: readonly NodeId[]): { id: NodeId; geometry: ShapeGeometry } | null {
+  const id = selection.length === 1 ? selection[0]! : undefined;
+  const node = id !== undefined ? design.nodes[id] : undefined;
+  if (!id || !node || node.kind !== 'shape' || node.locked || node.hidden) return null;
+  const [x, y, z] = translationOf(node.transform);
+  const { width, depth, height } = node.params as { width: number; depth: number; height: number };
+  return { id, geometry: { x, y, z, width, depth, height } };
 }
 
 const VIEW_OPTIONS: ReadonlyArray<{ value: ViewPresetName; label: string }> = [
@@ -50,6 +65,7 @@ export function ViewportCanvas(props: Props) {
 
   const [failed, setFailed] = useState(false);
   const [marquee, setMarquee] = useState<PixelRect | null>(null);
+  const [dimensionLabel, setDimensionLabel] = useState<string | null>(null);
   const [camera, setCamera] = useState<{ state: OrbitState; projection: Projection }>({ state: HOME_VIEW, projection: 'perspective' });
   const cameraRef = useRef(camera);
   cameraRef.current = camera;
@@ -135,6 +151,7 @@ export function ViewportCanvas(props: Props) {
   };
 
   const { state, projection } = camera;
+  const selected = selectedGeometry(design, selection);
 
   return (
     <div
@@ -197,6 +214,24 @@ export function ViewportCanvas(props: Props) {
             </select>
           </div>
           <ViewCube camera={state} onSelect={(view) => viewportRef.current?.setView(view)} />
+          {selected && (
+            <HandlesOverlay
+              key={selected.id}
+              nodeId={selected.id}
+              geometry={selected.geometry}
+              snap={design.grid.snap}
+              getViewport={() => viewportRef.current}
+              onStart={() => latest.current.onMoveStart()}
+              onGeometry={(id, g) => latest.current.onGeometry(id, g)}
+              onEnd={() => latest.current.onMoveEnd()}
+              onLabel={setDimensionLabel}
+            />
+          )}
+          {dimensionLabel && (
+            <div className="dimension-label" data-testid="dimension-label" aria-live="polite">
+              {dimensionLabel}
+            </div>
+          )}
         </>
       )}
     </div>
