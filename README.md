@@ -13,7 +13,7 @@ independent project with its own code and design, and it runs entirely on your o
 - **Docker**: self-host it and open it from any browser on your network.
 - **Linux desktop app**: AppImage or .deb that works fully offline.
 
-> **Status: early development (Phase 4a of the [plan](PLAN.md) done).** You can keep a library
+> **Status: early development (Phase 4a of the roadmap done).** You can keep a library
 > of designs that save automatically, navigate a 3D workplane, add boxes, cylinders and spheres,
 > select, move, resize, lift and rotate them, edit their properties, make shapes into holes and
 > group them to cut real holes out of solids, and undo/redo. Import and export (STL, OBJ, 3MF)

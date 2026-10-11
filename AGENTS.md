@@ -1,6 +1,9 @@
 # AGENTS.md: instructions for AI coding sessions
 
-Read this first, then `PLAN.md` (roadmap, architecture, and decisions) and `README.md`.
+Read this first, then `README.md`. The roadmap, architecture and decisions live in `PLAN.md`, which
+is **local only: it is in `.gitignore` on purpose and must never be committed or pushed**. It sits in
+the project's working folder on the user's machine (a backup copy is in `../tinkercad-notes/`).
+Keep updating it as phases complete, but don't expect to find it in a fresh clone.
 
 ## What this project is
 
