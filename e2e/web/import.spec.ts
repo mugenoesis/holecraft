@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { cameraSettled, center, dropShape, field, newDesign, objects, pixelAt, properties, selectView, selectedNames, viewport } from './helpers.ts';
 import { parseStl } from './meshFiles.ts';
-import { cube3mf, cubeAsciiStl, cubeObj, cubeStl, flatStl } from './modelFiles.ts';
+import { cube3mf, cubeAsciiStl, cubeObj, cubeStl, flatStl, slicerPlate3mf } from './modelFiles.ts';
 
 const importInput = (page: Page) => page.getByTestId('import-file');
 const list = (page: Page) => page.getByTestId('object-list');
@@ -64,6 +64,14 @@ test.describe('importing a model', () => {
     await expect(list(page).getByRole('button', { name: /wavefront/ })).toBeVisible();
     await expect(list(page).getByRole('button', { name: /slicer/ })).toBeVisible();
     await expect(list(page).locator('li')).toHaveCount(3);
+  });
+
+  test('reads a 3MF saved by a slicer, whose meshes live in separate files inside it', async ({ page }) => {
+    await importFile(page, 'Plate.3mf', slicerPlate3mf(25));
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(list(page).getByRole('button', { name: /Plate/ })).toBeVisible();
+    await expect(field(page, 'Width')).toHaveValue('25');
+    await expect(field(page, 'Height')).toHaveValue('25');
   });
 
   test('converts a 3MF in centimetres to millimetres', async ({ page }) => {

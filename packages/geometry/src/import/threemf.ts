@@ -14,10 +14,17 @@ const MAX_NESTING = 8;
 interface ObjectData {
   vertices: number[];
   triangles: number[];
-  components: { objectId: string; transform: Transform }[];
+  /** `path` names another model file in the package; without it the object is in the same file. */
+  components: { objectId: string; path?: string; transform: Transform }[];
 }
 
-const attr = (tag: string, name: string): string | undefined => new RegExp(`(?:^|\\s)${name}\\s*=\\s*"([^"]*)"`).exec(tag)?.[1];
+/** One .model file: its objects, and the build items if it has any. */
+interface Model {
+  objects: Map<string, ObjectData>;
+  items: { objectId: string | undefined; transform: Transform }[];
+}
+
+const attr = (tag: string, name: string): string | undefined => new RegExp(`(?:^|\\s)(?:\\w+:)?${name}\\s*=\\s*"([^"]*)"`).exec(tag)?.[1];
 
 function transformOf(tag: string): Transform {
   const text = attr(tag, 'transform');
@@ -46,18 +53,7 @@ function compose(inner: Transform, outer: Transform): Transform {
   ];
 }
 
-/** Reads a 3MF: every object in its build list, with transforms and the file's units applied, joined into one mesh. */
-export async function parse3mf(bytes: Uint8Array): Promise<RawMesh> {
-  const files = await readZip(bytes).catch((e: unknown) => {
-    throw new Error(`This is not a valid 3MF file (${e instanceof Error ? e.message : 'unreadable'})`);
-  });
-  const modelName = files.has('3D/3dmodel.model') ? '3D/3dmodel.model' : [...files.keys()].find((n) => n.toLowerCase().endsWith('.model'));
-  if (!modelName) throw new Error('This 3MF has no model inside');
-  const xml = decoder.decode(files.get(modelName)!);
-
-  const scale = UNIT_MM[attr(/<(?:\w+:)?model\b[^>]*>/.exec(xml)?.[0] ?? '', 'unit') ?? 'millimeter'];
-  if (scale === undefined) throw new Error('This 3MF uses an unknown unit');
-
+function parseModel(xml: string): Model {
   const objects = new Map<string, ObjectData>();
   for (const m of xml.matchAll(/<(?:\w+:)?object\b([^>]*)>([\s\S]*?)<\/(?:\w+:)?object>/g)) {
     const id = attr(m[1]!, 'id');
@@ -72,21 +68,53 @@ export async function parse3mf(bytes: Uint8Array): Promise<RawMesh> {
     }
     for (const c of body.matchAll(/<(?:\w+:)?component\b([^>]*?)\/?>/g)) {
       const objectId = attr(c[1]!, 'objectid');
-      if (objectId !== undefined) data.components.push({ objectId, transform: transformOf(c[1]!) });
+      const path = attr(c[1]!, 'path');
+      if (objectId !== undefined) data.components.push({ objectId, path: path?.replace(/^\/+/, ''), transform: transformOf(c[1]!) });
     }
     if (data.vertices.some((n) => !Number.isFinite(n)) || data.triangles.some((n) => !Number.isInteger(n) || n < 0 || n * 3 >= data.vertices.length)) {
       throw new Error('This 3MF has a damaged mesh');
     }
     objects.set(id, data);
   }
+  const items = [...xml.matchAll(/<(?:\w+:)?item\b([^>]*?)\/?>/g)].map((m) => ({ objectId: attr(m[1]!, 'objectid'), transform: transformOf(m[1]!) }));
+  return { objects, items };
+}
 
-  let items = [...xml.matchAll(/<(?:\w+:)?item\b([^>]*?)\/?>/g)].map((m) => ({ objectId: attr(m[1]!, 'objectid'), transform: transformOf(m[1]!) }));
-  if (items.length === 0) items = [...objects.keys()].map((objectId) => ({ objectId, transform: IDENTITY }));
+/**
+ * Reads a 3MF: every object in its build list, with transforms and the file's units applied, joined
+ * into one mesh. Slicers (OrcaSlicer, Bambu Studio, PrusaSlicer) keep the meshes in separate model
+ * files under 3D/Objects and point at them from components, so those are followed too.
+ */
+export async function parse3mf(bytes: Uint8Array): Promise<RawMesh> {
+  const files = await readZip(bytes).catch((e: unknown) => {
+    throw new Error(`This is not a valid 3MF file (${e instanceof Error ? e.message : 'unreadable'})`);
+  });
+  const rootName = files.has('3D/3dmodel.model') ? '3D/3dmodel.model' : [...files.keys()].find((n) => n.toLowerCase().endsWith('.model'));
+  if (!rootName) throw new Error('This 3MF has no model inside');
+  const rootXml = decoder.decode(files.get(rootName)!);
+
+  const scale = UNIT_MM[attr(/<(?:\w+:)?model\b[^>]*>/.exec(rootXml)?.[0] ?? '', 'unit') ?? 'millimeter'];
+  if (scale === undefined) throw new Error('This 3MF uses an unknown unit');
+
+  const models = new Map<string, Model>();
+  const modelAt = (name: string): Model => {
+    let model = models.get(name);
+    if (!model) {
+      const data = files.get(name);
+      if (!data) throw new Error(`This 3MF refers to a file that is not in it: ${name}`);
+      model = parseModel(decoder.decode(data));
+      models.set(name, model);
+    }
+    return model;
+  };
+
+  const root = modelAt(rootName);
+  const items = root.items.length > 0 ? root.items : [...root.objects.keys()].map((objectId) => ({ objectId, transform: IDENTITY }));
 
   const positions: number[] = [];
   const indices: number[] = [];
-  const place = (objectId: string | undefined, transform: Transform, depth: number): void => {
-    const object = objectId === undefined ? undefined : objects.get(objectId);
+  const place = (file: string, objectId: string | undefined, transform: Transform, depth: number): void => {
+    const object = objectId === undefined ? undefined : modelAt(file).objects.get(objectId);
     if (!object) return;
     if (depth > MAX_NESTING) throw new Error('This 3MF nests its parts too deeply');
     const base = positions.length / 3;
@@ -100,9 +128,9 @@ export async function parse3mf(bytes: Uint8Array): Promise<RawMesh> {
     }
     for (const v of object.triangles) indices.push(base + v);
     if (indices.length / 3 > MAX_IMPORT_TRIANGLES) throw new Error('This 3MF is too large');
-    for (const c of object.components) place(c.objectId, compose(c.transform, transform), depth + 1);
+    for (const c of object.components) place(c.path ?? file, c.objectId, compose(c.transform, transform), depth + 1);
   };
-  for (const item of items) place(item.objectId, item.transform, 0);
+  for (const item of items) place(rootName, item.objectId, item.transform, 0);
 
   if (indices.length === 0) throw new Error('This 3MF has no shapes in it');
   return weldMesh(new Float32Array(positions), new Uint32Array(indices));

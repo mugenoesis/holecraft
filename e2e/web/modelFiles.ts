@@ -132,3 +132,22 @@ export function cube3mf(s: number, unit = 'millimeter'): Buffer {
     '3D/3dmodel.model': model,
   });
 }
+
+/**
+ * A 3MF laid out the way OrcaSlicer, Bambu Studio and PrusaSlicer write it: the root model only holds a
+ * component that points at the real mesh in 3D/Objects/object_1.model, and the build item places it
+ * on the plate (here 100 mm along X). Entries are compressed.
+ */
+export function slicerPlate3mf(s: number): Buffer {
+  const c = CORNERS(s);
+  const mesh = `<mesh><vertices>${c.map((p) => `<vertex x="${p[0]}" y="${p[1]}" z="${p[2]}"/>`).join('')}</vertices><triangles>${FACES.map((f) => `<triangle v1="${f[0]}" v2="${f[1]}" v3="${f[2]}"/>`).join('')}</triangles></mesh>`;
+  const ns = 'xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06"';
+  return deflatedZip({
+    '[Content_Types].xml': '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>',
+    '_rels/.rels': '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>',
+    '3D/_rels/3dmodel.model.rels': '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/Objects/object_1.model" Id="rel-1" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>',
+    '3D/3dmodel.model': `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" ${ns}><resources><object id="2" type="model"><components><component p:path="/3D/Objects/object_1.model" objectid="1" transform="1 0 0 0 1 0 0 0 1 0 0 0"/></components></object></resources><build><item objectid="2" transform="1 0 0 0 1 0 0 0 1 100 0 0" printable="1"/></build></model>`,
+    '3D/Objects/object_1.model': `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" ${ns}><resources><object id="1" type="model">${mesh}</object></resources><build/></model>`,
+    'Metadata/model_settings.config': '<?xml version="1.0"?><config><object id="2"><metadata key="name" value="Cube"/></object></config>',
+  });
+}

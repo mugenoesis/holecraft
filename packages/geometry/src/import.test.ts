@@ -205,6 +205,74 @@ describe('importMeshFile', () => {
     expect(Math.min(...[0, 3, 6].map((i) => mesh.positions[i]!))).toBe(50);
   });
 
+  describe('3MF files whose parts live in other files (OrcaSlicer, Bambu Studio, PrusaSlicer)', () => {
+    const TET = '<vertices><vertex x="0" y="0" z="0"/><vertex x="10" y="0" z="0"/><vertex x="0" y="10" z="0"/><vertex x="0" y="0" z="10"/></vertices><triangles><triangle v1="0" v2="2" v3="1"/><triangle v1="0" v2="1" v3="3"/><triangle v1="1" v2="2" v3="3"/><triangle v1="0" v2="3" v3="2"/></triangles>';
+    const partFile = (id: number) => `<?xml version="1.0"?><model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources><object id="${id}" type="model"><mesh>${TET}</mesh></object></resources><build/></model>`;
+    const root = (resources: string, build: string) =>
+      `<?xml version="1.0"?><model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06"><resources>${resources}</resources><build>${build}</build></model>`;
+
+    it('follows a component to the model file it names', async () => {
+      const zip = writeStoredZip([
+        { name: '3D/3dmodel.model', data: text(root('<object id="2" type="model"><components><component p:path="/3D/Objects/object_1.model" objectid="1"/></components></object>', '<item objectid="2"/>')) },
+        { name: '3D/Objects/object_1.model', data: text(partFile(1)) },
+      ]);
+      const mesh = await importMeshFile('plate.3mf', zip);
+      expect(mesh.indices.length).toBe(12);
+      expect(volume(mesh)).toBeCloseTo(volume(tetra) / 1, 3);
+    });
+
+    it('applies the transforms on the component and on the build item', async () => {
+      const zip = writeStoredZip([
+        {
+          name: '3D/3dmodel.model',
+          data: text(
+            root(
+              '<object id="2" type="model"><components><component p:path="/3D/Objects/object_1.model" objectid="1" transform="1 0 0 0 1 0 0 0 1 5 0 0"/></components></object>',
+              '<item objectid="2" transform="1 0 0 0 1 0 0 0 1 100 0 0"/>',
+            ),
+          ),
+        },
+        { name: '3D/Objects/object_1.model', data: text(partFile(1)) },
+      ]);
+      const mesh = await importMeshFile('plate.3mf', zip);
+      expect(Math.min(...[...mesh.positions].filter((_, i) => i % 3 === 0))).toBe(105);
+    });
+
+    it('joins several parts, even when each file numbers its objects from 1', async () => {
+      const zip = writeStoredZip([
+        {
+          name: '3D/3dmodel.model',
+          data: text(
+            root(
+              '<object id="3" type="model"><components><component p:path="/3D/Objects/a.model" objectid="1"/><component p:path="/3D/Objects/b.model" objectid="1" transform="1 0 0 0 1 0 0 0 1 50 0 0"/></components></object>',
+              '<item objectid="3"/>',
+            ),
+          ),
+        },
+        { name: '3D/Objects/a.model', data: text(partFile(1)) },
+        { name: '3D/Objects/b.model', data: text(partFile(1)) },
+      ]);
+      const mesh = await importMeshFile('plate.3mf', zip);
+      expect(mesh.indices.length).toBe(24);
+    });
+
+    it('says so when a component points at a file that is not in the package', async () => {
+      const zip = writeStoredZip([
+        { name: '3D/3dmodel.model', data: text(root('<object id="2"><components><component p:path="/3D/Objects/missing.model" objectid="1"/></components></object>', '<item objectid="2"/>')) },
+      ]);
+      await expect(importMeshFile('plate.3mf', zip)).rejects.toThrow(/missing\.model/);
+    });
+
+    it('ignores other files in the package, such as thumbnails and settings', async () => {
+      const zip = writeStoredZip([
+        { name: '3D/3dmodel.model', data: text(root(`<object id="1" type="model"><mesh>${TET}</mesh></object>`, '<item objectid="1"/>')) },
+        { name: 'Metadata/plate_1.png', data: new Uint8Array([137, 80, 78, 71]) },
+        { name: 'Metadata/model_settings.config', data: text('<config/>') },
+      ]);
+      expect((await importMeshFile('x.3mf', zip)).indices.length).toBe(12);
+    });
+  });
+
   it('rejects unknown file types', async () => {
     await expect(importMeshFile('x.png', text('x'))).rejects.toThrow(/STL, OBJ or 3MF/);
   });
