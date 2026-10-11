@@ -6,6 +6,7 @@ export * from './groups.ts';
 export * from './history.ts';
 export * from './ids.ts';
 export * from './mat4.ts';
+export * from './meshShape.ts';
 export * from './ops.ts';
 export * from './picking.ts';
 export * from './resize.ts';

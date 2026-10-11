@@ -1,4 +1,4 @@
-import type { DesignNode, NodeId, ShapeNode } from '@holecraft/core';
+import { MESH_SHAPE_TYPE, type DesignNode, type MeshData, type NodeId, type ShapeNode } from '@holecraft/core';
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import type { GroupMesh } from './types.ts';
 
@@ -12,6 +12,9 @@ const SPHERE_SEGMENTS = 48;
 
 type Nodes = { nodes: Record<NodeId, DesignNode> };
 
+/** The stored meshes of imported models, by reference (see `meshRefsIn`). */
+export type MeshTable = ReadonlyMap<string, MeshData>;
+
 /**
  * Works out the single mesh a group makes: its solids joined together, minus its holes. The
  * result is in the group's own frame (the group's own transform is not applied, so moving a
@@ -21,27 +24,42 @@ type Nodes = { nodes: Record<NodeId, DesignNode> };
  * manifold objects live in WASM memory and must be freed by hand, so every one created here is
  * tracked and deleted before returning, however it returns.
  */
-export function evaluateGroup(M: ManifoldToplevel, design: Nodes, groupId: NodeId): GroupMesh | null {
-  return build(M, design, groupId, false);
+export function evaluateGroup(M: ManifoldToplevel, design: Nodes, groupId: NodeId, meshes?: MeshTable): GroupMesh | null {
+  return build(M, design, groupId, false, meshes);
 }
 
 /**
  * Like evaluateGroup, but for any top-level shape or group, and placed where it is in the design:
  * the node's own transform is applied. This is what gets exported. Null when there is nothing to build.
  */
-export function evaluateNode(M: ManifoldToplevel, design: Nodes, id: NodeId): GroupMesh | null {
-  return build(M, design, id, true);
+export function evaluateNode(M: ManifoldToplevel, design: Nodes, id: NodeId, meshes?: MeshTable): GroupMesh | null {
+  return build(M, design, id, true, meshes);
 }
 
-function build(M: ManifoldToplevel, design: Nodes, rootId: NodeId, placeRoot: boolean): GroupMesh | null {
+function build(M: ManifoldToplevel, design: Nodes, rootId: NodeId, placeRoot: boolean, meshes?: MeshTable): GroupMesh | null {
   const owned: Manifold[] = [];
   const track = (m: Manifold): Manifold => (owned.push(m), m);
+
+  /** An imported model as a manifold, in the unit box. Fails with a message fit to show if it cannot be cut. */
+  const imported = (node: ShapeNode): Manifold => {
+    const data = meshes?.get(String(node.params.mesh));
+    if (!data) throw new Error(`The model data for "${node.name}" is missing`);
+    try {
+      const mesh = new M.Mesh({ numProp: 3, vertProperties: data.positions, triVerts: data.indices });
+      return track(M.Manifold.ofMesh(mesh));
+    } catch {
+      throw new Error(`"${node.name}" is not watertight (its surface has holes or overlaps), so it cannot be used to cut or be cut`);
+    }
+  };
 
   /** A shape as a manifold: base on z = 0, scaled to its size, then placed by its own transform. */
   const shape = (node: ShapeNode): Manifold => {
     const { width, depth, height } = node.params as { width: number; depth: number; height: number };
     let m: Manifold;
     switch (node.shapeType) {
+      case MESH_SHAPE_TYPE:
+        m = track(imported(node).scale([width, depth, height]));
+        break;
       case 'cylinder':
         m = track(track(M.Manifold.cylinder(1, 0.5, 0.5, CYLINDER_SEGMENTS, false)).scale([width, depth, height]));
         break;
