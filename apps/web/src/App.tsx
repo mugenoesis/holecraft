@@ -1,4 +1,4 @@
-import { createEmptyDesign, newId } from '@ezcad/core';
+import { createEmptyDesign, newId } from '@holecraft/core';
 import { useEffect, useState } from 'react';
 import { fetchHealth, type Health } from './api.ts';
 import { ViewportCanvas } from './viewport/ViewportCanvas.tsx';
@@ -25,7 +25,7 @@ export function App() {
       <header className="topbar">
         <div className="brand">
           <img src="/favicon.svg" alt="" width={22} height={22} />
-          <span>ezcad</span>
+          <span>Holecraft</span>
         </div>
         <div className="design-name">{design.name}</div>
         <ServerStatus state={server} />

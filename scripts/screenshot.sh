@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Takes a screenshot of a running ezcad instance with headless Chromium
+# Takes a screenshot of a running holecraft instance with headless Chromium
 # (software WebGL), for visually checking UI changes.
 #
 # Usage: scripts/screenshot.sh <url> [out.png] [width] [height]

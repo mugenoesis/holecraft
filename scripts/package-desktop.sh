@@ -16,7 +16,7 @@ if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
 fi
 
 if [[ "${LOCAL:-0}" == "1" ]]; then
-  npm run dist --workspace @ezcad/desktop
+  npm run dist --workspace @holecraft/desktop
 else
   docker run --rm -v "$ROOT:/repo" -w /repo/apps/desktop node:22-bookworm \
     npx electron-builder --linux AppImage deb

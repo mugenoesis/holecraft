@@ -1,8 +1,8 @@
-# ezcad
+# Holecraft
 
 **Open-source, offline, browser-based 3D modeling for makers.**
 
-ezcad is an approachable solid modeler in the spirit of Tinkercad: drag primitive shapes onto a
+Holecraft is an approachable solid modeler in the spirit of Tinkercad: drag primitive shapes onto a
 workplane, turn some into holes, group them, and export a printable model. It is an
 independent project with its own code and design, and it runs entirely on your own hardware:
 
@@ -25,25 +25,25 @@ Designs are stored in the `/data` volume. Environment variables:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `EZCAD_PORT` | `8080` | HTTP port |
-| `EZCAD_HOST` | `0.0.0.0` | Bind address |
-| `EZCAD_DATA_DIR` | `/data` | Storage directory |
+| `HOLECRAFT_PORT` | `8080` | HTTP port |
+| `HOLECRAFT_HOST` | `0.0.0.0` | Bind address |
+| `HOLECRAFT_DATA_DIR` | `/data` | Storage directory |
 
-There is no authentication yet, so only expose ezcad on a trusted network.
-Serve it at the root of a host or subdomain (`ezcad.example.lan`). Path prefixes such as
-`example.lan/ezcad` are not supported yet.
+There is no authentication yet, so only expose Holecraft on a trusted network.
+Serve it at the root of a host or subdomain (`holecraft.example.lan`). Path prefixes such as
+`example.lan/holecraft` are not supported yet.
 
-**Unraid:** set `user: "99:100"` and map `/mnt/user/appdata/ezcad` to `/data` (see
+**Unraid:** set `user: "99:100"` and map `/mnt/user/appdata/holecraft` to `/data` (see
 `docker/compose.yaml`).
 
 ### Desktop (Linux)
 
 ```bash
 scripts/package-desktop.sh
-# → apps/desktop/release/ezcad-<version>-x86_64.AppImage and ezcad-<version>-amd64.deb
+# → apps/desktop/release/Holecraft-<version>-x86_64.AppImage and Holecraft-<version>-amd64.deb
 ```
 
-The desktop app stores designs in `$XDG_DATA_HOME/ezcad` (usually `~/.local/share/ezcad`).
+The desktop app stores designs in `$XDG_DATA_HOME/holecraft` (usually `~/.local/share/holecraft`).
 
 ## Develop
 
@@ -58,7 +58,7 @@ npm run check        # full gate: typecheck + unit + build + web e2e
 FULL=1 npm run check # + Docker smoke test + desktop package + desktop e2e
 ```
 
-ezcad is developed **test-first**. Every feature lands with unit tests, plus integration tests
+Holecraft is developed **test-first**. Every feature lands with unit tests, plus integration tests
 where it touches the UI, server, or packaging. See [AGENTS.md](AGENTS.md) for conventions.
 
 ### Layout
@@ -86,5 +86,5 @@ scripts/        Repeatable dev/test/packaging tasks
 
 ## License
 
-[AGPL-3.0](LICENSE). If you run a modified ezcad as a network service, you must share your
-changes. Tinkercad is a trademark of Autodesk, Inc. ezcad is not affiliated with Autodesk.
+[AGPL-3.0](LICENSE). If you run a modified Holecraft as a network service, you must share your
+changes. Tinkercad is a trademark of Autodesk, Inc. Holecraft is not affiliated with Autodesk.

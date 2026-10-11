@@ -1,6 +1,6 @@
 # Open-Source, Offline 3D Modeler (Tinkercad-inspired): Project Plan
 
-Name: **ezcad** (working name, chosen 2026-10-11).
+Name: **Holecraft** (chosen 2026-10-11; first working name "ezcad" was dropped because EZCAD is established laser-marking software used by the same maker audience).
 
 Goal: an **open-source**, self-hosted, fully offline 3D modeling app. It is *inspired by*
 Tinkercad's approachable workflow (drag-and-drop primitives, solid/hole booleans,
@@ -84,7 +84,7 @@ Feature names below describe *capabilities*. Our own UI can name and arrange the
 | Autosave + design version history | P0 (autosave), P1 (history) |
 | Import STL, OBJ, 3MF; import SVG (extrude) | P0 (STL), P1 rest |
 | Export STL, OBJ, 3MF, GLB; SVG (top projection for laser cutting) | P0 (STL/OBJ), P1 rest |
-| Share / export design as a portable file (`.ezcad`) | P1 |
+| Share / export design as a portable file (`.holecraft`) | P1 |
 
 ### Out of scope for v1 (separate future projects)
 - **Circuits** (electronics + Arduino simulation): this is a whole product of its own.
@@ -115,7 +115,7 @@ Feature names below describe *capabilities*. Our own UI can name and arrange the
 └─────────────────────────────────────────────────────────────────────────────┘
    Docker: server runs as the container's process, port 8080, volume /data
    Desktop: Electron main process starts the same server on 127.0.0.1:<random>
-            and opens a BrowserWindow pointed at it. Data goes in ~/.local/share/ezcad
+            and opens a BrowserWindow pointed at it. Data goes in ~/.local/share/holecraft
 ```
 
 ### Why these choices
@@ -152,7 +152,7 @@ interface Design   { version: number; units: 'mm'|'in'; grid: GridSettings; node
   ancestors' booleans.
 - Every mutation goes through a **Command** (`MoveNodes`, `SetParam`, `Group`, ...) using Immer
   patches, which gives undo/redo, autosave diffs, and a future collaboration hook for free.
-- On-disk format: versioned JSON with migrations. The portable `.ezcad` file is a zip of the JSON,
+- On-disk format: versioned JSON with migrations. The portable `.holecraft` file is a zip of the JSON,
   any imported meshes, and a thumbnail.
 
 ### Shape definitions (extensible, also powers Shape Generators later)
@@ -231,20 +231,20 @@ something runnable.
 ## 6. Docker deployment (target)
 ```yaml
 services:
-  ezcad:
-    image: ezcad:latest
+  holecraft:
+    image: holecraft:latest
     ports: ["8080:8080"]
-    volumes: ["/mnt/user/appdata/ezcad:/data"]
+    volumes: ["/mnt/user/appdata/holecraft:/data"]
     user: "99:100"            # Unraid nobody:users; v1 has no auth (LAN appliance)
 ```
 No outbound network calls at runtime. All fonts, icons, and WASM are bundled in the image.
 An Unraid Community Apps template can follow.
 
 ## 7. Desktop app (target)
-- `electron-builder` → `ezcad-x.y.z.AppImage`, `.deb`, `.rpm`; Flatpak via `flatpak-builder`.
-- Main process: start Fastify on `127.0.0.1:0` with data dir `$XDG_DATA_HOME/ezcad`, open
+- `electron-builder` → `holecraft-x.y.z.AppImage`, `.deb`, `.rpm`; Flatpak via `flatpak-builder`.
+- Main process: start Fastify on `127.0.0.1:0` with data dir `$XDG_DATA_HOME/holecraft`, open
   the window, and add native menus (File > Import/Export use native dialogs via IPC).
-- Associate the `.ezcad` file type, so double-clicking opens the design.
+- Associate the `.holecraft` file type, so double-clicking opens the design.
 
 ## 8. Testing strategy
 **Test-driven development**: every feature or fix starts with a failing test (see AGENTS.md).
@@ -277,7 +277,7 @@ An Unraid Community Apps template can follow.
     Tinkercad-level ease. That combination is this project's niche.
 
 ## 10. Decisions (2026-10-11)
-1. **Name**: ezcad (working name).
+1. **Name**: Holecraft (renamed from ezcad on 2026-10-11).
 2. **License**: AGPL-3.0.
 3. **Docker auth**: none in v1 (single-user LAN appliance). Revisit later.
 4. **Desktop shell**: Electron.

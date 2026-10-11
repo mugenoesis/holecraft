@@ -5,14 +5,14 @@ import { _electron as electron, expect, test } from '@playwright/test';
 
 // Tests the packaged app (apps/desktop/release/linux-unpacked), not the dev build,
 // so packaging mistakes such as missing resources are caught.
-const executablePath = path.resolve(import.meta.dirname, '../../apps/desktop/release/linux-unpacked/ezcad');
+const executablePath = path.resolve(import.meta.dirname, '../../apps/desktop/release/linux-unpacked/holecraft');
 
 test.describe('desktop app', () => {
   test.skip(!existsSync(executablePath), 'Package the desktop app first (scripts/package-desktop.sh)');
 
   let dataDir: string;
   test.beforeEach(() => {
-    dataDir = mkdtempSync(path.join(os.tmpdir(), 'ezcad-desktop-'));
+    dataDir = mkdtempSync(path.join(os.tmpdir(), 'holecraft-desktop-'));
   });
   test.afterEach(() => {
     rmSync(dataDir, { recursive: true, force: true });
@@ -23,7 +23,7 @@ test.describe('desktop app', () => {
       executablePath,
       // CI containers have no GPU; use Chromium's software WebGL.
       args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
-      env: { ...process.env, EZCAD_DATA_DIR: dataDir },
+      env: { ...process.env, HOLECRAFT_DATA_DIR: dataDir },
     });
     try {
       const win = await app.firstWindow();

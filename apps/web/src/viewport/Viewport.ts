@@ -34,7 +34,7 @@ export class Viewport {
     this.camera.up.set(0, 0, 1);
     this.camera.position.set(-170, -250, 210);
 
-    // Placeholder controls; Phase 1 replaces these with ezcad's own camera scheme.
+    // Placeholder controls; Phase 1 replaces these with holecraft's own camera scheme.
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.target.set(0, 0, 0);
     this.controls.update();

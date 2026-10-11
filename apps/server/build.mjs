@@ -14,8 +14,8 @@ await build({
   target: 'node22',
   sourcemap: true,
   legalComments: 'linked',
-  define: { __EZCAD_VERSION__: JSON.stringify(pkg.version) },
+  define: { __HOLECRAFT_VERSION__: JSON.stringify(pkg.version) },
   // Fastify's dependencies are CommonJS and call require() on node builtins.
-  banner: { js: "import { createRequire as __ezcadCreateRequire } from 'node:module'; const require = __ezcadCreateRequire(import.meta.url);" },
+  banner: { js: "import { createRequire as __holecraftCreateRequire } from 'node:module'; const require = __holecraftCreateRequire(import.meta.url);" },
   logLevel: 'info',
 });

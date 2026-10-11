@@ -1,16 +1,16 @@
 {
-  "name": "@ezcad/desktop",
-  "productName": "ezcad",
+  "name": "@holecraft/desktop",
+  "productName": "Holecraft",
   "version": "0.1.0",
   "private": true,
-  "description": "ezcad desktop app for Linux",
+  "description": "Holecraft desktop app for Linux",
   "license": "AGPL-3.0-only",
   "author": {
-    "name": "ezcad contributors",
-    "email": "noreply@ezcad.invalid"
+    "name": "Holecraft contributors",
+    "email": "noreply@holecraft.invalid"
   },
-  "homepage": "https://github.com/ezcad/ezcad",
-  "desktopName": "ezcad.desktop",
+  "homepage": "https://github.com/mugenoesis/holecraft",
+  "desktopName": "holecraft.desktop",
   "main": "dist/main.cjs",
   "scripts": {
     "build": "node build.mjs",
@@ -18,14 +18,14 @@
     "dist": "electron-builder --linux AppImage deb"
   },
   "devDependencies": {
-    "@ezcad/server": "0.1.0",
+    "@holecraft/server": "0.1.0",
     "electron": "44.7.0",
     "electron-builder": "^26.15.3"
   },
   "build": {
-    "appId": "org.ezcad.desktop",
-    "productName": "ezcad",
-    "executableName": "ezcad",
+    "appId": "org.holecraft.desktop",
+    "productName": "Holecraft",
+    "executableName": "holecraft",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "directories": {
       "output": "release"

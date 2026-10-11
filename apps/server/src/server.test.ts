@@ -7,7 +7,7 @@ import { createServer } from './server.ts';
 let tmp: string;
 
 beforeEach(async () => {
-  tmp = await mkdtemp(path.join(os.tmpdir(), 'ezcad-server-'));
+  tmp = await mkdtemp(path.join(os.tmpdir(), 'holecraft-server-'));
 });
 
 afterEach(async () => {
@@ -17,7 +17,7 @@ afterEach(async () => {
 async function withStatic() {
   const staticDir = path.join(tmp, 'web');
   await mkdir(staticDir);
-  await writeFile(path.join(staticDir, 'index.html'), '<!doctype html><title>ezcad</title>');
+  await writeFile(path.join(staticDir, 'index.html'), '<!doctype html><title>holecraft</title>');
   await writeFile(path.join(staticDir, 'app.js'), 'console.log(1)');
   return createServer({ dataDir: path.join(tmp, 'data'), staticDir, version: '9.9.9' });
 }
@@ -33,7 +33,7 @@ describe('createServer', () => {
     const app = await withStatic();
     const res = await app.inject('/api/health');
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ status: 'ok', name: 'ezcad', version: '9.9.9' });
+    expect(res.json()).toEqual({ status: 'ok', name: 'holecraft', version: '9.9.9' });
     await app.close();
   });
 
@@ -45,7 +45,7 @@ describe('createServer', () => {
 
     const route = await app.inject('/designs/abc');
     expect(route.statusCode).toBe(200);
-    expect(route.body).toContain('<title>ezcad</title>');
+    expect(route.body).toContain('<title>holecraft</title>');
     await app.close();
   });
 

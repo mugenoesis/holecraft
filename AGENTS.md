@@ -4,7 +4,7 @@ Read this first, then `PLAN.md` (roadmap, architecture, and decisions) and `READ
 
 ## What this project is
 
-ezcad is an **open-source (AGPL-3.0), offline, Tinkercad-inspired 3D modeler**. It is
+Holecraft is an **open-source (AGPL-3.0), offline, Tinkercad-inspired 3D modeler**. It is
 *inspired by* Tinkercad's workflow and is **not a clone**:
 - Never copy Tinkercad's name, logo, icons, artwork, color scheme, text, or code.
 - Never fetch assets from tinkercad.com.
@@ -14,7 +14,7 @@ ezcad is an **open-source (AGPL-3.0), offline, Tinkercad-inspired 3D modeler**. 
 Ships as a Docker web service and a Linux Electron app built from one codebase.
 
 ## Decisions already made (don't relitigate without the user)
-- Name: ezcad. License: AGPL-3.0-only.
+- Name: Holecraft (repo and package id: `holecraft`). Renamed from "ezcad", which clashes with the EZCAD laser-marking software. License: AGPL-3.0-only.
 - Docker auth: none in v1.
 - Desktop: Electron (not Tauri).
 - v1 scope: the 3D design editor only. Codeblocks, Sim Lab, and Circuits are deferred.
@@ -62,7 +62,7 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   for software WebGL.
 - The Docker build is usually reached over plain http on a LAN IP, which is **not a secure
   context**. `crypto.randomUUID`, clipboard, and similar APIs are unavailable, so use
-  `newId()` from `@ezcad/core`. The "keeps working without X" tests guard against this.
+  `newId()` from `@holecraft/core`. The "keeps working without X" tests guard against this.
 - The web app is built with absolute asset paths (`base: '/'`) so deep links work. Use
   root-relative URLs (`/api/...`).
 - The server and the Electron main process are **bundled with esbuild** (`build.mjs`), so

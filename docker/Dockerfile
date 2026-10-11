@@ -20,14 +20,14 @@ RUN npm run build
 # ---- runtime ----
 # The server is a single bundled file, so the runtime image needs no node_modules.
 FROM node:22-bookworm-slim
-LABEL org.opencontainers.image.title="ezcad" \
+LABEL org.opencontainers.image.title="Holecraft" \
       org.opencontainers.image.description="Open-source, offline, browser-based 3D modeling" \
       org.opencontainers.image.licenses="AGPL-3.0-only"
 
 ENV NODE_ENV=production \
-    EZCAD_HOST=0.0.0.0 \
-    EZCAD_PORT=8080 \
-    EZCAD_DATA_DIR=/data
+    HOLECRAFT_HOST=0.0.0.0 \
+    HOLECRAFT_PORT=8080 \
+    HOLECRAFT_DATA_DIR=/data
 
 WORKDIR /app
 COPY --from=build /src/apps/server/dist apps/server/dist
@@ -40,6 +40,6 @@ VOLUME ["/data"]
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:'+process.env.EZCAD_PORT+'/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+  CMD ["node", "-e", "fetch('http://127.0.0.1:'+process.env.HOLECRAFT_PORT+'/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 
 CMD ["node", "apps/server/dist/main.js"]

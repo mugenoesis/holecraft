@@ -32,7 +32,7 @@ export function ViewportCanvas({ width, depth }: Props) {
       {failed && (
         <div className="viewport-error" role="alert">
           <strong>The 3D view could not start.</strong>
-          <p>ezcad needs WebGL 2. Enable hardware acceleration in your browser, or update your graphics drivers.</p>
+          <p>Holecraft needs WebGL 2. Enable hardware acceleration in your browser, or update your graphics drivers.</p>
         </div>
       )}
     </div>

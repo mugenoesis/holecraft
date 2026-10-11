@@ -1,4 +1,4 @@
-// Bundles the Electron main process together with the ezcad server so the
+// Bundles the Electron main process together with the holecraft server so the
 // packaged app ships without node_modules.
 import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
@@ -15,6 +15,6 @@ await build({
   sourcemap: true,
   legalComments: 'linked',
   external: ['electron'],
-  define: { __EZCAD_VERSION__: JSON.stringify(pkg.version) },
+  define: { __HOLECRAFT_VERSION__: JSON.stringify(pkg.version) },
   logLevel: 'info',
 });

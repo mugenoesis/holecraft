@@ -2,12 +2,12 @@
 # Builds the Docker image, starts a throwaway container, and checks that it
 # serves the app, answers the health check, and reports healthy.
 #
-# Usage: scripts/docker-smoke.sh [image-tag]    (default: ezcad:dev)
+# Usage: scripts/docker-smoke.sh [image-tag]    (default: holecraft:dev)
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TAG="${1:-ezcad:dev}"
-NAME="ezcad-smoke-$$"
-PORT="${EZCAD_SMOKE_PORT:-18081}"
+TAG="${1:-holecraft:dev}"
+NAME="holecraft-smoke-$$"
+PORT="${HOLECRAFT_SMOKE_PORT:-18081}"
 
 cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
@@ -23,7 +23,7 @@ done
 fail() { echo "FAIL: $*"; docker logs "$NAME"; exit 1; }
 
 curl -fs "http://127.0.0.1:$PORT/api/health" | grep -q '"status":"ok"' || fail "health endpoint"
-curl -fs "http://127.0.0.1:$PORT/" | grep -q '<title>ezcad</title>' || fail "index page"
+curl -fs "http://127.0.0.1:$PORT/" | grep -q '<title>Holecraft</title>' || fail "index page"
 [[ "$(docker inspect --format '{{.Config.User}}' "$NAME")" == "node" ]] || fail "container should run as non-root"
 
 for _ in $(seq 1 30); do

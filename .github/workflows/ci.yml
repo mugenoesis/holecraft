@@ -24,7 +24,7 @@ jobs:
     needs: check
     steps:
       - uses: actions/checkout@v4
-      - run: scripts/docker-smoke.sh ezcad:ci
+      - run: scripts/docker-smoke.sh holecraft:ci
 
   desktop:
     runs-on: ubuntu-latest
@@ -40,7 +40,7 @@ jobs:
       - run: SKIP_BUILD=1 scripts/e2e.sh --project desktop
       - uses: actions/upload-artifact@v4
         with:
-          name: ezcad-linux
+          name: holecraft-linux
           path: |
             apps/desktop/release/*.AppImage
             apps/desktop/release/*.deb

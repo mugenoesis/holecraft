@@ -8,7 +8,7 @@ test.describe('web app shell', () => {
 
     await page.goto('/');
 
-    await expect(page).toHaveTitle('ezcad');
+    await expect(page).toHaveTitle('Holecraft');
     await expect(page.getByRole('status')).toHaveText(/Server v\d+\.\d+\.\d+/);
     await expect(page.getByText('Workplane 200 × 200 mm')).toBeVisible();
     expect(errors).toEqual([]);

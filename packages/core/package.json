@@ -1,8 +1,8 @@
 {
-  "name": "@ezcad/core",
+  "name": "@holecraft/core",
   "version": "0.1.0",
   "private": true,
-  "description": "ezcad document model, commands and geometry-free editor logic",
+  "description": "holecraft document model, commands and geometry-free editor logic",
   "license": "AGPL-3.0-only",
   "type": "module",
   "exports": {

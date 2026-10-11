@@ -1,8 +1,8 @@
 {
-  "name": "@ezcad/web",
+  "name": "@holecraft/web",
   "version": "0.1.0",
   "private": true,
-  "description": "ezcad browser editor",
+  "description": "holecraft browser editor",
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
@@ -11,7 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@ezcad/core": "0.1.0",
+    "@holecraft/core": "0.1.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "three": "^0.186.1"

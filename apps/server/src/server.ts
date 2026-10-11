@@ -13,7 +13,7 @@ export interface ServerOptions {
 }
 
 /**
- * Builds the ezcad server without listening, so the Docker entrypoint and the
+ * Builds the holecraft server without listening, so the Docker entrypoint and the
  * Electron main process can share it (and tests can use `inject`).
  */
 export async function createServer(opts: ServerOptions): Promise<FastifyInstance> {
@@ -22,7 +22,7 @@ export async function createServer(opts: ServerOptions): Promise<FastifyInstance
   const app = Fastify({ logger: opts.logger ?? false });
   const version = opts.version ?? 'dev';
 
-  app.get('/api/health', async () => ({ status: 'ok', name: 'ezcad', version }));
+  app.get('/api/health', async () => ({ status: 'ok', name: 'holecraft', version }));
 
   const staticDir = opts.staticDir;
   if (staticDir) {

@@ -1,19 +1,19 @@
 import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { createServer } from '@ezcad/server';
+import { createServer } from '@holecraft/server';
 import { BrowserWindow, app, shell } from 'electron';
 
-declare const __EZCAD_VERSION__: string;
+declare const __HOLECRAFT_VERSION__: string;
 
 type Server = Awaited<ReturnType<typeof createServer>>;
 
 let server: Server | undefined;
 
 function dataDir(): string {
-  if (process.env.EZCAD_DATA_DIR) return process.env.EZCAD_DATA_DIR;
+  if (process.env.HOLECRAFT_DATA_DIR) return process.env.HOLECRAFT_DATA_DIR;
   const base = process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
-  return path.join(base, 'ezcad');
+  return path.join(base, 'holecraft');
 }
 
 function webDir(): string {
@@ -23,7 +23,7 @@ function webDir(): string {
 
 /** Runs the same server as the Docker image, bound to loopback on a free port. */
 async function startServer(): Promise<string> {
-  server = await createServer({ dataDir: dataDir(), staticDir: webDir(), version: __EZCAD_VERSION__ });
+  server = await createServer({ dataDir: dataDir(), staticDir: webDir(), version: __HOLECRAFT_VERSION__ });
   await server.listen({ host: '127.0.0.1', port: 0 });
   const { port } = server.server.address() as AddressInfo;
   return `http://127.0.0.1:${port}`;
@@ -33,7 +33,7 @@ async function createWindow(origin: string): Promise<void> {
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
-    title: 'ezcad',
+    title: 'Holecraft',
     backgroundColor: '#f4f6f8',
     autoHideMenuBar: true,
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
@@ -66,7 +66,7 @@ if (!app.requestSingleInstanceLock()) {
     .then(startServer)
     .then(createWindow)
     .catch((err: unknown) => {
-      console.error('ezcad failed to start:', err);
+      console.error('Holecraft failed to start:', err);
       app.exit(1);
     });
 
