@@ -182,6 +182,24 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Desktop: exports are normal downloads, so Electron asks where to save. `HOLECRAFT_DOWNLOAD_DIR`
   skips the dialog and saves into a folder, which is how the desktop e2e test works.
 
+## Palette and OrcaSlicer export
+- `design.palette` (1 to 16 `#rrggbb`, `DEFAULT_PALETTE` = the four default shape colours) is saved with the design
+  (format version 2; `MIGRATIONS[1]` adds the default palette to older files). Slot n is filament n.
+  Shapes keep a plain hex `color`; a shape is "in a slot" when its colour equals the slot's. `setPaletteColor`
+  recolours every node with the old colour in the same undo step. `paletteSlotOf(palette, color)` (exact, else
+  nearest RGB, numbered from 1) is what export uses. Don't give nodes a slot index without a migration plan.
+- "3MF for OrcaSlicer" = `write3mf(bodies, { filaments: design.palette })`: the normal 3MF plus
+  `Metadata/model_settings.config` (per object `name` + `extruder`, one plate) and
+  `Metadata/project_settings.config` (JSON, filaments only).
+- **The engine crashes (segfault) if `filament_colour` has N entries and any per-filament setting has fewer.**
+  `orcaFilamentDefaults.ts` is GENERATED from the real engine by `scripts/update-orca-filament-defaults.sh`
+  (150 settings; each is repeated N times at export). Never hand-edit it, never write a partial settings
+  file, and never add printer/process keys (that would overwrite the user's profile on open).
+- Prove changes with `scripts/verify-orca-export.sh` (needs the local `mugenoesis/trident` image; runs
+  `docker run --rm` containers only): Trident's reader AND the real engine must load 4- and 16-colour files and
+  keep the filaments. The engine re-arranges objects on re-export, so only filaments/colours are compared there.
+  Container commands with a shell entrypoint must live in a script file (the sandbox refuses them inline).
+
 ## Thumbnails
 - The designs list shows a PNG per design. The **editor** makes it: `Viewport.snapshot()` draws the scene
   with a second, throwaway `WebGLRenderer` (so the visible view is untouched), workplane hidden and no

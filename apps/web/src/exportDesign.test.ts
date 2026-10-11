@@ -19,8 +19,8 @@ function deps(bodies: ExportBody[] = [body()]) {
 }
 
 describe('EXPORT_FORMATS', () => {
-  it('offers STL, OBJ and 3MF, each with a file extension', () => {
-    expect(EXPORT_FORMATS.map((f) => f.id)).toEqual(['stl', 'obj', '3mf']);
+  it('offers STL, OBJ, 3MF and 3MF for OrcaSlicer, each with a file extension', () => {
+    expect(EXPORT_FORMATS.map((f) => f.id)).toEqual(['stl', 'obj', '3mf', 'orca3mf']);
     for (const f of EXPORT_FORMATS) expect(f.label.length).toBeGreaterThan(0);
   });
 });

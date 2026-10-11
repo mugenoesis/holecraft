@@ -9,6 +9,7 @@ import { trackLeaving } from './leaving.ts';
 import { isTypingTarget } from './keyboard.ts';
 import { Link } from './Link.tsx';
 import { NotFound } from './NotFound.tsx';
+import { PalettePanel } from './PalettePanel.tsx';
 import { PropertiesPanel } from './PropertiesPanel.tsx';
 import { SaveController, type SaveStatus } from './saveController.ts';
 import { ServerStatus } from './ServerStatus.tsx';
@@ -207,6 +208,7 @@ function EditorView({ initial }: { initial: Design }) {
         />
         <aside className="panel">
           <ShapesPanel onAddShape={(shape) => addAt(shape, [0, 0])} />
+          <PalettePanel design={design} selection={state.selection} dispatch={dispatch} />
           <PropertiesPanel design={design} selection={state.selection} dispatch={dispatch} />
           <ObjectList design={design} selection={state.selection} onSelect={select} />
         </aside>

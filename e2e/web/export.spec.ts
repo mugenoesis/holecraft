@@ -12,7 +12,7 @@ async function exportAs(page: Page, format: 'STL' | 'OBJ' | '3MF') {
   await exportButton(page).click();
   const [download] = await Promise.all([
     page.waitForEvent('download', { timeout: 30_000 }),
-    page.getByRole('menuitem', { name: new RegExp(`as ${format}`) }).click(),
+    page.getByRole('menuitem', { name: new RegExp(`as ${format}$`) }).click(),
   ]);
   const path = await download.path();
   return { fileName: download.suggestedFilename(), file: await readFile(path) };
@@ -62,7 +62,7 @@ test.describe('the Export menu', () => {
     await page.getByRole('button', { name: 'Box', exact: true }).click();
     await exportButton(page).click();
     await expect(page.getByRole('menu')).toBeVisible();
-    for (const format of ['STL', 'OBJ', '3MF']) await expect(page.getByRole('menuitem', { name: new RegExp(`as ${format}`) })).toBeVisible();
+    for (const format of ['STL', 'OBJ', '3MF']) await expect(page.getByRole('menuitem', { name: new RegExp(`as ${format}$`) })).toBeVisible();
   });
 
   test('closes on Escape and when you click elsewhere', async ({ page }) => {

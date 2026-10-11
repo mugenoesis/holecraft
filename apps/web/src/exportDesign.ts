@@ -3,12 +3,13 @@ import { exportFileName, write3mf, writeObj, writeStl, type ExportBody } from '@
 import { downloadFile } from './download.ts';
 import { exportBodiesInWorker } from './geometry/exportInWorker.ts';
 
-export type ExportFormat = 'stl' | 'obj' | '3mf';
+export type ExportFormat = 'stl' | 'obj' | '3mf' | 'orca3mf';
 
-export const EXPORT_FORMATS: ReadonlyArray<{ id: ExportFormat; label: string; hint: string; mime: string }> = [
-  { id: 'stl', label: 'STL', hint: 'Best for 3D printing', mime: 'model/stl' },
-  { id: 'obj', label: 'OBJ', hint: 'Widely supported mesh', mime: 'text/plain' },
-  { id: '3mf', label: '3MF', hint: 'Keeps names and colours', mime: 'model/3mf' },
+export const EXPORT_FORMATS: ReadonlyArray<{ id: ExportFormat; label: string; hint: string; mime: string; extension: string }> = [
+  { id: 'stl', label: 'STL', hint: 'Best for 3D printing', mime: 'model/stl', extension: 'stl' },
+  { id: 'obj', label: 'OBJ', hint: 'Widely supported mesh', mime: 'text/plain', extension: 'obj' },
+  { id: '3mf', label: '3MF', hint: 'Keeps names and colours', mime: 'model/3mf', extension: '3mf' },
+  { id: 'orca3mf', label: '3MF for OrcaSlicer', hint: 'Colours become filaments', mime: 'model/3mf', extension: '3mf' },
 ];
 
 export interface ExportDeps {
@@ -45,6 +46,7 @@ export async function runExport(design: Design, format: ExportFormat, deps: Expo
   if (bodies.length === 0) throw new Error('Nothing to export: there are no solid shapes in this design');
 
   const info = EXPORT_FORMATS.find((f) => f.id === format)!;
-  const data = format === 'stl' ? writeStl(bodies) : format === 'obj' ? writeObj(bodies) : write3mf(bodies);
-  deps.save(exportFileName(design.name, format), data, info.mime);
+  const data =
+    format === 'stl' ? writeStl(bodies) : format === 'obj' ? writeObj(bodies) : format === 'orca3mf' ? write3mf(bodies, { filaments: design.palette }) : write3mf(bodies);
+  deps.save(exportFileName(design.name, info.extension), data, info.mime);
 }

@@ -9,6 +9,7 @@ import {
 import { MAX_SHAPE_SIZE } from './edit.ts';
 import type { GridSettings } from './grid.ts';
 import { isMeshRef, MESH_SHAPE_TYPE } from './meshShape.ts';
+import { DEFAULT_PALETTE, MAX_PALETTE_SIZE, isHexColor } from './palette.ts';
 import { isShapeType } from './shapes.ts';
 
 /** A saved design that cannot be trusted, with where in it the problem is. */
@@ -117,7 +118,10 @@ function parseNode(key: string, raw: unknown): DesignNode {
 }
 
 /** Format migrations, oldest first. Add an entry here whenever DESIGN_FORMAT_VERSION is raised. */
-const MIGRATIONS: Record<number, (design: Record<string, unknown>) => Record<string, unknown>> = {};
+const MIGRATIONS: Record<number, (design: Record<string, unknown>) => Record<string, unknown>> = {
+  // 1 -> 2: designs gain a palette of filament colours.
+  1: (design) => ({ ...design, palette: [...DEFAULT_PALETTE] }),
+};
 
 function migrate(raw: Record<string, unknown>): Record<string, unknown> {
   const version = raw.formatVersion;
@@ -126,6 +130,17 @@ function migrate(raw: Record<string, unknown>): Record<string, unknown> {
   let current = raw;
   for (let v = version as number; v < DESIGN_FORMAT_VERSION; v++) current = MIGRATIONS[v]!(current);
   return current;
+}
+
+function parsePalette(v: unknown): string[] {
+  if (!Array.isArray(v) || v.length < 1 || v.length > MAX_PALETTE_SIZE) fail('palette', `must be a list of 1 to ${MAX_PALETTE_SIZE} colours`);
+  const colours: string[] = [];
+  v.forEach((c, i) => {
+    if (!isHexColor(c)) fail(`palette[${i}]`, 'must be a #rrggbb colour');
+    const lower = c.toLowerCase();
+    if (!colours.includes(lower)) colours.push(lower);
+  });
+  return colours;
 }
 
 /**
@@ -169,6 +184,7 @@ export function parseDesign(input: unknown): Design {
 
   return {
     formatVersion: DESIGN_FORMAT_VERSION,
+    palette: parsePalette(raw.palette),
     id: str(raw.id, 'id', 64),
     name: str(raw.name, 'name', MAX_STORED_NAME, { allowEmpty: true }),
     units,
