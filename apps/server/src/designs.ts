@@ -8,7 +8,7 @@ import {
   type Design,
   type DesignSummary,
 } from '@holecraft/core';
-import { mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export type { DesignSummary };
@@ -87,6 +87,15 @@ export class DesignStore {
     } catch (error) {
       throw new StoredDesignError(id, error instanceof Error ? error.message : String(error));
     }
+  }
+
+  /** True if a design with this id exists on disk (it is not read or checked). */
+  async exists(id: string): Promise<boolean> {
+    if (!isValidDesignId(id)) return false;
+    return stat(this.fileFor(id)).then(
+      () => true,
+      () => false,
+    );
   }
 
   async create(name?: string): Promise<Design> {

@@ -1,3 +1,4 @@
+import { thumbnailCamera } from './thumbnailCamera.ts';
 import { twoFingerStep, type Point } from './touchGesture.ts';
 import {
   HOME_VIEW,
@@ -85,6 +86,7 @@ export class Viewport {
   private readonly resizeObserver: ResizeObserver;
   private readonly canvas: HTMLCanvasElement;
   private design: Design | null = null;
+  private workplane: THREE.Object3D | null = null;
   private frame = 0;
   private cameraDrag: CameraDrag | null = null;
   private left: LeftPress | null = null;
@@ -105,7 +107,8 @@ export class Viewport {
     const sun = new THREE.DirectionalLight(0xffffff, 1.4);
     sun.position.set(-120, -200, 300);
     this.scene.add(sun);
-    this.scene.add(createWorkplane(opts.workplaneWidth, opts.workplaneDepth));
+    this.workplane = createWorkplane(opts.workplaneWidth, opts.workplaneDepth);
+    this.scene.add(this.workplane);
     this.scene.add(this.designScene.root);
 
     this.rig = new CameraRig((state, projection) => {
@@ -155,6 +158,34 @@ export class Viewport {
   setView(name: ViewPresetName): void {
     this.rig.goTo(applyViewPreset(this.rig.state, name));
     this.requestRender();
+  }
+
+  /**
+   * A small PNG of the whole design from the home angle, without the workplane or the selection, for
+   * the designs list. Drawn by a second renderer, so the visible view is not disturbed. Null when
+   * there is nothing to draw.
+   */
+  async snapshot(width = 320, height = 240): Promise<Blob | null> {
+    const bounds = this.design && designBounds(this.design);
+    if (!bounds) return null;
+
+    const camera = thumbnailCamera(bounds, width / height);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    try {
+      renderer.setPixelRatio(1);
+      renderer.setSize(width, height, false);
+      if (this.workplane) this.workplane.visible = false;
+      try {
+        this.designScene.withoutSelection(() => renderer.render(this.scene, camera));
+      } finally {
+        if (this.workplane) this.workplane.visible = true;
+      }
+      return await new Promise<Blob | null>((resolve) => renderer.domElement.toBlob(resolve, 'image/png'));
+    } finally {
+      renderer.dispose();
+      renderer.forceContextLoss();
+    }
   }
 
   setProjection(projection: Projection): void {

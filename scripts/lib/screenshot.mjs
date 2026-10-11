@@ -6,6 +6,7 @@
 //        CLICK=dx,dy   click this many pixels from the viewport centre (selects what is there)
 //        FILL="Rotate Z=45;Width=30"  type into Properties fields of the selected shape (after CLICK)
 //        BUTTON=Hole,Group  click buttons by name, in order, after PRESS
+//        WAIT=ms       wait this long before the screenshot (e.g. for a thumbnail to be taken)
 //        PRESS=a,b     press these keys (Playwright names, comma-separated) after DEMO, e.g. Control+a
 import { chromium } from '@playwright/test';
 
@@ -66,6 +67,7 @@ if (process.env.VIEW) {
 }
 
 await page.waitForTimeout(1200);
+if (process.env.WAIT) await page.waitForTimeout(Number(process.env.WAIT));
 await page.screenshot({ path: output });
 await browser.close();
 

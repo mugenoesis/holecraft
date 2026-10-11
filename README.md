@@ -13,11 +13,11 @@ independent project with its own code and design, and it runs entirely on your o
 - **Docker**: self-host it and open it from any browser on your network.
 - **Linux desktop app**: AppImage or .deb that works fully offline.
 
-> **Status: early development (Phase 4c of the roadmap done).** You can keep a library
+> **Status: early development (Phase 4d of the roadmap done).** You can keep a library
 > of designs that save automatically, navigate a 3D workplane, add boxes, cylinders and spheres,
 > select, move, resize, lift and rotate them, edit their properties, make shapes into holes and
 > group them to cut real holes out of solids, undo/redo, **import** existing models (STL, OBJ,
-> 3MF) and **export for 3D printing** (STL, OBJ, 3MF). Thumbnails on the designs list come next.
+> 3MF) and **export for 3D printing** (STL, OBJ, 3MF). Phase 5 tools (align, mirror, ruler...) come next.
 
 ## On a phone or tablet
 
@@ -68,7 +68,9 @@ Holecraft opens on a list of your designs. **New design** makes one and opens it
 open it, or use **Rename**, **Duplicate** and **Delete** (which asks first). Everything you do is
 **saved automatically** a moment after you stop changing things, and the top bar shows
 *Saved*, *Unsaved changes*, *Saving…* or *Couldn't save* (it keeps your work on screen and retries
-until the server answers). Change a design's name in the top bar. Undo history is not kept between
+until the server answers). Change a design's name in the top bar. Each design on the list shows a small
+**picture** of itself (taken from the usual angle, without the grid, a couple of seconds after you stop
+editing; designs with nothing in them show a placeholder). Undo history is not kept between
 sessions. Designs are plain JSON files, one per design, in `<data folder>/designs/`, so they are
 easy to back up or copy.
 
