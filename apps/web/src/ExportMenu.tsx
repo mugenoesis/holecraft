@@ -1,14 +1,19 @@
-import type { Design } from '@holecraft/core';
+import type { Design, NodeId } from '@holecraft/core';
 import { useEffect, useRef, useState } from 'react';
-import { EXPORT_FORMATS, hasExportableShapes, runExport, type ExportFormat } from './exportDesign.ts';
+import { EXPORT_FORMATS, hasExportableShapes, onlySelected, runExport, type ExportFormat } from './exportDesign.ts';
 
 /** The "Export" button and its menu of file formats, for the top bar. */
-export function ExportMenu({ design }: { design: Design }) {
+export function ExportMenu({ design, selection }: { design: Design; selection: readonly NodeId[] }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const [selectedOnly, setSelectedOnly] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const canExport = hasExportableShapes(design);
+
+  // The choice only makes sense while something is selected; otherwise export everything.
+  const picked = selection.length > 0 ? onlySelected(design, selection) : null;
+  const usingSelection = selectedOnly && picked !== null;
 
   // Close on Escape, or on a click anywhere outside the menu.
   useEffect(() => {
@@ -30,7 +35,7 @@ export function ExportMenu({ design }: { design: Design }) {
     setBusy(true);
     setProblem(null);
     try {
-      await runExport(design, format);
+      await runExport(usingSelection ? picked : design, format);
     } catch (error) {
       setProblem(error instanceof Error ? error.message : 'The export failed');
     } finally {
@@ -53,6 +58,12 @@ export function ExportMenu({ design }: { design: Design }) {
 
       {open && (
         <div className="menu" role="menu" aria-label="Export format">
+          {picked && (
+            <label className="menu-option">
+              <input type="checkbox" checked={selectedOnly} onChange={(e) => setSelectedOnly(e.target.checked)} />
+              Only the selected ({selection.length})
+            </label>
+          )}
           {EXPORT_FORMATS.map((f) => (
             <button key={f.id} type="button" role="menuitem" aria-label={`Export as ${f.label}`} onClick={() => void start(f.id)}>
               <strong>{f.label}</strong>

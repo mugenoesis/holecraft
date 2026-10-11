@@ -171,7 +171,7 @@ function EditorView({ initial }: { initial: Design }) {
           </button>
         </div>
         <DesignNameField name={design.name} onCommit={(name) => dispatch({ type: 'renameDesign', name })} />
-        <ExportMenu design={design} />
+        <ExportMenu design={design} selection={state.selection} />
         <span className={`save-status ${saveStatus}`} data-testid="save-status" aria-live="polite" title={controller.current?.lastError?.message}>
           {STATUS_LABEL[saveStatus]}
           {saveStatus === 'error' && saveProblem ? `: ${saveProblem}` : ''}

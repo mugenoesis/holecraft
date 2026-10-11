@@ -21,7 +21,7 @@ independent project with its own code and design, and it runs entirely on your o
 
 ## Exporting for printing
 
-The **Export** button in the top bar downloads the whole design (not just what is selected) as:
+The **Export** button in the top bar downloads the whole design as (tick **Only the selected** in the menu, shown while something is selected, to export just those):
 
 | Format | Good for |
 |---|---|

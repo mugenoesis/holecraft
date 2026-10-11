@@ -177,6 +177,59 @@ test.describe('STL export', () => {
   });
 });
 
+test.describe('exporting only the selection', () => {
+  const onlySelected = (page: Page) => page.getByRole('checkbox', { name: /only the selected/i });
+
+  async function boxAndSphere(page: Page) {
+    await page.getByRole('button', { name: 'Box', exact: true }).click();
+    await dropShape(page, 'Sphere', 200, 0);
+  }
+
+  test('offers the choice only while something is selected', async ({ page }) => {
+    await boxAndSphere(page);
+    await page.keyboard.press('Escape'); // clear the selection
+    await exportButton(page).click();
+    await expect(onlySelected(page)).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    await select(page, /Box 1/);
+    await exportButton(page).click();
+    await expect(onlySelected(page)).toBeVisible();
+    await expect(onlySelected(page)).not.toBeChecked();
+  });
+
+  test('exports everything unless you tick it', async ({ page }) => {
+    await boxAndSphere(page);
+    await select(page, /Box 1/);
+    const stl = parseStl((await exportAs(page, 'STL')).file);
+    expect(stl.max[0]).toBeGreaterThan(30); // the sphere is in there too
+  });
+
+  test('exports just the selected shapes when ticked', async ({ page }) => {
+    await boxAndSphere(page);
+    await select(page, /Box 1/);
+    await exportButton(page).click();
+    await onlySelected(page).check();
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 30_000 }),
+      page.getByRole('menuitem', { name: /as STL/ }).click(),
+    ]);
+    const stl = parseStl(await readFile(await download.path()));
+    expect(stl.triangles).toBe(12);
+    expect(stl.volume).toBeCloseTo(8000, 3);
+  });
+
+  test('says so when the selection has nothing solid to print', async ({ page }) => {
+    await boxAndSphere(page);
+    await select(page, /Sphere 1/);
+    await properties(page).getByRole('button', { name: 'Hole', exact: true }).click();
+    await exportButton(page).click();
+    await onlySelected(page).check();
+    await page.getByRole('menuitem', { name: /as STL/ }).click();
+    await expect(page.getByRole('alert')).toContainText(/nothing to export/i);
+  });
+});
+
 test.describe('OBJ export', () => {
   test('writes a text OBJ in millimetres with the shape\'s name', async ({ page }) => {
     await page.getByRole('button', { name: 'Box', exact: true }).click();
