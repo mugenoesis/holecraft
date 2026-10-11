@@ -182,6 +182,20 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Desktop: exports are normal downloads, so Electron asks where to save. `HOLECRAFT_DOWNLOAD_DIR`
   skips the dialog and saves into a folder, which is how the desktop e2e test works.
 
+## Thumbnails
+- The designs list shows a PNG per design. The **editor** makes it: `Viewport.snapshot()` draws the scene
+  with a second, throwaway `WebGLRenderer` (so the visible view is untouched), workplane hidden and no
+  selection (`DesignScene.withoutSelection`), framed by `thumbnailCamera` (fits the real corners, 90%).
+- When: `ThumbnailScheduler` (pure, fake-timer tested) waits until the design is **saved**, its groups are
+  worked out and every imported model has arrived, then 2 s of quiet; one picture per design version, never
+  two at once, a version changed mid-upload is picked up afterwards. Opening an old design backfills its picture.
+- Server: `PUT/GET /api/designs/:id/thumbnail` (`thumbnails.ts`; PNG only, signature + IHDR size <= 512 +
+  IEND checked, <= 256 KB), files in `<data>/thumbnails/<id>.png`. `GET /api/designs` adds `thumbnailAt`
+  (file mtime) and the card uses `/thumbnail?v=<thumbnailAt>`, so each picture has its own cacheable address.
+  Duplicate copies the picture, delete removes it. Pictures are derived data: safe to delete.
+- Cards: the picture is an `aria-hidden`, `tabIndex=-1` link (the name stays the one real link, which
+  tests and screen readers rely on).
+
 ## Imported models
 - An import is an **ordinary shape** with `shapeType: 'mesh'` (`MESH_SHAPE_TYPE`) and `params.mesh` = a
   stored-mesh reference (SHA-256 of the bytes, 64 hex, `isMeshRef`). Bounds, move, resize, rotate,

@@ -13,6 +13,8 @@ export interface DesignSummary {
   updatedAt: string;
   /** Top-level shapes and groups. */
   objectCount: number;
+  /** When the design's thumbnail picture was last made (ms since 1970); absent if it has none. */
+  thumbnailAt?: number;
 }
 
 /** Longest name the editor will give a design or a shape. */

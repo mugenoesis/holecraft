@@ -19,8 +19,10 @@ import {
   type ViewPresetName,
 } from '@holecraft/core';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { meshRefsIn } from '@holecraft/geometry';
 import { GeometryService } from '../geometry/GeometryService.ts';
 import { createWorkerEvaluator } from '../geometry/workerEvaluator.ts';
+import { ThumbnailScheduler } from '../thumbnailScheduler.ts';
 import { isTypingTarget } from '../keyboard.ts';
 import { SHAPE_DRAG_TYPE } from '../shapeDrag.ts';
 import type { Projection } from './CameraRig.ts';
@@ -41,6 +43,10 @@ interface Props {
   onMoveEnd: () => void;
   onMarquee: (ids: NodeId[], additive: boolean) => void;
   onNudge: (delta: [number, number]) => void;
+  /** True while the design is saved, so a picture of it can be taken for the designs list. */
+  thumbnailReady: boolean;
+  /** Receives that picture (a small PNG). */
+  onThumbnail: (picture: Blob) => Promise<void>;
   /** A resize or lift handle is dragging the selected shape into this geometry. */
   onGeometry: (id: NodeId, geometry: ShapeGeometry) => void;
   /** A rotation ring is turning the selected shape into this orientation (row-major 3x3). */
@@ -163,6 +169,26 @@ export function ViewportCanvas(props: Props) {
     service?.update(design, meshes);
     viewportRef.current?.setDesign(design, service?.results(), service?.failed(), meshes);
   }, [design, meshes, resultVersion]);
+
+  // A picture of the design for the designs list, taken once it is saved and its shapes are worked out.
+  const schedulerRef = useRef<ThumbnailScheduler | null>(null);
+  useEffect(() => {
+    const scheduler = new ThumbnailScheduler(async () => {
+      const picture = await viewportRef.current?.snapshot();
+      if (picture) await latest.current.onThumbnail(picture);
+    });
+    schedulerRef.current = scheduler;
+    return () => {
+      schedulerRef.current = null;
+      scheduler.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    const modelsArrived = meshRefsIn(design, design.roots).every((ref) => meshes.has(ref));
+    const settled = !serviceRef.current?.busy && modelsArrived;
+    schedulerRef.current?.notify(props.thumbnailReady && !failed && settled, design);
+  }, [design, meshes, resultVersion, props.thumbnailReady, failed]);
 
   useEffect(() => {
     viewportRef.current?.setSelection(selection);

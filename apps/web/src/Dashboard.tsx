@@ -1,7 +1,7 @@
 import type { DesignSummary } from '@holecraft/core';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { afterLeaving } from './leaving.ts';
-import { ApiError, createDesign, deleteDesign, duplicateDesign, listDesigns, renameDesignOnServer } from './designsApi.ts';
+import { ApiError, createDesign, deleteDesign, duplicateDesign, listDesigns, renameDesignOnServer, thumbnailUrl } from './designsApi.ts';
 import { Link } from './Link.tsx';
 import { designPath, navigate } from './router.ts';
 import { ServerStatus } from './ServerStatus.tsx';
@@ -122,10 +122,15 @@ function DesignCard({ design, onChanged, onProblem }: CardProps) {
     }
   };
 
+  const picture = thumbnailUrl(design);
   const objects = `${design.objectCount} ${design.objectCount === 1 ? 'object' : 'objects'}`;
 
   return (
     <li className="design-card" data-testid="design-card" data-design-id={design.id}>
+      {/* The picture is a second way into the design; the name below is the link for keyboards and screen readers. */}
+      <Link to={designPath(design.id)} className="design-thumb" tabIndex={-1} aria-hidden="true">
+        {picture ? <img src={picture} alt="" loading="lazy" width={320} height={240} /> : <span className="design-thumb-empty">No picture yet</span>}
+      </Link>
       {mode === 'renaming' ? (
         <RenameBox
           name={design.name}

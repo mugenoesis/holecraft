@@ -80,3 +80,13 @@ export async function duplicateDesign(id: string): Promise<Design> {
 export async function deleteDesign(id: string): Promise<void> {
   await request(`/api/designs/${id}`, { method: 'DELETE' });
 }
+
+/** Stores the small picture of a design that the designs list shows. */
+export async function uploadThumbnail(id: string, picture: Blob): Promise<void> {
+  await request(`/api/designs/${id}/thumbnail`, { method: 'PUT', headers: { 'content-type': 'image/png' }, body: picture });
+}
+
+/** Where to load a design's picture from, or null if it has none. The time makes each new picture a new address. */
+export function thumbnailUrl(design: { id: string; thumbnailAt?: number }): string | null {
+  return design.thumbnailAt === undefined ? null : `/api/designs/${design.id}/thumbnail?v=${design.thumbnailAt}`;
+}

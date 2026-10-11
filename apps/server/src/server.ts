@@ -5,6 +5,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { MAX_DESIGN_BYTES, registerDesignRoutes } from './designRoutes.ts';
 import { DesignStore } from './designs.ts';
 import { MeshStore, registerMeshRoutes } from './meshes.ts';
+import { ThumbnailStore } from './thumbnails.ts';
 
 export interface ServerOptions {
   /** Where designs, thumbnails and imported meshes are stored. Created if missing. */
@@ -26,7 +27,9 @@ export async function createServer(opts: ServerOptions): Promise<FastifyInstance
   const version = opts.version ?? 'dev';
 
   app.get('/api/health', async () => ({ status: 'ok', name: 'holecraft', version }));
-  registerDesignRoutes(app, new DesignStore(opts.dataDir));
+  const thumbnails = new ThumbnailStore(opts.dataDir);
+  await thumbnails.init();
+  registerDesignRoutes(app, new DesignStore(opts.dataDir), thumbnails);
   const meshes = new MeshStore(opts.dataDir);
   await meshes.init();
   registerMeshRoutes(app, meshes);

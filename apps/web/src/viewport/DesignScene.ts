@@ -129,6 +129,17 @@ export class DesignScene {
     }
   }
 
+  /** Runs `fn` with nothing shown as selected (for pictures of the design), then puts the selection back. */
+  withoutSelection<T>(fn: () => T): T {
+    const kept = [...this.selection];
+    this.setSelection([]);
+    try {
+      return fn();
+    } finally {
+      this.setSelection(kept);
+    }
+  }
+
   setSelection(ids: readonly NodeId[]): void {
     this.selection = new Set(ids);
     for (const mesh of this.meshes()) this.applySelection(mesh);

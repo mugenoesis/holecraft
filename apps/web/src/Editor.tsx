@@ -1,6 +1,6 @@
 import { canGroup, canRedo, canUndo, canUngroup, type Design, type NodeId, type ShapeType } from '@holecraft/core';
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { ApiError, getDesign, saveDesign } from './designsApi.ts';
+import { ApiError, getDesign, saveDesign, uploadThumbnail } from './designsApi.ts';
 import { createEditorState, editorReducer } from './editorState.ts';
 import { ExportMenu } from './ExportMenu.tsx';
 import { ImportButton } from './ImportButton.tsx';
@@ -192,6 +192,8 @@ function EditorView({ initial }: { initial: Design }) {
         <ViewportCanvas
           design={design}
           meshes={meshes}
+          thumbnailReady={saveStatus === 'saved'}
+          onThumbnail={(picture) => uploadThumbnail(design.id, picture)}
           selection={state.selection}
           onDropShape={addAt}
           onPick={(id, additive, phase) => dispatch({ type: 'pick', id, additive, phase })}
