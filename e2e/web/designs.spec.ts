@@ -25,6 +25,9 @@ test.describe('the designs list', () => {
     await new Promise((r) => setTimeout(r, 20));
     const second = await createDesignViaApi(request, uniqueName('Newer'));
     await page.goto('/');
+    // allInnerTexts() does not wait, so make sure both cards have been drawn before reading the order.
+    await expect(card(page, first.name)).toBeVisible();
+    await expect(card(page, second.name)).toBeVisible();
 
     const names = await page.getByTestId('design-card').getByRole('link').allInnerTexts();
     expect(names.indexOf(second.name)).toBeGreaterThanOrEqual(0);
@@ -198,6 +201,20 @@ test.describe('saving', () => {
     await waitSaved(page);
     await expect(page).toHaveTitle(`${name} – Holecraft`);
     await page.getByRole('link', { name: 'All designs' }).click();
+    await expect(card(page, name)).toBeVisible();
+  });
+
+  test('the list waits for a slow save made on leaving, so it never shows the old name', async ({ page }) => {
+    const name = uniqueName('Slow');
+    await newDesign(page);
+    await waitSaved(page);
+    await page.route('**/api/designs/*', async (route) => {
+      if (route.request().method() === 'PUT') await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
+    await nameBox(page).fill(name);
+    await nameBox(page).press('Enter');
+    await page.getByRole('link', { name: 'All designs' }).click(); // before the autosave pause is up
     await expect(card(page, name)).toBeVisible();
   });
 

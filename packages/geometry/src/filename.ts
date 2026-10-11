@@ -1,0 +1,20 @@
+const MAX_BASE_LENGTH = 80;
+const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+
+/**
+ * A file name for an export: the design's name made safe on every common file system (no slashes or
+ * other forbidden characters, no control characters, no reserved Windows names), with the extension.
+ */
+export function exportFileName(designName: string, extension: string): string {
+  let base = designName
+    .replace(/[\\/:*?"<>|]/g, '-')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[\s.]+|[\s.]+$/g, '');
+
+  // Nothing readable left (an empty name, or just punctuation): use a plain name.
+  if (!/[\p{L}\p{N}]/u.test(base)) base = 'design';
+  base = base.slice(0, MAX_BASE_LENGTH).replace(/[\s.]+$/g, '');
+  if (RESERVED.test(base)) base = `${base}-design`;
+  return `${base}.${extension.toLowerCase()}`;
+}

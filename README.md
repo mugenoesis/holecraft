@@ -13,11 +13,28 @@ independent project with its own code and design, and it runs entirely on your o
 - **Docker**: self-host it and open it from any browser on your network.
 - **Linux desktop app**: AppImage or .deb that works fully offline.
 
-> **Status: early development (Phase 4a of the roadmap done).** You can keep a library
+> **Status: early development (Phase 4b of the roadmap done).** You can keep a library
 > of designs that save automatically, navigate a 3D workplane, add boxes, cylinders and spheres,
 > select, move, resize, lift and rotate them, edit their properties, make shapes into holes and
-> group them to cut real holes out of solids, and undo/redo. Import and export (STL, OBJ, 3MF)
-> come next.
+> group them to cut real holes out of solids, undo/redo, and **export for 3D printing** (STL, OBJ,
+> 3MF). Importing existing models, and thumbnails on the designs list, come next.
+
+## Exporting for printing
+
+The **Export** button in the top bar downloads the whole design (not just what is selected) as:
+
+| Format | Good for |
+|---|---|
+| **STL** | Slicers and printing. Binary, in millimetres |
+| **OBJ** | Other 3D programs. Text, in millimetres, one named object per shape |
+| **3MF** | Modern slicers. Keeps each object's name and colour, in millimetres |
+
+What you get is what you see: holes are cut out of the solids they share a group with, every
+shape is placed where it sits (moved, lifted, turned), and each top-level shape or group becomes its
+own object. Holes that are not in a group with a solid, hidden shapes and anything the holes cut away
+completely are left out. The file is named after the design. The files have been checked with an
+independent mesh library (`scripts/verify-exports.sh`): closed, consistently wound, the right volume.
+In the desktop app you choose where to save; set `HOLECRAFT_DOWNLOAD_DIR` to save straight into a folder.
 
 ## Your designs
 
@@ -131,6 +148,7 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/e2e.sh` | Playwright tests in the Playwright Docker image |
 | `scripts/docker-smoke.sh` | Build the image, run it, verify health and non-root user |
 | `scripts/package-desktop.sh` | Build the AppImage and .deb (in a Debian container) |
+| `scripts/verify-exports.sh` | Write sample STL/OBJ/3MF files with the real writers and check them with an independent mesh library (trimesh, in a Python container) |
 | `scripts/deploy-local.sh` | Rebuild the Docker image from `origin/main` and restart the local test container (default port 8200, keeps its data volume) |
 | `scripts/screenshot.sh` | Screenshot a running instance with software WebGL (`DEMO=1` adds shapes, `VIEW=top` picks a view, `CLICK=0,0` selects, `PRESS=Control+a` presses keys) |
 | `scripts/make-icon.sh` | Regenerate the app icons from the cube mark cropped out of `branding/logo.jpg` |

@@ -167,6 +167,21 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   `keepalive` on `pagehide`. Undo history is deliberately not persisted.
 - The design name is part of the design and renaming it is an undoable edit (`renameDesign`).
 
+## Export
+- Export = `collectBodies` (geometry package): each visible, solid, top-level shape or group becomes
+  one `ExportBody` (name, colour, world-space mesh) via `evaluateNode`, which places the node's own
+  transform (unlike `evaluateGroup`, which stays in the group's frame for the live preview).
+- The writers (`formats/stl.ts`, `obj.ts`, `threemf.ts`, `zip.ts`) are pure, dependency-free and
+  tested without manifold. 3MF is a hand-written *stored* zip (no compression library); `readStoredZip`
+  checks every CRC. Millimetres, Z up, counter-clockwise from outside, everywhere.
+- Export runs in its own short-lived worker (`exportInWorker.ts`), not the live preview worker.
+  `runExport` takes injected dependencies so it is unit-tested without a browser.
+- Test the *files*, not just the code: `e2e/web/meshFiles.ts` has deliberately independent STL/OBJ/3MF
+  readers, and `scripts/verify-exports.sh` loads real output in trimesh (watertight, winding, volume).
+  Run it whenever the writers change.
+- Desktop: exports are normal downloads, so Electron asks where to save. `HOLECRAFT_DOWNLOAD_DIR`
+  skips the dialog and saves into a folder, which is how the desktop e2e test works.
+
 ## Local test container
 - After the user merges a phase, run `scripts/deploy-local.sh` so they can try it by hand: it
   rebuilds from `origin/main` and restarts the `holecraft` container on port 8200, keeping the

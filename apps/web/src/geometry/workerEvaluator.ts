@@ -35,7 +35,8 @@ export function createWorkerEvaluator(): WorkerEvaluator {
       if (!job) return;
       pending.delete(data.id);
       if ('error' in data) job.reject(new Error(data.error));
-      else job.resolve(data.mesh);
+      else if ('mesh' in data) job.resolve(data.mesh);
+      else job.reject(new Error('The geometry worker sent an unexpected reply'));
     };
     w.onerror = (event) => failAll(new Error(event.message || 'The geometry worker stopped unexpectedly'));
     return w;
@@ -47,7 +48,7 @@ export function createWorkerEvaluator(): WorkerEvaluator {
         worker ??= start();
         const id = nextId++;
         pending.set(id, { resolve, reject });
-        const request: WorkerRequest = { id, subtree };
+        const request: WorkerRequest = { kind: 'group', id, subtree };
         worker.postMessage(request);
       }),
     dispose: () => failAll(new Error('The geometry worker was shut down')),

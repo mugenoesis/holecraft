@@ -22,6 +22,18 @@ type Nodes = { nodes: Record<NodeId, DesignNode> };
  * tracked and deleted before returning, however it returns.
  */
 export function evaluateGroup(M: ManifoldToplevel, design: Nodes, groupId: NodeId): GroupMesh | null {
+  return build(M, design, groupId, false);
+}
+
+/**
+ * Like evaluateGroup, but for any top-level shape or group, and placed where it is in the design:
+ * the node's own transform is applied. This is what gets exported. Null when there is nothing to build.
+ */
+export function evaluateNode(M: ManifoldToplevel, design: Nodes, id: NodeId): GroupMesh | null {
+  return build(M, design, id, true);
+}
+
+function build(M: ManifoldToplevel, design: Nodes, rootId: NodeId, placeRoot: boolean): GroupMesh | null {
   const owned: Manifold[] = [];
   const track = (m: Manifold): Manifold => (owned.push(m), m);
 
@@ -68,7 +80,10 @@ export function evaluateGroup(M: ManifoldToplevel, design: Nodes, groupId: NodeI
   };
 
   try {
-    const result = contents(groupId);
+    const root = design.nodes[rootId];
+    let result: Manifold | null = null;
+    if (root?.kind === 'group') result = placeRoot ? placed(rootId) : contents(rootId);
+    else if (root?.kind === 'shape' && placeRoot) result = shape(root);
     if (!result || result.isEmpty()) return null;
     const mesh = result.getMesh();
     if (mesh.triVerts.length === 0) return null;

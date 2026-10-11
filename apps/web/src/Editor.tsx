@@ -2,6 +2,8 @@ import { canGroup, canRedo, canUndo, canUngroup, type Design, type NodeId, type 
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiError, getDesign, saveDesign } from './designsApi.ts';
 import { createEditorState, editorReducer } from './editorState.ts';
+import { ExportMenu } from './ExportMenu.tsx';
+import { trackLeaving } from './leaving.ts';
 import { isTypingTarget } from './keyboard.ts';
 import { Link } from './Link.tsx';
 import { NotFound } from './NotFound.tsx';
@@ -91,7 +93,7 @@ function EditorView({ initial }: { initial: Design }) {
       window.removeEventListener('pagehide', onPageHide);
       controller.current = null;
       // Leaving for the list: save whatever is still waiting, then stop.
-      void c.flush().finally(() => c.dispose());
+      trackLeaving(c.flush().finally(() => c.dispose()));
     };
   }, []);
 
@@ -169,6 +171,7 @@ function EditorView({ initial }: { initial: Design }) {
           </button>
         </div>
         <DesignNameField name={design.name} onCommit={(name) => dispatch({ type: 'renameDesign', name })} />
+        <ExportMenu design={design} />
         <span className={`save-status ${saveStatus}`} data-testid="save-status" aria-live="polite" title={controller.current?.lastError?.message}>
           {STATUS_LABEL[saveStatus]}
           {saveStatus === 'error' && saveProblem ? `: ${saveProblem}` : ''}
