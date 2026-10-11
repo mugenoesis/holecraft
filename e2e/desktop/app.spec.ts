@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
+import { pixelAt } from '../web/helpers.ts';
 
 // Tests the packaged app (apps/desktop/release/linux-unpacked), not the dev build,
 // so packaging mistakes such as missing resources are caught.
@@ -34,6 +35,44 @@ test.describe('desktop app', () => {
       await expect(win.getByTestId('viewport').locator('canvas')).toBeVisible();
       await expect(win.getByRole('alert')).toHaveCount(0);
       expect(existsSync(dataDir)).toBe(true);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('cuts a hole through a solid, so the geometry worker and its WebAssembly work when packaged', async () => {
+    const app = await electron.launch({
+      executablePath,
+      args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+      env: { ...process.env, HOLECRAFT_DATA_DIR: dataDir },
+    });
+    try {
+      const win = await app.firstWindow();
+      await win.waitForLoadState('load');
+      await expect(win.getByTestId('viewport').locator('canvas')).toBeVisible();
+
+      // A box and a cylinder, both added at the centre; make the cylinder a thin hole that passes through the box.
+      await win.getByRole('button', { name: 'Box', exact: true }).click();
+      await win.getByRole('button', { name: 'Cylinder', exact: true }).click();
+      await win.getByTestId('object-list').getByRole('button', { name: /Cylinder 1/ }).click();
+      const properties = win.getByRole('region', { name: 'Properties' });
+      for (const [name, value] of [['Width', '10'], ['Depth', '10'], ['Height', '40']] as const) {
+        await properties.getByLabel(name, { exact: true }).fill(value);
+        await properties.getByLabel(name, { exact: true }).press('Enter');
+      }
+      await properties.getByRole('button', { name: 'Hole', exact: true }).click();
+      await win.getByRole('heading', { name: 'Objects' }).click(); // leave the field, so Ctrl+A selects shapes
+      await win.keyboard.press('Control+a');
+      await win.getByRole('button', { name: 'Group', exact: true }).click();
+      await win.keyboard.press('Escape');
+      await win.getByLabel('Standard views').selectOption('top');
+
+      // From above the cut shows the pale workplane through the box; the orange top face has little blue in it.
+      const box = (await win.getByTestId('viewport').boundingBox())!;
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      await expect.poll(async () => (await pixelAt(win, cx + 3, cy + 3))[2], { timeout: 20_000 }).toBeGreaterThan(150);
+      expect((await pixelAt(win, cx + 20, cy))[2]).toBeLessThan(120);
     } finally {
       await app.close();
     }

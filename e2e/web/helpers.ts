@@ -75,6 +75,22 @@ export async function drag(
   if (shift) await page.keyboard.up('Shift');
 }
 
+/** The colour of one pixel of the page, read from a real screenshot (so it includes WebGL output). */
+export async function pixelAt(page: Page, x: number, y: number): Promise<[number, number, number]> {
+  const png = await page.screenshot({ clip: { x: Math.floor(x), y: Math.floor(y), width: 1, height: 1 } });
+  return page.evaluate(async (base64) => {
+    const image = new Image();
+    image.src = `data:image/png;base64,${base64}`;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(image, 0, 0);
+    const d = ctx.getImageData(0, 0, 1, 1).data;
+    return [d[0]!, d[1]!, d[2]!] as [number, number, number];
+  }, png.toString('base64'));
+}
+
 /** Waits until the camera has stopped easing (two identical readings in a row). */
 export async function cameraSettled(page: Page) {
   let last = '';

@@ -18,6 +18,8 @@ import {
   type ViewPresetName,
 } from '@holecraft/core';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { GeometryService } from '../geometry/GeometryService.ts';
+import { createWorkerEvaluator } from '../geometry/workerEvaluator.ts';
 import { isTypingTarget } from '../keyboard.ts';
 import { SHAPE_DRAG_TYPE } from '../shapeDrag.ts';
 import type { Projection } from './CameraRig.ts';
@@ -94,6 +96,9 @@ export function ViewportCanvas(props: Props) {
   const latest = useRef(props);
   latest.current = props;
 
+  const serviceRef = useRef<GeometryService | null>(null);
+  // Bumped whenever a group's computed shape arrives, so the scene is brought up to date.
+  const [resultVersion, setResultVersion] = useState(0);
   const [failed, setFailed] = useState(false);
   const [marquee, setMarquee] = useState<PixelRect | null>(null);
   const [dimensionLabel, setDimensionLabel] = useState<string | null>(null);
@@ -126,7 +131,8 @@ export function ViewportCanvas(props: Props) {
       return;
     }
     setFailed(false);
-    viewport.setDesign(latest.current.design);
+    const service = serviceRef.current;
+    viewport.setDesign(latest.current.design, service?.results(), service?.failed());
     viewport.setSelection(latest.current.selection);
     viewportRef.current = viewport;
     return () => {
@@ -135,9 +141,25 @@ export function ViewportCanvas(props: Props) {
     };
   }, [width, depth]);
 
+  // Groups are drawn as the single mesh the holes leave behind, worked out off the main thread.
+  // The worker (and its WebAssembly) only starts once a group actually needs working out.
   useEffect(() => {
-    viewportRef.current?.setDesign(design);
-  }, [design]);
+    const evaluator = createWorkerEvaluator();
+    const service = new GeometryService(evaluator.evaluate, () => setResultVersion((v) => v + 1));
+    serviceRef.current = service;
+    service.update(latest.current.design);
+    return () => {
+      serviceRef.current = null;
+      service.dispose();
+      evaluator.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    const service = serviceRef.current;
+    service?.update(design);
+    viewportRef.current?.setDesign(design, service?.results(), service?.failed());
+  }, [design, resultVersion]);
 
   useEffect(() => {
     viewportRef.current?.setSelection(selection);
