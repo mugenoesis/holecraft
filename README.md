@@ -19,6 +19,14 @@ independent project with its own code and design, and it runs entirely on your o
 > group them to cut real holes out of solids, undo/redo, **import** existing models (STL, OBJ,
 > 3MF) and **export for 3D printing** (STL, OBJ, 3MF). Thumbnails on the designs list come next.
 
+## On a phone or tablet
+
+The editor works from a phone's browser (open the server's address on your home network). On a narrow
+screen the 3D view takes the top of the screen, the top bar wraps onto a few rows, and the shapes,
+properties and object list sit in a short scrolling strip below. Menus and messages open across the
+full width, and buttons, fields and the resize/rotate handles are larger on touch screens.
+Camera: drag one finger on empty space to orbit, two fingers to pan, pinch to zoom.
+
 ## Importing models
 
 **Import** in the top bar brings in an STL (binary or text), OBJ or 3MF file (3MF files, including
