@@ -65,9 +65,9 @@ easy to back up or copy.
 | Ungroup | **Ungroup** or `Ctrl+Shift+G` opens a group one level, leaving every shape exactly where it was. Ungrouping a hole group turns its contents into holes |
 | Duplicate / delete | `Ctrl+D` / `Delete`, or the buttons in the Properties panel |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Shift+Z` (or `Ctrl+Y`), or the Undo and Redo buttons. A whole drag is one step |
-| Orbit | Right-drag |
-| Pan | Middle-drag, or Shift + right-drag |
-| Zoom | Mouse wheel |
+| Orbit | Right-drag. **Touch:** drag one finger on empty space |
+| Pan | Middle-drag, or Shift + right-drag. **Touch:** slide two fingers |
+| Zoom | Mouse wheel. **Touch:** pinch with two fingers |
 | Home view | **Home** button or the `Home` key |
 | Fit all | **Fit** button or `F` |
 | Perspective / orthographic | **Ortho** toggle |

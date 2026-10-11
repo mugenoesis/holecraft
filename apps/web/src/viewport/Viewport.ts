@@ -1,3 +1,4 @@
+import { twoFingerStep, type Point } from './touchGesture.ts';
 import {
   HOME_VIEW,
   applyViewPreset,
@@ -57,7 +58,11 @@ interface LeftPress {
   /** Height of the pressed shape's base; dragging follows the horizontal plane at that height. */
   planeZ: number;
   startGround: [number, number] | null;
-  mode: 'move' | 'marquee' | 'none' | null;
+  mode: 'move' | 'marquee' | 'orbit' | 'none' | null;
+  /** A finger rather than a mouse: dragging empty space orbits instead of drawing a marquee. */
+  touch: boolean;
+  lastX: number;
+  lastY: number;
 }
 
 /**
@@ -66,6 +71,9 @@ interface LeftPress {
  *
  * Left button: click selects, dragging a shape moves it, dragging empty space draws a marquee.
  * Right-drag orbits, middle-drag or shift+right-drag pans, wheel zooms.
+ *
+ * Touch: one finger on a shape selects and moves it, one finger on empty space orbits, and two
+ * fingers pan (slide) and zoom (pinch). A second finger cancels whatever one finger was doing.
  */
 export class Viewport {
   private readonly renderer: THREE.WebGLRenderer;
@@ -79,6 +87,8 @@ export class Viewport {
   private frame = 0;
   private cameraDrag: CameraDrag | null = null;
   private left: LeftPress | null = null;
+  private readonly fingers = new Map<number, Point>();
+  private pinch: [Point, Point] | null = null;
 
   constructor(
     private readonly host: HTMLElement,
@@ -247,6 +257,7 @@ export class Viewport {
   }
 
   private onPointerDown = (e: PointerEvent): void => {
+    if (e.pointerType === 'touch') return this.touchDown(e);
     if (e.button === 0) return this.beginLeftPress(e);
     // Right orbits (shift pans), middle pans.
     const mode = e.button === 2 ? (e.shiftKey ? 'pan' : 'orbit') : e.button === 1 ? 'pan' : null;
@@ -257,6 +268,7 @@ export class Viewport {
   };
 
   private onPointerMove = (e: PointerEvent): void => {
+    if (e.pointerType === 'touch') return this.touchMove(e);
     if (this.left) return this.moveLeftPress(e);
     if (!this.cameraDrag) return;
     const dx = e.clientX - this.cameraDrag.x;
@@ -268,16 +280,62 @@ export class Viewport {
   };
 
   private onPointerUp = (e: PointerEvent): void => {
+    if (e.pointerType === 'touch') return this.touchUp(e);
     if (this.left && e.button === 0) this.endLeftPress(e);
     else if (this.cameraDrag) this.cameraDrag = null;
     else return;
     if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
   };
 
+  private touchDown(e: PointerEvent): void {
+    e.preventDefault();
+    this.canvas.setPointerCapture(e.pointerId);
+    this.fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this.fingers.size === 1) return this.beginLeftPress(e);
+    if (this.fingers.size === 2) {
+      this.abandonLeftPress();
+      this.pinch = [...this.fingers.values()] as [Point, Point];
+    }
+  }
+
+  private touchMove(e: PointerEvent): void {
+    if (!this.fingers.has(e.pointerId)) return;
+    this.fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (this.pinch) {
+      if (this.fingers.size !== 2) return;
+      const now = [...this.fingers.values()] as [Point, Point];
+      const step = twoFingerStep(this.pinch, now);
+      this.pinch = now;
+      this.rig.panBy(step.pan[0], step.pan[1]);
+      if (step.zoom !== 1) this.rig.zoomBy(step.zoom);
+    } else if (this.left) {
+      this.moveLeftPress(e);
+    }
+  }
+
+  private touchUp(e: PointerEvent): void {
+    if (!this.fingers.delete(e.pointerId)) return;
+    if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
+    if (this.pinch) {
+      // With one finger left there is nothing to do until it is lifted too.
+      if (this.fingers.size < 2) this.pinch = null;
+    } else if (this.left) {
+      this.endLeftPress(e);
+    }
+  }
+
+  /** Stops a one-finger press that turned into a two-finger gesture, keeping any move made so far. */
+  private abandonLeftPress(): void {
+    const press = this.left;
+    this.left = null;
+    if (press?.mode === 'move') this.opts.onMoveEnd();
+    else if (press?.mode === 'marquee') this.opts.onMarqueeRect(null);
+  }
+
   private beginLeftPress(e: PointerEvent): void {
     const id = this.pickNode(e.clientX, e.clientY);
     const additive = e.shiftKey;
-    this.canvas.setPointerCapture(e.pointerId);
+    if (e.pointerType !== 'touch') this.canvas.setPointerCapture(e.pointerId);
     this.opts.onPick(id, additive, 'down');
     const node = id !== null ? this.design?.nodes[id] : undefined;
     const planeZ = node ? translationOf(node.transform)[2] : 0;
@@ -289,6 +347,9 @@ export class Viewport {
       planeZ,
       startGround: this.pickWorkplane(e.clientX, e.clientY, planeZ),
       mode: null,
+      touch: e.pointerType === 'touch',
+      lastX: e.clientX,
+      lastY: e.clientY,
     };
   }
 
@@ -297,7 +358,7 @@ export class Viewport {
     if (!press.mode) {
       if (Math.hypot(e.clientX - press.startX, e.clientY - press.startY) < DRAG_THRESHOLD) return;
       // Shift-pressing a shape only toggles it; it doesn't start a move.
-      press.mode = press.id === null ? 'marquee' : press.additive ? 'none' : 'move';
+      press.mode = press.id === null ? (press.touch ? 'orbit' : 'marquee') : press.additive ? 'none' : 'move';
       if (press.mode === 'move') this.opts.onMoveStart();
     }
     if (press.mode === 'move') {
@@ -305,7 +366,11 @@ export class Viewport {
       if (ground && press.startGround) this.opts.onMove([ground[0] - press.startGround[0], ground[1] - press.startGround[1]]);
     } else if (press.mode === 'marquee') {
       this.opts.onMarqueeRect(this.marqueeRect(press, e));
+    } else if (press.mode === 'orbit') {
+      this.rig.orbitBy(e.clientX - press.lastX, e.clientY - press.lastY);
     }
+    press.lastX = e.clientX;
+    press.lastY = e.clientY;
   }
 
   private endLeftPress(e: PointerEvent): void {

@@ -198,6 +198,16 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Heights are read from the pointer on a vertical plane facing the camera
   (`Viewport.pickHeight`). Looking straight down there is no usable plane, so lifting does nothing.
 
+## Touch
+- `Viewport` treats `pointerType === 'touch'` separately: one finger = the left-button behaviour, except
+  that dragging empty space orbits (no marquee); a second finger abandons the one-finger action
+  (keeping any move already made) and starts a pan + pinch (`twoFingerStep` in `touchGesture.ts`, pure
+  and unit-tested). The canvas has `touch-action: none` so the browser doesn't scroll or zoom the page.
+- Touch e2e (`e2e/web/touch.spec.ts`) needs `test.use({ hasTouch: true })` and sends real touches over
+  CDP (`Input.dispatchTouchEvent`); without `hasTouch` Chrome silently drops them and tests pass vacuously.
+  A selected shape has rotation handles at its centre that catch touches, so drag unselected shapes.
+- The rest of the UI is not yet laid out for phone-sized screens.
+
 ## Testing the viewport
 - Put maths in `packages/core` (camera, picking, snapping, shape ops) and unit-test it there.
   three.js classes that need no WebGL (`CameraRig`, `DesignScene`) are unit-tested under
