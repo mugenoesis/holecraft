@@ -4,6 +4,7 @@ import {
   deleteNodes,
   dropToWorkplane,
   duplicateNodes,
+  groupNodes,
   moveNodes,
   moveSelection,
   pruneSelection,
@@ -14,17 +15,20 @@ import {
   selectAll,
   setNodeColor,
   setNodeEuler,
+  setNodeMode,
   setNodePosition,
   setNodeRotation,
   setShapeGeometry,
   setShapeSize,
   toggleSelection,
   undo,
+  ungroupNodes,
   type Design,
   type History,
   type NodeId,
   type ShapeGeometry,
   type ShapeType,
+  type SolidMode,
 } from '@holecraft/core';
 
 /** Where a duplicate lands relative to the original, in mm. */
@@ -51,6 +55,10 @@ export type EditorAction =
   // moveStart and moveEnd, like a move.
   | { type: 'setGeometry'; id: NodeId; geometry: ShapeGeometry }
   | { type: 'dropToPlane' }
+  | { type: 'group' }
+  | { type: 'ungroup' }
+  // Solid or hole, for everything selected.
+  | { type: 'setMode'; mode: SolidMode }
   // A rotation ring being dragged: previews the shape's orientation (a row-major 3x3). Runs
   // between moveStart and moveEnd, like a move.
   | { type: 'setRotation'; id: NodeId; rotation: number[] }
@@ -134,6 +142,19 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     case 'dropToPlane':
       return commit(state, dropToWorkplane(design, state.selection));
+
+    case 'group': {
+      const grouped = groupNodes(design, state.selection);
+      return grouped.id ? commit(state, grouped.design, [grouped.id]) : state;
+    }
+
+    case 'ungroup': {
+      const freed = ungroupNodes(design, state.selection);
+      return freed.ids.length ? commit(state, freed.design, freed.ids) : state;
+    }
+
+    case 'setMode':
+      return commit(state, setNodeMode(design, state.selection, action.mode));
 
     case 'undo':
     case 'redo': {

@@ -295,6 +295,38 @@ body {
   border-radius: 50%;
 }
 
+/* Holes are drawn hollow, like their see-through ghosts in the view. */
+.object-list .dot.hole {
+  background: transparent;
+  border: 2px dashed;
+}
+
+.segmented {
+  display: inline-flex;
+  justify-self: start;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.segmented button {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 0;
+  padding: 4px 14px;
+  cursor: pointer;
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--border);
+}
+
+.segmented button[aria-pressed='true'] {
+  color: #fff;
+  background: var(--accent);
+}
+
 .panel section {
   margin-bottom: 20px;
 }

@@ -61,6 +61,15 @@ test.describe('selecting', () => {
     expect(await selectedNames(page)).toEqual(['Box 1', 'Sphere 1']);
   });
 
+  test('clicking a row while several shapes are selected narrows the selection to that row', async ({ page }) => {
+    await dropShape(page, 'Box');
+    await dropShape(page, 'Sphere', 200, 0);
+    await page.keyboard.press('Control+a');
+    expect(await selectedNames(page)).toEqual(['Box 1', 'Sphere 1']);
+    await page.getByTestId('object-list').getByRole('button', { name: /Sphere 1/ }).click();
+    expect(await selectedNames(page)).toEqual(['Sphere 1']);
+  });
+
   test('a marquee drag selects the shapes it touches', async ({ page }) => {
     await dropShape(page, 'Box');
     await dropShape(page, 'Sphere', 200, 0);

@@ -13,9 +13,11 @@ independent project with its own code and design, and it runs entirely on your o
 - **Docker**: self-host it and open it from any browser on your network.
 - **Linux desktop app**: AppImage or .deb that works fully offline.
 
-> **Status: early development (Phase 2 of the [plan](PLAN.md) done).** You can navigate a 3D
+> **Status: early development (Phase 3a of the [plan](PLAN.md) done).** You can navigate a 3D
 > workplane, add boxes, cylinders and spheres, select, move, resize, lift and rotate them, edit
-> their properties, and undo/redo. Holes/groups, saving and import/export come in the next phases.
+> their properties, mark shapes as holes, group and ungroup, and undo/redo. Holes are shown as
+> ghosts for now: actually cutting them out of the model comes next, then saving and
+> import/export.
 
 ## Using the editor
 
@@ -30,6 +32,9 @@ independent project with its own code and design, and it runs entirely on your o
 | Nudge | Arrow keys move the selection along the nearest workplane axis by the grid step (`Shift` for ten times as far) |
 | Edit properties | Select a shape, then type a name, position (X, Y, Z), size (width, depth, height) or color in the Properties panel. Press Enter or click away to apply; invalid values are rejected |
 | Tilted shapes | A shape tipped about X or Y has no resize or lift handles (rotate it back to use them); its X, Y and Z fields show its base point, which moves when it tips. **Drop to workplane** rests its lowest corner on the plane. Shapes turned only about Z keep every handle |
+| Solid / hole | Choose **Solid** or **Hole** under Type in the Properties panel (it applies to everything selected). Holes are drawn as pale see-through ghosts, and keep their colour for when you turn them back into solids. *Cutting holes out of solids is not wired up yet* |
+| Group | Select two or more shapes and press **Group** or `Ctrl+G`. A group moves, nudges, duplicates, deletes, recolours and drops as one. Clicking any shape in it selects the whole group. Groups can be nested. Resize, lift and rotate handles are not available for groups yet |
+| Ungroup | **Ungroup** or `Ctrl+Shift+G` opens a group one level, leaving every shape exactly where it was. Ungrouping a hole group turns its contents into holes |
 | Duplicate / delete | `Ctrl+D` / `Delete`, or the buttons in the Properties panel |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Shift+Z` (or `Ctrl+Y`), or the Undo and Redo buttons. A whole drag is one step |
 | Orbit | Right-drag |

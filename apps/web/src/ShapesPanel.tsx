@@ -1,4 +1,4 @@
-import { SHAPE_DEFS, translationOf, type Design, type NodeId, type ShapeType } from '@holecraft/core';
+import { SHAPE_DEFS, nodeBoundsIn, translationOf, type Design, type NodeId, type ShapeType } from '@holecraft/core';
 import type { DragEvent, KeyboardEvent } from 'react';
 import { SHAPE_DRAG_TYPE } from './shapeDrag.ts';
 
@@ -56,12 +56,20 @@ export function ObjectList({ design, selection, onSelect }: ObjectListProps) {
         {design.roots.map((id) => {
           const node = design.nodes[id];
           if (!node) return null;
-          const [x, y] = translationOf(node.transform);
+          // A shape is listed by its base point; a group by the middle of what it holds.
+          const bounds = node.kind === 'group' ? nodeBoundsIn(design, id) : null;
+          const [x, y] = bounds
+            ? [(bounds.min[0] + bounds.max[0]) / 2, (bounds.min[1] + bounds.max[1]) / 2]
+            : translationOf(node.transform);
           const selected = selection.includes(id);
           return (
-            <li key={id} data-selected={selected} data-color={node.color}>
+            <li key={id} data-selected={selected} data-color={node.color} data-mode={node.mode} data-kind={node.kind}>
               <button type="button" className={selected ? 'selected' : undefined} onClick={(e) => onSelect(id, e.shiftKey)}>
-                <span className="dot" style={{ background: node.color }} aria-hidden="true" />
+                <span
+                  className={`dot ${node.mode}`}
+                  style={node.mode === 'hole' ? { borderColor: node.color } : { background: node.color }}
+                  aria-hidden="true"
+                />
                 {node.name} ({fmt(x)}, {fmt(y)})
               </button>
             </li>

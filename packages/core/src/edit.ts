@@ -1,8 +1,9 @@
 import type { Vec3 } from './camera.ts';
-import type { Design, DesignNode, NodeId, ShapeNode } from './design.ts';
+import type { Design, DesignNode, NodeId, SolidMode } from './design.ts';
 import { clampToWorkplane, snapToGrid } from './grid.ts';
 import { newId } from './ids.ts';
-import { shapeBounds, translationOf } from './ops.ts';
+import { descendantIds } from './groups.ts';
+import { nodeBoundsIn, shapeBounds, translationOf } from './ops.ts';
 import type { ShapeGeometry } from './resize.ts';
 import { composeTransform, eulerToMatrix, shapeCenter } from './rotation.ts';
 import { getShapeDef, type ShapeType } from './shapes.ts';
@@ -53,7 +54,12 @@ export interface MoveSelectionOptions {
 export function moveSelection(base: Design, ids: readonly NodeId[], delta: [number, number], opts: MoveSelectionOptions): Design {
   const leaderId = ids.find((id) => isEditable(base.nodes[id]));
   if (leaderId === undefined) return base;
-  const [sx, sy] = translationOf(base.nodes[leaderId]!.transform);
+  // A shape is positioned by its base point; a group's own origin tells you nothing about where
+  // its contents are, so it is positioned by the middle of what it holds.
+  const bounds = base.nodes[leaderId]!.kind === 'group' ? nodeBoundsIn(base, leaderId) : null;
+  const [sx, sy] = bounds
+    ? [(bounds.min[0] + bounds.max[0]) / 2, (bounds.min[1] + bounds.max[1]) / 2]
+    : translationOf(base.nodes[leaderId]!.transform);
   const [tx, ty] = clampToWorkplane([snapToGrid(sx + delta[0], opts.snap), snapToGrid(sy + delta[1], opts.snap)], opts.size);
   return moveNodes(base, ids, [tx - sx, ty - sy, 0]);
 }
@@ -76,8 +82,10 @@ export function dropToWorkplane(design: Design, ids: readonly NodeId[], now?: Da
   let changed = false;
   for (const id of ids) {
     const node = nodes[id];
-    if (!isEditable(node) || node.kind !== 'shape') continue;
-    const lowest = shapeBounds(node).min[2];
+    if (!isEditable(node)) continue;
+    const bounds = node.kind === 'shape' ? shapeBounds(node) : node.kind === 'group' ? nodeBoundsIn(design, id) : null;
+    if (!bounds) continue;
+    const lowest = bounds.min[2];
     if (Math.abs(lowest) < 1e-9) continue;
     const transform = [...node.transform];
     transform[14] = transform[14]! - lowest;
@@ -153,55 +161,99 @@ export function renameNode(design: Design, id: NodeId, name: string, now?: Date)
   return withNodes(design, { ...design.nodes, [id]: { ...node, name: trimmed } }, now);
 }
 
+/** Recolours shapes, and everything inside any groups given. */
 export function setNodeColor(design: Design, ids: readonly NodeId[], color: string, now?: Date): Design {
   if (!/^#[0-9a-f]{6}$/i.test(color)) return design;
   const next = color.toLowerCase();
   const nodes = { ...design.nodes };
   let changed = false;
+
+  const recolor = (id: NodeId) => {
+    const node = nodes[id];
+    if (!node) return;
+    if (node.kind === 'group') node.children.forEach(recolor);
+    if (node.color === next) return;
+    nodes[id] = { ...node, color: next };
+    changed = true;
+  };
+
+  for (const id of ids) if (isEditable(design.nodes[id])) recolor(id);
+  return changed ? withNodes(design, nodes, now) : design;
+}
+
+/** Turns shapes and groups into holes, or back into solids. The colour is kept, so toggling is lossless. */
+export function setNodeMode(design: Design, ids: readonly NodeId[], mode: SolidMode, now?: Date): Design {
+  const nodes = { ...design.nodes };
+  let changed = false;
   for (const id of ids) {
     const node = nodes[id];
-    if (!isEditable(node) || node.color === next) continue;
-    nodes[id] = { ...node, color: next };
+    if (!isEditable(node) || node.mode === mode) continue;
+    nodes[id] = { ...node, mode };
     changed = true;
   }
   return changed ? withNodes(design, nodes, now) : design;
 }
 
+/** Deletes shapes and groups, including everything inside any group. */
 export function deleteNodes(design: Design, ids: readonly NodeId[], now?: Date): Design {
-  const doomed = new Set(ids.filter((id) => isEditable(design.nodes[id])));
+  const doomed = new Set<NodeId>();
+  for (const id of ids) {
+    if (!isEditable(design.nodes[id])) continue;
+    doomed.add(id);
+    for (const inner of descendantIds(design, id)) doomed.add(inner);
+  }
   if (doomed.size === 0) return design;
   const nodes = Object.fromEntries(Object.entries(design.nodes).filter(([id]) => !doomed.has(id)));
   return { ...withNodes(design, nodes, now), roots: design.roots.filter((id) => !doomed.has(id)) };
 }
 
-/** Copies shapes (in the order given) offset on the workplane. Meshes and groups come later. */
+/**
+ * Copies shapes and groups (groups deeply, with fresh ids throughout) in the order given. Each
+ * copy lands at the top level, offset on the workplane as a whole.
+ */
 export function duplicateNodes(
   design: Design,
   ids: readonly NodeId[],
   offset: [number, number],
   now?: Date,
 ): { design: Design; ids: NodeId[] } {
-  let next = design;
+  const nodes = { ...design.nodes };
+  const roots = [...design.roots];
   const created: NodeId[] = [];
-  for (const id of ids) {
+
+  const clone = (id: NodeId): NodeId | null => {
     const node = design.nodes[id];
-    if (!node || node.kind !== 'shape') continue;
-    const count = Object.values(next.nodes).filter((n) => n.kind === 'shape' && n.shapeType === node.shapeType).length;
+    if (!node || node.kind === 'mesh') return null; // imported meshes arrive in a later phase
     const copyId = newId();
-    const transform = [...node.transform];
+    if (node.kind === 'shape') {
+      const count = Object.values(nodes).filter((n) => n.kind === 'shape' && n.shapeType === node.shapeType).length;
+      nodes[copyId] = {
+        ...node,
+        id: copyId,
+        name: `${getShapeDef(node.shapeType as ShapeType).name} ${count + 1}`,
+        transform: [...node.transform],
+        params: { ...node.params },
+      };
+    } else {
+      const children = node.children.map(clone).filter((c): c is NodeId => c !== null);
+      const count = Object.values(nodes).filter((n) => n.kind === 'group').length;
+      nodes[copyId] = { ...node, id: copyId, name: `Group ${count + 1}`, transform: [...node.transform], children };
+    }
+    return copyId;
+  };
+
+  for (const id of ids) {
+    const copyId = clone(id);
+    if (!copyId) continue;
+    const copy = nodes[copyId]!;
+    const transform = [...copy.transform];
     transform[12] = transform[12]! + offset[0];
     transform[13] = transform[13]! + offset[1];
-    const copy: ShapeNode = {
-      ...node,
-      id: copyId,
-      name: `${getShapeDef(node.shapeType as ShapeType).name} ${count + 1}`,
-      transform,
-      params: { ...node.params },
-    };
-    next = { ...next, nodes: { ...next.nodes, [copyId]: copy }, roots: [...next.roots, copyId] };
+    nodes[copyId] = { ...copy, transform };
+    roots.push(copyId);
     created.push(copyId);
   }
-  return created.length ? { design: { ...next, updatedAt: stamp(now) }, ids: created } : { design, ids: [] };
+  return created.length ? { design: { ...design, nodes, roots, updatedAt: stamp(now) }, ids: created } : { design, ids: [] };
 }
 
 /**
