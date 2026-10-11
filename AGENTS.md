@@ -222,6 +222,16 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Heights are read from the pointer on a vertical plane facing the camera
   (`Viewport.pickHeight`). Looking straight down there is no usable plane, so lifting does nothing.
 
+## Layout on small screens
+- One breakpoint: `@media (max-width: 720px)` is the phone layout (top bar wraps, view on top, panels in a
+  `32dvh` strip below, shape tiles in one swipeable row). `@media (pointer: coarse)` makes touch targets
+  at least 40px and the handles 26px; keep both blocks at the **end** of styles.css so they win ties, and
+  remember rules like `.handle.height` / `.handle.lift` are more specific than `.handle`.
+- Menus and messages in the top bar (`.menu`, `.export-problem`) are `position: static` parents on a phone
+  so they span the bar's width (`left/right: 10px`); don't give their containers `position: relative` there.
+- `e2e/web/phone.spec.ts` measures real positions at 412x915 with touch (`isMobile`); add a check there when
+  adding anything to the top bar. Look at a screenshot too (`scripts/screenshot.sh <url> out.png 412 915`).
+
 ## Touch
 - `Viewport` treats `pointerType === 'touch'` separately: one finger = the left-button behaviour, except
   that dragging empty space orbits (no marquee); a second finger abandons the one-finger action
