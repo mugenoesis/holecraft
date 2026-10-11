@@ -49,6 +49,27 @@ describe('createServer', () => {
     await app.close();
   });
 
+  it('serves WebAssembly with its own content type, which browsers need to compile it quickly', async () => {
+    const staticDir = path.join(tmp, 'web');
+    const app = await withStatic();
+    await writeFile(path.join(staticDir, 'manifold.wasm'), Buffer.from([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]));
+    const res = await app.inject('/manifold.wasm');
+    expect(res.statusCode).toBe(200);
+    expect(res.headers['content-type']).toContain('application/wasm');
+    expect(res.rawPayload.subarray(0, 4)).toEqual(Buffer.from([0x00, 0x61, 0x73, 0x6d])); // the wasm magic number
+    await app.close();
+  });
+
+  it('serves ES module scripts (such as web workers) as JavaScript, not as the app shell', async () => {
+    const staticDir = path.join(tmp, 'web');
+    const app = await withStatic();
+    await writeFile(path.join(staticDir, 'worker.js'), 'export {}');
+    const res = await app.inject('/worker.js');
+    expect(res.headers['content-type']).toMatch(/javascript/);
+    expect(res.body).toBe('export {}');
+    await app.close();
+  });
+
   it('returns JSON 404 for unknown API routes', async () => {
     const app = await withStatic();
     const res = await app.inject('/api/nope');

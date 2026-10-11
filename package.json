@@ -19,7 +19,7 @@
     "test:watch": "vitest",
     "test:e2e": "scripts/e2e.sh",
     "check": "scripts/check.sh",
-    "typecheck": "tsc -p packages/core && tsc -p apps/web && tsc -p apps/server && tsc -p apps/desktop",
+    "typecheck": "tsc -p packages/core && tsc -p packages/geometry && tsc -p apps/web && tsc -p apps/server && tsc -p apps/desktop",
     "docker:build": "docker build -f docker/Dockerfile -t holecraft:latest ."
   },
   "devDependencies": {

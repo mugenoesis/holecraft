@@ -1,5 +1,8 @@
 import type { Design, NodeId, ShapeNode, ShapeType } from '@holecraft/core';
+import type { GroupMesh } from '@holecraft/geometry';
 import * as THREE from 'three';
+import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
+import type { GroupResult } from '../geometry/GeometryService.ts';
 
 const SELECTED_TINT = 0x1f6f8b;
 const OUTLINE_COLOR = 0x0f766e;
@@ -28,8 +31,42 @@ export interface NdcRect {
   maxY: number;
 }
 
-/** Corners of the unit bounding box shared by every shape (x, y in ±0.5, z in 0..1). */
-const UNIT_CORNERS = [-0.5, 0.5].flatMap((x) => [-0.5, 0.5].flatMap((y) => [0, 1].map((z) => new THREE.Vector3(x, y, z))));
+const NO_RESULTS: ReadonlyMap<NodeId, GroupResult> = new Map();
+const NO_FAILURES: ReadonlySet<NodeId> = new Set();
+/** Edges sharper than this stay crisp on a computed mesh; gentler ones are smoothed. */
+const CREASE_ANGLE = Math.PI / 6;
+
+interface PlaceContext {
+  results: ReadonlyMap<NodeId, GroupResult>;
+  failed: ReadonlySet<NodeId>;
+  live: Set<NodeId>;
+  liveResults: Set<NodeId>;
+}
+
+const cornerCache = new WeakMap<THREE.BufferGeometry, THREE.Vector3[]>();
+
+/** The eight corners of a mesh's own bounding box (local space), for screen-space marquee tests. */
+function cornersOf(mesh: THREE.Mesh): THREE.Vector3[] {
+  let corners = cornerCache.get(mesh.geometry);
+  if (!corners) {
+    mesh.geometry.computeBoundingBox();
+    const { min, max } = mesh.geometry.boundingBox!;
+    corners = [min.x, max.x].flatMap((x) => [min.y, max.y].flatMap((y) => [min.z, max.z].map((z) => new THREE.Vector3(x, y, z))));
+    cornerCache.set(mesh.geometry, corners);
+  }
+  return corners;
+}
+
+/** A computed mesh as a geometry, with creased normals: boxes stay crisp, curved parts stay smooth. */
+function buildResultGeometry(mesh: GroupMesh): THREE.BufferGeometry {
+  const indexed = new THREE.BufferGeometry();
+  indexed.setAttribute('position', new THREE.BufferAttribute(mesh.positions, 3));
+  indexed.setIndex(new THREE.BufferAttribute(mesh.indices, 1));
+  const geometry = toCreasedNormals(indexed, CREASE_ANGLE);
+  indexed.dispose();
+  geometry.computeBoundingBox();
+  return geometry;
+}
 
 const isShown = (obj: THREE.Object3D): boolean => {
   for (let o: THREE.Object3D | null = obj; o; o = o.parent) if (!o.visible) return false;
@@ -50,21 +87,35 @@ export class DesignScene {
   private readonly geometries = new Map<ShapeType, THREE.BufferGeometry>();
   private readonly objects = new Map<NodeId, THREE.Object3D>();
   private readonly outlineGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5));
+  private readonly resultMeshes = new Map<NodeId, { mesh: THREE.Mesh; source: GroupMesh | null }>();
   private selection = new Set<NodeId>();
 
   constructor() {
     this.root.name = 'design';
   }
 
-  sync(design: Design): void {
+  /**
+   * Brings the scene in line with `design`. `results` holds the computed shape of top-level solid
+   * groups (see GeometryService): a group with one is drawn as that single mesh, and the shapes it
+   * was made from are hidden. A group with no result yet, or whose `failed`, shows its shapes
+   * as they are, holes as ghosts.
+   */
+  sync(design: Design, results: ReadonlyMap<NodeId, GroupResult> = NO_RESULTS, failed: ReadonlySet<NodeId> = NO_FAILURES): void {
     const live = new Set<NodeId>();
-    for (const id of design.roots) this.place(design, id, this.root, id, false, live);
+    const liveResults = new Set<NodeId>();
+    const ctx: PlaceContext = { results, failed, live, liveResults };
+    for (const id of design.roots) this.place(design, id, this.root, id, false, false, ctx);
 
     for (const [id, obj] of this.objects) {
       if (live.has(id)) continue;
       obj.parent?.remove(obj);
       if (obj instanceof THREE.Mesh) this.disposeMesh(obj);
       this.objects.delete(id);
+    }
+    for (const [id, entry] of this.resultMeshes) {
+      if (liveResults.has(id)) continue;
+      this.disposeResult(entry);
+      this.resultMeshes.delete(id);
     }
   }
 
@@ -93,7 +144,7 @@ export class DesignScene {
       let maxX = -Infinity;
       let minY = Infinity;
       let maxY = -Infinity;
-      for (const corner of UNIT_CORNERS) {
+      for (const corner of cornersOf(mesh)) {
         p.copy(corner).applyMatrix4(mesh.matrixWorld).project(camera);
         minX = Math.min(minX, p.x);
         maxX = Math.max(maxX, p.x);
@@ -107,22 +158,29 @@ export class DesignScene {
 
   dispose(): void {
     for (const obj of this.objects.values()) if (obj instanceof THREE.Mesh) this.disposeMesh(obj);
+    for (const entry of this.resultMeshes.values()) this.disposeResult(entry);
     for (const geometry of this.geometries.values()) geometry.dispose();
     this.outlineGeometry.dispose();
     this.objects.clear();
+    this.resultMeshes.clear();
     this.geometries.clear();
     this.root.clear();
   }
 
+  /** Every mesh in the scene: the shapes, and the computed meshes of groups. */
   private meshes(): THREE.Mesh[] {
-    return [...this.objects.values()].filter((o): o is THREE.Mesh => o instanceof THREE.Mesh);
+    const shapes = [...this.objects.values()].filter((o): o is THREE.Mesh => o instanceof THREE.Mesh);
+    return [...shapes, ...[...this.resultMeshes.values()].map((r) => r.mesh)];
   }
 
-  /** Creates or updates the object for a node and everything beneath it, under `parent`. */
-  private place(design: Design, id: NodeId, parent: THREE.Object3D, rootId: NodeId, ghost: boolean, live: Set<NodeId>): void {
+  /**
+   * Creates or updates the object for a node and everything beneath it, under `parent`.
+   * `covered` means a computed mesh stands in for this node, so it must not be drawn or picked.
+   */
+  private place(design: Design, id: NodeId, parent: THREE.Object3D, rootId: NodeId, ghost: boolean, covered: boolean, ctx: PlaceContext): void {
     const node = design.nodes[id];
     if (!node || node.kind === 'mesh') return;
-    live.add(id);
+    ctx.live.add(id);
 
     const isHole = ghost || node.mode === 'hole';
     let obj = this.objects.get(id);
@@ -136,7 +194,14 @@ export class DesignScene {
       this.applyTransform(obj, node.transform);
       obj.visible = !node.hidden;
       if (obj.parent !== parent) parent.add(obj);
-      for (const childId of node.children) this.place(design, childId, obj, rootId, isHole, live);
+
+      // Only a top-level solid group is drawn as a computed mesh; anything nested inside is part of it.
+      const result = id === rootId && node.mode === 'solid' && !ctx.failed.has(id) ? ctx.results.get(id) : undefined;
+      for (const childId of node.children) this.place(design, childId, obj, rootId, isHole, covered || result !== undefined, ctx);
+      if (result) {
+        ctx.liveResults.add(id);
+        this.showResult(id, obj, node.color, result);
+      }
       return;
     }
 
@@ -149,10 +214,58 @@ export class DesignScene {
     this.applyTransform(mesh, node.transform);
     const { width, depth, height } = node.params as { width: number; depth: number; height: number };
     mesh.scale.set(width, depth, height);
-    mesh.visible = !node.hidden;
+    mesh.visible = !node.hidden && !covered;
     this.applyLook(mesh.material as THREE.MeshStandardMaterial, node.color, isHole);
     if (mesh.parent !== parent) parent.add(mesh);
     this.applySelection(mesh);
+  }
+
+  /** Draws a group's computed mesh inside its group object (so it moves with the group). */
+  private showResult(id: NodeId, groupObject: THREE.Object3D, color: string, result: GroupResult): void {
+    const existing = this.resultMeshes.get(id);
+
+    if (!result.mesh) {
+      // The holes cut everything away: nothing to draw.
+      if (existing) {
+        this.disposeResult(existing);
+        this.resultMeshes.delete(id);
+      }
+      return;
+    }
+
+    let entry = existing;
+    if (!entry) {
+      const mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ roughness: 0.55 }));
+      mesh.userData = { nodeId: id, rootId: id, isResult: true };
+      const outline = new THREE.LineSegments(this.outlineGeometry, new THREE.LineBasicMaterial({ color: OUTLINE_COLOR }));
+      outline.name = 'selection-outline';
+      mesh.add(outline);
+      entry = { mesh, source: null };
+      this.resultMeshes.set(id, entry);
+    }
+
+    if (entry.source !== result.mesh) {
+      const next = buildResultGeometry(result.mesh);
+      entry.mesh.geometry.dispose();
+      entry.mesh.geometry = next;
+      entry.source = result.mesh;
+      // The selection outline is the unit box (x, y in ±0.5, z in 0..1) stretched over the result.
+      const box = next.boundingBox!;
+      const outline = entry.mesh.getObjectByName('selection-outline')!;
+      outline.scale.set(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z);
+      outline.position.set((box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, box.min.z);
+    }
+
+    (entry.mesh.material as THREE.MeshStandardMaterial).color.set(color);
+    entry.mesh.visible = true;
+    if (entry.mesh.parent !== groupObject) groupObject.add(entry.mesh);
+    this.applySelection(entry.mesh);
+  }
+
+  private disposeResult(entry: { mesh: THREE.Mesh }): void {
+    entry.mesh.parent?.remove(entry.mesh);
+    entry.mesh.geometry.dispose();
+    this.disposeMesh(entry.mesh);
   }
 
   private createMesh(node: ShapeNode): THREE.Mesh {

@@ -92,13 +92,38 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   reading a group's own translation. Holes don't size a group unless it has no solids.
 - A group is positioned by the middle of what it holds (see `moveSelection`), not its origin.
 - `mode` (`solid` | `hole`) lives on shapes and groups. A hole keeps its colour, and a hole
-  group turns its children into holes when ungrouped. Phase 3a only *draws* holes as ghosts;
-  the boolean cut is Phase 3b.
+  group turns its children into holes when ungrouped. A hole outside any group is only a ghost;
+  holes cut when they share a group with solids (see Geometry below).
 - `DesignScene` mirrors the document as nested `THREE.Group`s keyed by node id, reusing objects
   when shapes are grouped or ungrouped. Picking, selection and marquee all work on the
   **top-level** id, so hitting any shape in a group counts as hitting the group.
 - An Objects-list row is a full click (`pick` down then click), so it narrows a multi-selection.
   The viewport sends the two phases separately so a multi-selection can still be dragged.
+
+## Geometry (cutting holes)
+- `packages/geometry` turns a group into one mesh with manifold-3d: union of its solids minus the
+  union of its holes, recursing into nested groups. `evaluateGroup(M, design, groupId)` works in
+  the **group's own frame** (the group's own transform is not applied), so moving a group never
+  triggers a recompute. It is plain TypeScript over WASM and is unit-tested in Node against the
+  real library, including volumes, so geometry bugs are caught without a browser.
+- manifold objects live in WASM memory and must be `.delete()`d. `evaluateGroup` tracks every
+  object it makes and frees them in a `finally`. Keep it that way: never let a manifold escape.
+- `subtreeHash` is the cache key (shape-relevant data only: not names, colours, or the root
+  group's own transform/mode). Bump `FORMAT` in `subtree.ts` if evaluation output changes.
+- `GeometryService` (web) decides *when* to compute: cache by hash, one job at a time, only the
+  first and latest state of a drag are computed, the previous shape stays on screen until the new
+  one lands, failures are remembered (and not retried) so the group falls back to showing its raw
+  shapes. It takes an injected `Evaluator`, so it is unit-tested with a fake one.
+- The real evaluator is `geometry.worker.ts` via `workerEvaluator.ts`. The worker and the
+  ~540 kB wasm (`manifold-3d/manifold.wasm?url`, served as `application/wasm`) load lazily, on the
+  first group. Only **top-level solid groups** are evaluated (`rootSolidGroups`).
+- `DesignScene.sync(design, results, failed)` swaps a covered group's shapes for its result mesh
+  (creased normals: boxes stay crisp, curves smooth). Picking and marquee use the result mesh.
+- Playwright tests prove cuts by **reading real pixels** from a top-down view (`pixelAt`): a cut
+  shows the pale workplane (blue > 150) where uncut orange has blue < 120. Pixel offsets depend on
+  the default zoom, so see the constants at the top of `csg.spec.ts` if the camera defaults change.
+- Bundle changes that touch the worker must be checked in all three targets: `FULL=1
+  scripts/check.sh` runs the web, Docker (wasm served and typed correctly) and desktop tests.
 
 ## Rotation
 - Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre

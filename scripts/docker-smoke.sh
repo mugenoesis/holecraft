@@ -26,6 +26,11 @@ curl -fs "http://127.0.0.1:$PORT/api/health" | grep -q '"status":"ok"' || fail "
 curl -fs "http://127.0.0.1:$PORT/" | grep -q '<title>Holecraft</title>' || fail "index page"
 [[ "$(docker inspect --format '{{.Config.User}}' "$NAME")" == "node" ]] || fail "container should run as non-root"
 
+# The geometry worker needs its WebAssembly file, served as application/wasm.
+WASM="$(docker exec "$NAME" sh -c 'ls apps/web/dist/assets/*.wasm 2>/dev/null | head -1 | xargs -n1 basename')"
+[[ -n "$WASM" ]] || fail "the geometry WebAssembly file is missing from the image"
+curl -sI "http://127.0.0.1:$PORT/assets/$WASM" | tr -d '\r' | grep -qi '^content-type: application/wasm' || fail "$WASM is not served as application/wasm"
+
 for _ in $(seq 1 30); do
   status="$(docker inspect --format '{{.State.Health.Status}}' "$NAME")"
   [[ "$status" == "healthy" ]] && break

@@ -15,6 +15,7 @@ import {
 } from '@holecraft/core';
 import * as THREE from 'three';
 import { CameraRig, FOV_DEG, type Projection } from './CameraRig.ts';
+import type { GroupResult } from '../geometry/GeometryService.ts';
 import { DesignScene } from './DesignScene.ts';
 import { createWorkplane } from './workplane.ts';
 
@@ -114,9 +115,10 @@ export class Viewport {
     this.rig.notify();
   }
 
-  setDesign(design: Design): void {
+  /** `results` and `failed` come from the GeometryService: the computed shapes of top-level groups. */
+  setDesign(design: Design, results?: ReadonlyMap<NodeId, GroupResult>, failed?: ReadonlySet<NodeId>): void {
     this.design = design;
-    this.designScene.sync(design);
+    this.designScene.sync(design, results, failed);
     this.requestRender();
   }
 
