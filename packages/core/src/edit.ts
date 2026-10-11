@@ -1,5 +1,5 @@
 import type { Vec3 } from './camera.ts';
-import type { Design, DesignNode, NodeId, SolidMode } from './design.ts';
+import { MAX_NAME_LENGTH, type Design, type DesignNode, type NodeId, type SolidMode } from './design.ts';
 import { clampToWorkplane, snapToGrid } from './grid.ts';
 import { newId } from './ids.ts';
 import { descendantIds } from './groups.ts';
@@ -156,7 +156,7 @@ export function setShapeSize(
 
 export function renameNode(design: Design, id: NodeId, name: string, now?: Date): Design {
   const node = design.nodes[id];
-  const trimmed = name.trim();
+  const trimmed = name.trim().slice(0, MAX_NAME_LENGTH);
   if (!node || !trimmed || trimmed === node.name) return design;
   return withNodes(design, { ...design.nodes, [id]: { ...node, name: trimmed } }, now);
 }

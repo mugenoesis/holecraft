@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { camera, center, drag, dropShape, field, objects, selectedNames, viewport } from './helpers.ts';
+import { camera, center, drag, dropShape, field, newDesign, objects, selectedNames, viewport } from './helpers.ts';
 
 const rotate = (page: Page, axis: 'x' | 'y' | 'z') => page.getByTestId(`rotate-${axis}`);
 const handle = (page: Page, id: string) => page.getByTestId(`handle-${id}`);
@@ -34,8 +34,7 @@ async function dragAround(page: Page, axis: 'x' | 'y' | 'z', px: number, opts: {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-  await expect(viewport(page).locator('canvas')).toBeVisible();
+  await newDesign(page);
   await dropShape(page, 'Box');
   const mid = await centerOf(viewport(page));
   await page.mouse.click(mid.x, mid.y);

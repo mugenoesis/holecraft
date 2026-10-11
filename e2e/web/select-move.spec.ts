@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { camera, center, drag, dropShape, objects, selectedNames, viewport } from './helpers.ts';
+import { camera, center, drag, dropShape, newDesign, objects, selectedNames, viewport } from './helpers.ts';
 
 const properties = (page: Page) => page.getByRole('region', { name: 'Properties' });
 const field = (page: Page, name: string) => properties(page).getByLabel(name, { exact: true });
@@ -18,8 +18,7 @@ async function click(page: Page, dx = 0, dy = 0, opts: { shift?: boolean } = {})
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-  await expect(viewport(page).locator('canvas')).toBeVisible();
+  await newDesign(page);
 });
 
 test.describe('selecting', () => {

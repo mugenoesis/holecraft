@@ -13,10 +13,21 @@ independent project with its own code and design, and it runs entirely on your o
 - **Docker**: self-host it and open it from any browser on your network.
 - **Linux desktop app**: AppImage or .deb that works fully offline.
 
-> **Status: early development (Phase 3 of the [plan](PLAN.md) done).** You can navigate a 3D
-> workplane, add boxes, cylinders and spheres, select, move, resize, lift and rotate them, edit
-> their properties, make shapes into holes and group them to cut real holes out of solids, and
-> undo/redo. Saving designs and import/export come next.
+> **Status: early development (Phase 4a of the roadmap done).** You can keep a library
+> of designs that save automatically, navigate a 3D workplane, add boxes, cylinders and spheres,
+> select, move, resize, lift and rotate them, edit their properties, make shapes into holes and
+> group them to cut real holes out of solids, and undo/redo. Import and export (STL, OBJ, 3MF)
+> come next.
+
+## Your designs
+
+Holecraft opens on a list of your designs. **New design** makes one and opens it; click a name to
+open it, or use **Rename**, **Duplicate** and **Delete** (which asks first). Everything you do is
+**saved automatically** a moment after you stop changing things, and the top bar shows
+*Saved*, *Unsaved changes*, *Saving…* or *Couldn't save* (it keeps your work on screen and retries
+until the server answers). Change a design's name in the top bar. Undo history is not kept between
+sessions. Designs are plain JSON files, one per design, in `<data folder>/designs/`, so they are
+easy to back up or copy.
 
 ## Using the editor
 
@@ -62,7 +73,13 @@ Designs are stored in the `/data` volume. Environment variables:
 | `HOLECRAFT_HOST` | `0.0.0.0` | Bind address |
 | `HOLECRAFT_DATA_DIR` | `/data` | Storage directory |
 
-There is no authentication yet, so only expose Holecraft on a trusted network.
+There is no authentication yet, so anyone who can reach the port can read, change and delete every
+design. Only expose Holecraft on a trusted network.
+
+**Storage API** (used by the app; handy for backups and scripts): `GET /api/designs`,
+`POST /api/designs`, `GET|PUT|PATCH|DELETE /api/designs/:id` and `POST /api/designs/:id/duplicate`.
+Everything sent to it is validated, and a design larger than 8 MB or with a broken structure is
+refused.
 Serve it at the root of a host or subdomain (`holecraft.example.lan`). Path prefixes such as
 `example.lan/holecraft` are not supported yet.
 
@@ -114,6 +131,7 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/e2e.sh` | Playwright tests in the Playwright Docker image |
 | `scripts/docker-smoke.sh` | Build the image, run it, verify health and non-root user |
 | `scripts/package-desktop.sh` | Build the AppImage and .deb (in a Debian container) |
+| `scripts/deploy-local.sh` | Rebuild the Docker image from `origin/main` and restart the local test container (default port 8200, keeps its data volume) |
 | `scripts/screenshot.sh` | Screenshot a running instance with software WebGL (`DEMO=1` adds shapes, `VIEW=top` picks a view, `CLICK=0,0` selects, `PRESS=Control+a` presses keys) |
 | `scripts/make-icon.sh` | Regenerate the app icons from the cube mark cropped out of `branding/logo.jpg` |
 

@@ -1,5 +1,6 @@
 import {
   addShape,
+  canUndo,
   createHistory,
   deleteNodes,
   dropToWorkplane,
@@ -10,6 +11,7 @@ import {
   pruneSelection,
   pushHistory,
   redo,
+  renameDesign,
   renameNode,
   replacePresent,
   selectAll,
@@ -57,6 +59,7 @@ export type EditorAction =
   | { type: 'dropToPlane' }
   | { type: 'group' }
   | { type: 'ungroup' }
+  | { type: 'renameDesign'; name: string }
   // Solid or hole, for everything selected.
   | { type: 'setMode'; mode: SolidMode }
   // A rotation ring being dragged: previews the shape's orientation (a row-major 3x3). Runs
@@ -73,6 +76,8 @@ export type EditorAction =
   | { type: 'setSize'; id: NodeId; size: Partial<Record<'width' | 'depth' | 'height', number>> }
   | { type: 'rename'; id: NodeId; name: string }
   | { type: 'setColor'; ids: NodeId[]; color: string };
+
+export const canUndoState = (state: EditorState): boolean => canUndo(state.history);
 
 export function createEditorState(design: Design): EditorState {
   return { history: createHistory(design), selection: [], drag: null };
@@ -155,6 +160,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
     case 'setMode':
       return commit(state, setNodeMode(design, state.selection, action.mode));
+
+    case 'renameDesign':
+      return commit(state, renameDesign(design, action.name));
 
     case 'undo':
     case 'redo': {

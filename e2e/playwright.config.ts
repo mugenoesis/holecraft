@@ -34,7 +34,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `node apps/server/dist/main.js`,
+    // Start from an empty data folder so runs never depend on designs left by earlier ones.
+    command: `rm -rf test-results/e2e-data && node apps/server/dist/main.js`,
     cwd: '..',
     url: `http://127.0.0.1:${PORT}/api/health`,
     reuseExistingServer: false,

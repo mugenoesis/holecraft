@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { cameraSettled, center, dropShape, field, pixelAt, properties, selectView, selectedNames, viewport } from './helpers.ts';
+import { cameraSettled, center, dropShape, field, newDesign, pixelAt, properties, selectView, selectedNames, viewport } from './helpers.ts';
 
 /*
  * These tests look at real pixels. From straight above, a box with a hole cut through it shows the
@@ -56,8 +56,7 @@ async function group(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/');
-  await expect(viewport(page).locator('canvas')).toBeVisible();
+  await newDesign(page);
 });
 
 test.describe('cutting holes', () => {

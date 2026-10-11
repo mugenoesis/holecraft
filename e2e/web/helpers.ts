@@ -1,6 +1,23 @@
-import { expect, type Locator, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 
 export const viewport = (page: Page) => page.getByTestId('viewport');
+
+/** Opens the app, makes a fresh design and waits for the editor to be ready. */
+export async function newDesign(page: Page) {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'New design' }).click();
+  await expect(viewport(page).locator('canvas')).toBeVisible();
+}
+
+/** Makes a design through the API (so a test can open or list it) and returns its id. */
+export async function createDesignViaApi(request: APIRequestContext, name?: string): Promise<{ id: string; name: string }> {
+  const res = await request.post('/api/designs', { data: name ? { name } : {} });
+  expect(res.status()).toBe(201);
+  return (await res.json()) as { id: string; name: string };
+}
+
+/** A name no other test uses, so tests can find their own designs in a shared list. */
+export const uniqueName = (prefix: string) => `${prefix} ${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 export async function camera(page: Page) {
   const d = await viewport(page).evaluate((el) => ({ ...(el as HTMLElement).dataset }));

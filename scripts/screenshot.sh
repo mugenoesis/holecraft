@@ -14,6 +14,6 @@ OUT="${2:-test-results/screenshot.png}"
 mkdir -p "$(dirname "$OUT")"
 PW_VERSION="$(node -p "require('./node_modules/@playwright/test/package.json').version")"
 
-docker run --rm --network host -e DEMO -e VIEW -e PRESS -e CLICK -e FILL -e BUTTON -v "$ROOT:/repo" -w /repo "mcr.microsoft.com/playwright:v${PW_VERSION}-noble" \
+docker run --rm --network host -e DASHBOARD -e DEMO -e VIEW -e PRESS -e CLICK -e FILL -e BUTTON -v "$ROOT:/repo" -w /repo "mcr.microsoft.com/playwright:v${PW_VERSION}-noble" \
   node scripts/lib/screenshot.mjs "$URL" "$OUT" "${3:-1280}" "${4:-800}"
 echo "Wrote $OUT"

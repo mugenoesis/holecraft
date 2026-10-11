@@ -1,6 +1,7 @@
 import { descendantIds, eulerOfTransform, isUpright, rotationOfTransform, translationOf, type Design, type NodeId } from '@holecraft/core';
-import { useEffect, useState, type Dispatch, type FocusEvent, type KeyboardEvent } from 'react';
+import type { Dispatch } from 'react';
 import type { EditorAction } from './editorState.ts';
+import { useDraft } from './useDraft.ts';
 
 const fmt = (n: number) => String(Number(n.toFixed(2)));
 
@@ -138,30 +139,6 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
       {actions}
     </section>
   );
-}
-
-/**
- * A text box that edits a local draft and applies it on Enter or blur. Whatever the document
- * decides (accepted, rejected, normalised), the box then shows the document's value.
- */
-function useDraft(value: string, onCommit: (draft: string) => void) {
-  const [draft, setDraft] = useState(value);
-  // After a commit the box must show whatever the document decided, whether it accepted the
-  // edit (value changed), rejected it (value unchanged) or normalised it. Bumping `settled`
-  // makes the effect below re-read the value *after* the dispatch has rendered. Resetting the
-  // draft straight away would flash the old value, and a blur landing in that gap would
-  // commit it and silently undo the edit.
-  const [settled, setSettled] = useState(0);
-  useEffect(() => setDraft(value), [value, settled]);
-  const commit = (typed: string) => {
-    if (typed !== value) onCommit(typed);
-    setSettled((n) => n + 1);
-  };
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') commit(e.currentTarget.value);
-    else if (e.key === 'Escape') setDraft(value);
-  };
-  return { value: draft, onChange: setDraft, onBlur: (e: FocusEvent<HTMLInputElement>) => commit(e.currentTarget.value), onKeyDown };
 }
 
 function TextField({ label, value, onCommit }: { label: string; value: string; onCommit: (v: string) => void }) {

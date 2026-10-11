@@ -31,12 +31,46 @@ test.describe('desktop app', () => {
       await win.waitForLoadState('load');
       expect(win.url()).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
 
+      // The app opens on the list of designs; make one to get to the editor.
       await expect(win.getByRole('status')).toHaveText(/Server v\d+\.\d+\.\d+/);
+      await win.getByRole('button', { name: 'New design' }).click();
       await expect(win.getByTestId('viewport').locator('canvas')).toBeVisible();
       await expect(win.getByRole('alert')).toHaveCount(0);
       expect(existsSync(dataDir)).toBe(true);
     } finally {
       await app.close();
+    }
+  });
+
+  test('keeps a design when the app is closed and opened again', async () => {
+    const launch = () =>
+      electron.launch({
+        executablePath,
+        args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+        env: { ...process.env, HOLECRAFT_DATA_DIR: dataDir },
+      });
+
+    const first = await launch();
+    try {
+      const win = await first.firstWindow();
+      await win.getByRole('button', { name: 'New design' }).click();
+      await expect(win.getByTestId('viewport').locator('canvas')).toBeVisible();
+      await win.getByRole('textbox', { name: 'Design name' }).fill('Survives restarts');
+      await win.getByRole('textbox', { name: 'Design name' }).press('Enter');
+      await win.getByRole('button', { name: 'Sphere', exact: true }).click();
+      await expect(win.getByTestId('save-status')).toHaveText('Saved', { timeout: 10_000 });
+    } finally {
+      await first.close();
+    }
+
+    const second = await launch();
+    try {
+      const win = await second.firstWindow();
+      await win.getByRole('link', { name: 'Survives restarts', exact: true }).click();
+      await expect(win.getByText('Objects: 1')).toBeVisible();
+      await expect(win.getByTestId('object-list')).toContainText('Sphere 1');
+    } finally {
+      await second.close();
     }
   });
 
@@ -49,6 +83,7 @@ test.describe('desktop app', () => {
     try {
       const win = await app.firstWindow();
       await win.waitForLoadState('load');
+      await win.getByRole('button', { name: 'New design' }).click();
       await expect(win.getByTestId('viewport').locator('canvas')).toBeVisible();
 
       // A box and a cylinder, both added at the centre; make the cylinder a thin hole that passes through the box.

@@ -2,6 +2,8 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { MAX_DESIGN_BYTES, registerDesignRoutes } from './designRoutes.ts';
+import { DesignStore } from './designs.ts';
 
 export interface ServerOptions {
   /** Where designs, thumbnails and imported meshes are stored. Created if missing. */
@@ -19,10 +21,11 @@ export interface ServerOptions {
 export async function createServer(opts: ServerOptions): Promise<FastifyInstance> {
   await mkdir(opts.dataDir, { recursive: true });
 
-  const app = Fastify({ logger: opts.logger ?? false });
+  const app = Fastify({ logger: opts.logger ?? false, bodyLimit: MAX_DESIGN_BYTES });
   const version = opts.version ?? 'dev';
 
   app.get('/api/health', async () => ({ status: 'ok', name: 'holecraft', version }));
+  registerDesignRoutes(app, new DesignStore(opts.dataDir));
 
   const staticDir = opts.staticDir;
   if (staticDir) {
