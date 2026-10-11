@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="branding/logo.jpg" alt="Holecraft logo" width="480">
+</p>
+
 # Holecraft
 
 **Open-source, offline, browser-based 3D modeling for makers.**
