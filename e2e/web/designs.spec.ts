@@ -204,6 +204,20 @@ test.describe('saving', () => {
     await expect(card(page, name)).toBeVisible();
   });
 
+  test('the list waits for a slow save made on leaving, so it never shows the old name', async ({ page }) => {
+    const name = uniqueName('Slow');
+    await newDesign(page);
+    await waitSaved(page);
+    await page.route('**/api/designs/*', async (route) => {
+      if (route.request().method() === 'PUT') await new Promise((r) => setTimeout(r, 1500));
+      await route.continue();
+    });
+    await nameBox(page).fill(name);
+    await nameBox(page).press('Enter');
+    await page.getByRole('link', { name: 'All designs' }).click(); // before the autosave pause is up
+    await expect(card(page, name)).toBeVisible();
+  });
+
   test('going back to the list saves what was still waiting', async ({ page }) => {
     await newDesign(page);
     const url = page.url();

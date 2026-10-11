@@ -1,5 +1,6 @@
 import type { DesignSummary } from '@holecraft/core';
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { afterLeaving } from './leaving.ts';
 import { ApiError, createDesign, deleteDesign, duplicateDesign, listDesigns, renameDesignOnServer } from './designsApi.ts';
 import { Link } from './Link.tsx';
 import { designPath, navigate } from './router.ts';
@@ -18,6 +19,7 @@ export function Dashboard() {
 
   const refresh = useCallback(async () => {
     try {
+      await afterLeaving(); // a save started by leaving the editor must land before we list
       setLoad({ kind: 'ready', designs: await listDesigns() });
     } catch (error) {
       setLoad({ kind: 'error', message: messageOf(error) });
