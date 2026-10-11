@@ -6,15 +6,16 @@ const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
  * other forbidden characters, no control characters, no reserved Windows names), with the extension.
  */
 export function exportFileName(designName: string, extension: string): string {
-  let base = designName
-    .replace(/[\\/:*?"<>|]/g, '-')
-    .replace(/[\u0000-\u001f\u007f]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .replace(/^[\s.]+|[\s.]+$/g, '');
+	let base = designName
+		.replace(/[\\/:*?"<>|]/g, '-')
+		// biome-ignore lint/suspicious/noControlCharactersInRegex: removing control characters is the point of this
+		.replace(/[\u0000-\u001f\u007f]/g, ' ')
+		.replace(/\s+/g, ' ')
+		.replace(/^[\s.]+|[\s.]+$/g, '');
 
-  // Nothing readable left (an empty name, or just punctuation): use a plain name.
-  if (!/[\p{L}\p{N}]/u.test(base)) base = 'design';
-  base = base.slice(0, MAX_BASE_LENGTH).replace(/[\s.]+$/g, '');
-  if (RESERVED.test(base)) base = `${base}-design`;
-  return `${base}.${extension.toLowerCase()}`;
+	// Nothing readable left (an empty name, or just punctuation): use a plain name.
+	if (!/[\p{L}\p{N}]/u.test(base)) base = 'design';
+	base = base.slice(0, MAX_BASE_LENGTH).replace(/[\s.]+$/g, '');
+	if (RESERVED.test(base)) base = `${base}-design`;
+	return `${base}.${extension.toLowerCase()}`;
 }

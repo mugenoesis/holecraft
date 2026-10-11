@@ -40,7 +40,7 @@ Ships as a Docker web service and a Linux Electron app built from one codebase.
 3. **Keep docs current.** Update `README.md` when user-facing behavior, setup, or scripts
    change. Update this file when conventions change. Update `PLAN.md` when a phase completes
    or a decision changes.
-4. Run `scripts/check.sh` before committing (`FULL=1` when packaging, Docker, or Electron
+4. Run `npm run format` (Biome: formats, sorts imports, applies safe fixes) and `scripts/check.sh` before committing (`FULL=1` when packaging, Docker, or Electron
    code changed).
 
 ## Commands
@@ -288,6 +288,25 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   the "Standard views" menu.
 - After visual changes (especially CSS 3D like the view cube), check a real screenshot:
   `DEMO=1 scripts/screenshot.sh <url>`. Passing tests don't prove it looks right.
+
+## Formatting, linting and complexity (Biome)
+- **Biome** (`biome.json`) does formatting and linting: **tabs, 140 columns, single quotes** (double in JSX),
+  sorted imports. `npm run format` fixes what it can; `npm run lint` (= `biome check`) is the first step of
+  `scripts/check.sh`, so CI fails on any finding. `.editorconfig` tells editors the same basics.
+- **Cognitive complexity is capped at 15 per function and is an ERROR** (`noExcessiveCognitiveComplexity`).
+  Don't raise the limit or suppress it: split the function. What worked here: a flat `switch` reducer became four
+  small reducers grouped by purpose; a long closure became a class with one method per job; a fat component
+  gave its hooks (`useAutosave`, `useEditorShortcuts`, `useViewKeys`) and sub-components (`TopBar`,
+  `ViewToolbar`) their own files; branching on a key became a lookup table (`shortcutAction`). Pure logic that
+  falls out (`shortcutAction`, `nudgeForKey`) gets its own unit tests.
+- Two rules are off on purpose: `noNonNullAssertion` (strict `noUncheckedIndexedAccess` makes `!` after a
+  checked lookup idiomatic) and `useSemanticElements` (tests and screen readers rely on the existing
+  `role="group"`/`toolbar` markup). `noDescendingSpecificity` is off for CSS (a later, more specific rule such as
+  `.handle.height` refining `.handle` is deliberate).
+- A suppression needs a reason next to it: `// biome-ignore lint/...: why`. Extra hook dependencies used as
+  re-run triggers (`attempt`, `settled`, `resultVersion`) are the existing examples.
+- `orcaFilamentDefaults.ts` is generated and excluded. The big reformat commit is listed in
+  `.git-blame-ignore-revs` so `git blame` skips it.
 
 ## Code conventions
 - Strict TypeScript (`noUncheckedIndexedAccess`). Import with `.ts` extensions.

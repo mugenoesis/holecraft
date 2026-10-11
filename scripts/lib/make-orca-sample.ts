@@ -2,9 +2,10 @@
 // with the default four-colour palette, one with a full sixteen (plus plain 3MF and STL files, which the
 // engine is known to load, for comparison). Used by scripts/verify-orca-export.sh and
 // scripts/update-orca-filament-defaults.sh, which have OrcaSlicer's engine read them.
-import { addPaletteColor, addShape, createEmptyDesign, setNodeColor, type Design } from '@holecraft/core';
-import { collectBodies, loadManifold, write3mf, writeStl } from '@holecraft/geometry';
+
 import { writeFileSync } from 'node:fs';
+import { addPaletteColor, addShape, createEmptyDesign, type Design, setNodeColor } from '@holecraft/core';
+import { collectBodies, loadManifold, write3mf, writeStl } from '@holecraft/geometry';
 
 let d: Design = createEmptyDesign('d', 'Colours');
 d = addShape(d, 'box', [0, 0], { id: 'box' }).design; // default orange: filament 1

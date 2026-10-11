@@ -9,11 +9,11 @@
  * `rotation` is the row-major world→camera matrix from `viewRotation` in @holecraft/core.
  */
 export function viewCubeMatrix(rotation: readonly number[]): string {
-  const r = (row: number, col: number) => rotation[row * 3 + col]!;
-  const colA = [r(0, 0), -r(1, 0), r(2, 0)];
-  const colB = [-r(0, 2), r(1, 2), -r(2, 2)];
-  const colC = [-r(0, 1), r(1, 1), -r(2, 1)];
-  const values = [...colA, 0, ...colB, 0, ...colC, 0, 0, 0, 0, 1];
-  // Number() drops "-0" and trailing zeros; rounding avoids exponent notation, which CSS rejects.
-  return `matrix3d(${values.map((v) => Number(v.toFixed(6))).join(', ')})`;
+	const r = (row: number, col: number) => rotation[row * 3 + col]!;
+	const colA = [r(0, 0), -r(1, 0), r(2, 0)];
+	const colB = [-r(0, 2), r(1, 2), -r(2, 2)];
+	const colC = [-r(0, 1), r(1, 1), -r(2, 1)];
+	const values = [...colA, 0, ...colB, 0, ...colC, 0, 0, 0, 0, 1];
+	// Number() drops "-0" and trailing zeros; rounding avoids exponent notation, which CSS rejects.
+	return `matrix3d(${values.map((v) => Number(v.toFixed(6))).join(', ')})`;
 }

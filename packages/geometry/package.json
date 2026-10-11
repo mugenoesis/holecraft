@@ -1,15 +1,15 @@
 {
-  "name": "@holecraft/geometry",
-  "version": "0.1.0",
-  "private": true,
-  "description": "holecraft solid geometry: evaluates a group of solids and holes into a single mesh with manifold-3d",
-  "license": "AGPL-3.0-only",
-  "type": "module",
-  "exports": {
-    ".": "./src/index.ts"
-  },
-  "dependencies": {
-    "@holecraft/core": "0.1.0",
-    "manifold-3d": "3.5.4"
-  }
+	"name": "@holecraft/geometry",
+	"version": "0.1.0",
+	"private": true,
+	"description": "holecraft solid geometry: evaluates a group of solids and holes into a single mesh with manifold-3d",
+	"license": "AGPL-3.0-only",
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"dependencies": {
+		"@holecraft/core": "0.1.0",
+		"manifold-3d": "3.5.4"
+	}
 }

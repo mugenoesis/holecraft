@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The full pre-commit gate: typecheck, unit tests, build, browser integration tests.
+# The full pre-commit gate: Biome (format, lint, complexity), typecheck, unit tests, build, browser integration tests.
 #
 # Usage: scripts/check.sh           # fast gate (no packaging)
 #        FULL=1 scripts/check.sh    # also Docker smoke test + desktop package + desktop e2e
@@ -9,6 +9,7 @@ cd "$ROOT"
 
 step() { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
 
+step "biome (format, lint, complexity)"; npm run lint
 step "typecheck";          npm run typecheck
 step "unit tests";         npm test
 step "build";              npm run build

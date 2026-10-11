@@ -5,7 +5,7 @@ import Module, { type ManifoldToplevel } from 'manifold-3d';
  * bundle, pass `locateFile` returning the URL the bundler gave the wasm asset.
  */
 export async function loadManifold(locateFile?: () => string): Promise<ManifoldToplevel> {
-  const wasm = await (locateFile ? Module({ locateFile }) : Module());
-  wasm.setup();
-  return wasm;
+	const wasm = await (locateFile ? Module({ locateFile }) : Module());
+	wasm.setup();
+	return wasm;
 }

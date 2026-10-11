@@ -16,29 +16,29 @@ const staticDir = path.resolve(env.HOLECRAFT_STATIC_DIR ?? path.join(here, '../.
 const auth = env.HOLECRAFT_AUTH ?? 'none';
 
 if (auth !== 'none') {
-  console.error(`HOLECRAFT_AUTH=${auth} is not supported yet; only "none" is available.`);
-  process.exit(1);
+	console.error(`HOLECRAFT_AUTH=${auth} is not supported yet; only "none" is available.`);
+	process.exit(1);
 }
 
 const app = await createServer({
-  dataDir,
-  staticDir: existsSync(staticDir) ? staticDir : undefined,
-  version: typeof __HOLECRAFT_VERSION__ === 'string' ? __HOLECRAFT_VERSION__ : 'dev',
-  logger: true,
+	dataDir,
+	staticDir: existsSync(staticDir) ? staticDir : undefined,
+	version: typeof __HOLECRAFT_VERSION__ === 'string' ? __HOLECRAFT_VERSION__ : 'dev',
+	logger: true,
 });
 
 if (!existsSync(staticDir)) {
-  app.log.warn(`Web app not found at ${staticDir}; serving the API only. Run "npm run build" first.`);
+	app.log.warn(`Web app not found at ${staticDir}; serving the API only. Run "npm run build" first.`);
 }
 app.log.info(`Data directory: ${dataDir}`);
 
 await app.listen({ port, host });
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-  process.once(signal, () => {
-    app.close().then(
-      () => process.exit(0),
-      () => process.exit(1),
-    );
-  });
+	process.once(signal, () => {
+		app.close().then(
+			() => process.exit(0),
+			() => process.exit(1),
+		);
+	});
 }
