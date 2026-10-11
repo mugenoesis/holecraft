@@ -19,6 +19,12 @@ export interface ExportDeps {
 
 const defaultDeps: ExportDeps = { bodies: exportBodiesInWorker, save: downloadFile };
 
+/** The same design with only the selected top-level shapes and groups left to export. */
+export function onlySelected(design: Design, selection: readonly string[]): Design {
+  const chosen = new Set(selection);
+  return { ...design, roots: design.roots.filter((id) => chosen.has(id)) };
+}
+
 /** True if there is at least one visible, solid, top-level shape or group, so an export could produce something. */
 export function hasExportableShapes(design: Design): boolean {
   return design.roots.some((id) => {
