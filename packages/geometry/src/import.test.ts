@@ -22,6 +22,37 @@ function volume(m: { positions: Float32Array; indices: Uint32Array }): number {
 	return v;
 }
 
+describe('numbers too big to store', () => {
+	// 3.5e38 is a finite double, but just past the largest 32-bit float (3.4028235e38), so storing it gives Infinity
+	it('an OBJ vertex too big for a 32-bit float is refused, not turned into infinity', () => {
+		expect(() => parseObj('v 3.5e38 0 0\nv 0 1 0\nv 0 0 1\nf 1 2 3\n')).toThrow(/OBJ/);
+		expect(() => parseObj('v -3.4028235677973366e+38 0 0\nv 0 1 0\nv 0 0 1\nf 1 2 3\n')).toThrow(/OBJ/);
+	});
+
+	it('a text STL vertex too big for a 32-bit float is refused', () => {
+		const stl = 'solid x\nfacet normal 0 0 1\nouter loop\nvertex 3.5e38 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid x\n';
+		expect(() => parseStl(text(stl))).toThrow(/STL/);
+	});
+
+	it('a 3MF vertex too big for a 32-bit float is refused', async () => {
+		const model =
+			'<model unit="millimeter"><resources><object id="1"><mesh><vertices><vertex x="3.5e38" y="0" z="0"/><vertex x="1" y="0" z="0"/><vertex x="0" y="1" z="0"/></vertices><triangles><triangle v1="0" v2="1" v3="2"/></triangles></mesh></object></resources><build><item objectid="1"/></build></model>';
+		await expect(importMeshFile('x.3mf', writeStoredZip([{ name: '3D/3dmodel.model', data: text(model) }]))).rejects.toThrow(/3MF|large/i);
+	});
+
+	it('a 3MF whose unit scaling pushes a coordinate past the limit is refused', async () => {
+		const model =
+			'<model unit="meter"><resources><object id="1"><mesh><vertices><vertex x="1e36" y="0" z="0"/><vertex x="1" y="0" z="0"/><vertex x="0" y="1" z="0"/></vertices><triangles><triangle v1="0" v2="1" v3="2"/></triangles></mesh></object></resources><build><item objectid="1"/></build></model>';
+		await expect(importMeshFile('x.3mf', writeStoredZip([{ name: '3D/3dmodel.model', data: text(model) }]))).rejects.toThrow(/3MF|large/i);
+	});
+
+	it('weldMesh itself refuses coordinates that are not finite', () => {
+		expect(() => weldMesh(new Float32Array([0, 0, 0, 1, 0, 0, 0, Number.POSITIVE_INFINITY, 0]), new Uint32Array([0, 1, 2]))).toThrow(
+			/large|finite/i,
+		);
+	});
+});
+
 describe('weldMesh', () => {
 	it('merges corners at the same place and renumbers the triangles', () => {
 		// two triangles of a square, each with its own copy of the shared corners

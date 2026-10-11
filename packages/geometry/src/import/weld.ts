@@ -4,6 +4,12 @@ export interface RawMesh {
 	indices: Uint32Array;
 }
 
+/**
+ * True if a number can be stored in a 32-bit float without turning into infinity. A double such as 3.5e38 is
+ * finite but is just past the largest float (about 3.4e38), so `Number.isFinite` alone is not enough.
+ */
+export const fitsFloat32 = (n: number): boolean => Number.isFinite(Math.fround(n));
+
 /** More triangles than this and the file is refused; the browser and the cutting code would struggle. */
 export const MAX_IMPORT_TRIANGLES = 1_000_000;
 
@@ -12,6 +18,7 @@ export const MAX_IMPORT_TRIANGLES = 1_000_000;
  * triangle) and drops triangles that have collapsed to a line or point.
  */
 export function weldMesh(positions: Float32Array, indices: Uint32Array): RawMesh {
+	if (!positions.every(Number.isFinite)) throw new Error('This model contains numbers that are too large to use');
 	const slot = new Map<string, number>();
 	const remap = new Uint32Array(positions.length / 3);
 	const kept: number[] = [];

@@ -34,6 +34,14 @@ COPY --from=build /src/apps/server/dist apps/server/dist
 COPY --from=build /src/apps/web/dist apps/web/dist
 COPY LICENSE ./
 
+# Pick up Debian security fixes published since the base image was built, and drop what the server never
+# uses: it runs `node` directly, so npm, corepack and yarn (and the vulnerabilities that come with them)
+# only add attack surface (the image does not get smaller, as the files stay in the base layer). The image is scanned by scripts/docker-lint.sh.
+RUN apt-get update \
+    && apt-get -y --no-install-recommends upgrade \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/local/lib/node_modules /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn-* /usr/local/bin/yarn /usr/local/bin/yarnpkg
+
 RUN mkdir -p /data && chown node:node /data
 USER node
 VOLUME ["/data"]

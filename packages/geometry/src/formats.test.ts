@@ -186,4 +186,23 @@ describe('exportFileName', () => {
 		expect(exportFileName('CON', 'stl')).toBe('CON-design.stl');
 		expect(exportFileName('nul', 'stl')).toBe('nul-design.stl');
 	});
+
+	it('avoids reserved names even when something follows a dot, which Windows still treats as the device', () => {
+		expect(exportFileName('con.txt', 'stl')).toBe('con-design.txt.stl');
+		expect(exportFileName('NUL.final', 'obj')).toBe('NUL-design.final.obj');
+		expect(exportFileName('COM1', '3mf')).toBe('COM1-design.3mf');
+		expect(exportFileName('lpt9.v2', 'stl')).toBe('lpt9-design.v2.stl');
+	});
+
+	it('avoids the superscript-digit device names too', () => {
+		expect(exportFileName('COM¹', 'stl')).toBe('COM¹-design.stl');
+		expect(exportFileName('lpt³.x', 'stl')).toBe('lpt³-design.x.stl');
+	});
+
+	it('leaves names that merely start with a reserved word alone', () => {
+		expect(exportFileName('console', 'stl')).toBe('console.stl');
+		expect(exportFileName('connector.v2', 'stl')).toBe('connector.v2.stl');
+		expect(exportFileName('com10', 'stl')).toBe('com10.stl');
+		expect(exportFileName('my con', 'stl')).toBe('my con.stl');
+	});
 });
