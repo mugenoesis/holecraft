@@ -1,4 +1,14 @@
-import { DESIGN_FORMAT_VERSION, type Design, type DesignNode, MAX_NAME_LENGTH, type NodeId, type SolidMode } from './design.ts';
+import {
+	type BaseNode,
+	DESIGN_FORMAT_VERSION,
+	type Design,
+	type DesignNode,
+	type GroupNode,
+	MAX_NAME_LENGTH,
+	type NodeId,
+	type ShapeNode,
+	type SolidMode,
+} from './design.ts';
 import { MAX_SHAPE_SIZE } from './edit.ts';
 import type { GridSettings } from './grid.ts';
 import { isMeshRef, MESH_SHAPE_TYPE } from './meshShape.ts';
@@ -61,16 +71,16 @@ function parseTransform(v: unknown, path: string): number[] {
 	return [...(v as number[])];
 }
 
-function parseNode(key: string, raw: unknown): DesignNode {
-	const path = `nodes.${key}`;
-	if (!isRecord(raw)) fail(path, 'must be an object');
-	if (raw.id !== key) fail(`${path}.id`, `must match the key "${key}"`);
+type Raw = Record<string, unknown>;
 
+/** The fields every node has, whatever its kind. */
+function parseBase(key: string, raw: Raw, path: string): BaseNode {
+	if (raw.id !== key) fail(`${path}.id`, `must match the key "${key}"`);
 	const mode = raw.mode;
 	if (mode !== 'solid' && mode !== 'hole') fail(`${path}.mode`, 'must be "solid" or "hole"');
 	if (typeof raw.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(raw.color)) fail(`${path}.color`, 'must be a #rrggbb colour');
 
-	const base = {
+	return {
 		id: key,
 		name: str(raw.name, `${path}.name`, MAX_STORED_NAME),
 		transform: parseTransform(raw.transform, path),
@@ -79,40 +89,59 @@ function parseNode(key: string, raw: unknown): DesignNode {
 		hidden: bool(raw.hidden, `${path}.hidden`),
 		locked: bool(raw.locked, `${path}.locked`),
 	};
+}
+
+/** A shape's parameters: width, depth and height are required and bounded; other simple values are kept. */
+function parseShapeParams(rawParams: unknown, path: string): Record<string, number | string | boolean> {
+	if (!isRecord(rawParams)) fail(`${path}.params`, 'must be an object');
+	const params: Record<string, number | string | boolean> = {};
+	for (const dim of ['width', 'depth', 'height']) {
+		const v = rawParams[dim];
+		if (!isFiniteNumber(v) || v <= 0 || v > MAX_SHAPE_SIZE)
+			fail(`${path}.params.${dim}`, `${dim} must be a number above 0 and up to ${MAX_SHAPE_SIZE}`);
+		params[dim] = v;
+	}
+	for (const [name, v] of Object.entries(rawParams)) {
+		if (name in params) continue;
+		if (isFiniteNumber(v) || typeof v === 'boolean' || (typeof v === 'string' && v.length <= MAX_STRING_PARAM)) params[name] = v;
+	}
+	return params;
+}
+
+function parseShape(base: BaseNode, raw: Raw, path: string): ShapeNode {
+	const shapeType = raw.shapeType;
+	if (typeof shapeType !== 'string' || (shapeType !== MESH_SHAPE_TYPE && !isShapeType(shapeType)))
+		fail(`${path}.shapeType`, 'is not a known shape');
+	const params = parseShapeParams(raw.params, path);
+	// An imported model must point at a stored mesh by a proper reference: it becomes a file name.
+	if (shapeType === MESH_SHAPE_TYPE && !isMeshRef(params.mesh))
+		fail(`${path}.params.mesh`, 'an imported model needs a valid mesh reference');
+	return { ...base, kind: 'shape', shapeType, params };
+}
+
+function parseGroup(base: BaseNode, raw: Raw, path: string): GroupNode {
+	if (!Array.isArray(raw.children) || !raw.children.every((c) => typeof c === 'string'))
+		fail(`${path}.children`, 'must be a list of node ids');
+	if (raw.op !== 'union' && raw.op !== 'intersect') fail(`${path}.op`, 'must be "union" or "intersect"');
+	return {
+		...base,
+		kind: 'group',
+		children: [...(raw.children as string[])],
+		op: raw.op,
+		multicolor: bool(raw.multicolor, `${path}.multicolor`),
+	};
+}
+
+function parseNode(key: string, raw: unknown): DesignNode {
+	const path = `nodes.${key}`;
+	if (!isRecord(raw)) fail(path, 'must be an object');
+	const base = parseBase(key, raw, path);
 
 	switch (raw.kind) {
-		case 'shape': {
-			if (typeof raw.shapeType !== 'string' || (raw.shapeType !== MESH_SHAPE_TYPE && !isShapeType(raw.shapeType)))
-				fail(`${path}.shapeType`, 'is not a known shape');
-			if (!isRecord(raw.params)) fail(`${path}.params`, 'must be an object');
-			const params: Record<string, number | string | boolean> = {};
-			for (const dim of ['width', 'depth', 'height']) {
-				const v = raw.params[dim];
-				if (!isFiniteNumber(v) || v <= 0 || v > MAX_SHAPE_SIZE)
-					fail(`${path}.params.${dim}`, `${dim} must be a number above 0 and up to ${MAX_SHAPE_SIZE}`);
-				params[dim] = v;
-			}
-			for (const [name, v] of Object.entries(raw.params)) {
-				if (name in params) continue;
-				if (isFiniteNumber(v) || typeof v === 'boolean' || (typeof v === 'string' && v.length <= MAX_STRING_PARAM)) params[name] = v;
-			}
-			// An imported model must point at a stored mesh by a proper reference: it becomes a file name.
-			if (raw.shapeType === MESH_SHAPE_TYPE && !isMeshRef(params.mesh))
-				fail(`${path}.params.mesh`, 'an imported model needs a valid mesh reference');
-			return { ...base, kind: 'shape', shapeType: raw.shapeType, params };
-		}
-		case 'group': {
-			if (!Array.isArray(raw.children) || !raw.children.every((c) => typeof c === 'string'))
-				fail(`${path}.children`, 'must be a list of node ids');
-			if (raw.op !== 'union' && raw.op !== 'intersect') fail(`${path}.op`, 'must be "union" or "intersect"');
-			return {
-				...base,
-				kind: 'group',
-				children: [...(raw.children as string[])],
-				op: raw.op,
-				multicolor: bool(raw.multicolor, `${path}.multicolor`),
-			};
-		}
+		case 'shape':
+			return parseShape(base, raw, path);
+		case 'group':
+			return parseGroup(base, raw, path);
 		case 'mesh':
 			return { ...base, kind: 'mesh', meshRef: str(raw.meshRef, `${path}.meshRef`, MAX_STRING_PARAM) };
 		default:

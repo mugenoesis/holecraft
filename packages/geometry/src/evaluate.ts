@@ -37,90 +37,37 @@ export function evaluateNode(M: ManifoldToplevel, design: Nodes, id: NodeId, mes
 }
 
 function build(M: ManifoldToplevel, design: Nodes, rootId: NodeId, placeRoot: boolean, meshes?: MeshTable): GroupMesh | null {
-	const owned: Manifold[] = [];
-	const track = (m: Manifold): Manifold => {
-		owned.push(m);
-		return m;
-	};
-
-	/** An imported model as a manifold, in the unit box. Fails with a message fit to show if it cannot be cut. */
-	const imported = (node: ShapeNode): Manifold => {
-		const data = meshes?.get(String(node.params.mesh));
-		if (!data) throw new Error(`The model data for "${node.name}" is missing`);
-		try {
-			const mesh = new M.Mesh({ numProp: 3, vertProperties: data.positions, triVerts: data.indices });
-			return track(M.Manifold.ofMesh(mesh));
-		} catch {
-			throw new Error(`"${node.name}" is not watertight (its surface has holes or overlaps), so it cannot be used to cut or be cut`);
-		}
-	};
-
-	/** A shape as a manifold: base on z = 0, scaled to its size, then placed by its own transform. */
-	const shape = (node: ShapeNode): Manifold => {
-		const { width, depth, height } = node.params as { width: number; depth: number; height: number };
-		let m: Manifold;
-		switch (node.shapeType) {
-			case MESH_SHAPE_TYPE:
-				m = track(imported(node).scale([width, depth, height]));
-				break;
-			case 'cylinder':
-				m = track(track(M.Manifold.cylinder(1, 0.5, 0.5, CYLINDER_SEGMENTS, false)).scale([width, depth, height]));
-				break;
-			case 'sphere':
-				m = track(track(track(M.Manifold.sphere(0.5, SPHERE_SEGMENTS)).translate([0, 0, 0.5])).scale([width, depth, height]));
-				break;
-			default:
-				m = track(track(M.Manifold.cube([width, depth, height], false)).translate([-width / 2, -depth / 2, 0]));
-		}
-		return track(m.transform(asMat4(node.transform)));
-	};
-
-	/** A group's contents: solids joined, holes cut out. Null when there is nothing solid left. */
-	const contents = (id: NodeId): Manifold | null => {
-		const group = design.nodes[id];
-		if (group?.kind !== 'group') return null;
-
-		const solids: Manifold[] = [];
-		const holes: Manifold[] = [];
-		for (const childId of group.children) {
-			const child = design.nodes[childId];
-			const built = child?.kind === 'shape' ? shape(child) : child?.kind === 'group' ? placed(childId) : null;
-			if (built) (child!.mode === 'hole' ? holes : solids).push(built);
-		}
-		if (solids.length === 0) return null;
-
-		const joined = track(group.op === 'intersect' ? M.Manifold.intersection(solids) : M.Manifold.union(solids));
-		if (holes.length === 0) return joined;
-		return track(joined.subtract(track(M.Manifold.union(holes))));
-	};
-
-	/** A nested group as seen from its parent: its contents, moved by its own transform. */
-	const placed = (id: NodeId): Manifold | null => {
-		const inner = contents(id);
-		return inner ? track(inner.transform(asMat4(design.nodes[id]!.transform))) : null;
-	};
-
+	const evaluation = new Evaluation(M, design, meshes);
 	try {
-		const root = design.nodes[rootId];
-		let result: Manifold | null = null;
-		if (root?.kind === 'group') result = placeRoot ? placed(rootId) : contents(rootId);
-		else if (root?.kind === 'shape' && placeRoot) result = shape(root);
-		if (!result || result.isEmpty()) return null;
-		const mesh = result.getMesh();
-		if (mesh.triVerts.length === 0) return null;
-
-		// Vertices may carry extra properties after xyz; keep only the positions.
-		const stride = mesh.numProp;
-		const vertices = mesh.vertProperties.length / stride;
-		const positions = new Float32Array(vertices * 3);
-		for (let v = 0; v < vertices; v++) {
-			positions[v * 3] = mesh.vertProperties[v * stride]!;
-			positions[v * 3 + 1] = mesh.vertProperties[v * stride + 1]!;
-			positions[v * 3 + 2] = mesh.vertProperties[v * stride + 2]!;
-		}
-		return { positions, indices: Uint32Array.from(mesh.triVerts) };
+		return evaluation.run(rootId, placeRoot);
 	} finally {
-		for (const m of owned) {
+		evaluation.free();
+	}
+}
+
+/**
+ * One evaluation of a node. manifold objects live in WASM memory and must be freed by hand, so every one
+ * created here is tracked and deleted by `free()`, however the evaluation ends.
+ */
+class Evaluation {
+	private readonly owned: Manifold[] = [];
+
+	constructor(
+		private readonly M: ManifoldToplevel,
+		private readonly design: Nodes,
+		private readonly meshes?: MeshTable,
+	) {}
+
+	run(rootId: NodeId, placeRoot: boolean): GroupMesh | null {
+		const root = this.design.nodes[rootId];
+		let result: Manifold | null = null;
+		if (root?.kind === 'group') result = placeRoot ? this.placed(rootId) : this.contents(rootId);
+		else if (root?.kind === 'shape' && placeRoot) result = this.shape(root);
+		return result && !result.isEmpty() ? toGroupMesh(result) : null;
+	}
+
+	free(): void {
+		for (const m of this.owned) {
 			try {
 				m.delete();
 			} catch {
@@ -128,4 +75,92 @@ function build(M: ManifoldToplevel, design: Nodes, rootId: NodeId, placeRoot: bo
 			}
 		}
 	}
+
+	private track(m: Manifold): Manifold {
+		this.owned.push(m);
+		return m;
+	}
+
+	/** An imported model as a manifold, in the unit box. Fails with a message fit to show if it cannot be cut. */
+	private imported(node: ShapeNode): Manifold {
+		const data = this.meshes?.get(String(node.params.mesh));
+		if (!data) throw new Error(`The model data for "${node.name}" is missing`);
+		try {
+			const mesh = new this.M.Mesh({ numProp: 3, vertProperties: data.positions, triVerts: data.indices });
+			return this.track(this.M.Manifold.ofMesh(mesh));
+		} catch {
+			throw new Error(`"${node.name}" is not watertight (its surface has holes or overlaps), so it cannot be used to cut or be cut`);
+		}
+	}
+
+	/** A shape's own geometry: base on z = 0 and scaled to its size, before it is placed. */
+	private primitive(node: ShapeNode): Manifold {
+		const { width, depth, height } = node.params as { width: number; depth: number; height: number };
+		const { Manifold } = this.M;
+		const size: [number, number, number] = [width, depth, height];
+		switch (node.shapeType) {
+			case MESH_SHAPE_TYPE:
+				return this.track(this.imported(node).scale(size));
+			case 'cylinder':
+				return this.track(this.track(Manifold.cylinder(1, 0.5, 0.5, CYLINDER_SEGMENTS, false)).scale(size));
+			case 'sphere':
+				return this.track(this.track(this.track(Manifold.sphere(0.5, SPHERE_SEGMENTS)).translate([0, 0, 0.5])).scale(size));
+			default:
+				return this.track(this.track(Manifold.cube(size, false)).translate([-width / 2, -depth / 2, 0]));
+		}
+	}
+
+	/** A shape as a manifold: its geometry, then placed by its own transform. */
+	private shape(node: ShapeNode): Manifold {
+		return this.track(this.primitive(node).transform(asMat4(node.transform)));
+	}
+
+	/** What a child of a group contributes (null for anything that makes no solid), and whether it cuts. */
+	private child(childId: NodeId): { manifold: Manifold; isHole: boolean } | null {
+		const child = this.design.nodes[childId];
+		if (!child) return null;
+		const manifold = child.kind === 'shape' ? this.shape(child) : child.kind === 'group' ? this.placed(childId) : null;
+		return manifold ? { manifold, isHole: child.mode === 'hole' } : null;
+	}
+
+	/** A group's contents: solids joined, holes cut out. Null when there is nothing solid left. */
+	private contents(id: NodeId): Manifold | null {
+		const group = this.design.nodes[id];
+		if (group?.kind !== 'group') return null;
+
+		const solids: Manifold[] = [];
+		const holes: Manifold[] = [];
+		for (const childId of group.children) {
+			const built = this.child(childId);
+			if (built) (built.isHole ? holes : solids).push(built.manifold);
+		}
+		if (solids.length === 0) return null;
+
+		const { Manifold } = this.M;
+		const joined = this.track(group.op === 'intersect' ? Manifold.intersection(solids) : Manifold.union(solids));
+		return holes.length === 0 ? joined : this.track(joined.subtract(this.track(Manifold.union(holes))));
+	}
+
+	/** A nested group as seen from its parent: its contents, moved by its own transform. */
+	private placed(id: NodeId): Manifold | null {
+		const inner = this.contents(id);
+		return inner ? this.track(inner.transform(asMat4(this.design.nodes[id]!.transform))) : null;
+	}
+}
+
+/** The positions and triangles of a built manifold, or null if it has no triangles. */
+function toGroupMesh(result: Manifold): GroupMesh | null {
+	const mesh = result.getMesh();
+	if (mesh.triVerts.length === 0) return null;
+
+	// Vertices may carry extra properties after xyz; keep only the positions.
+	const stride = mesh.numProp;
+	const vertices = mesh.vertProperties.length / stride;
+	const positions = new Float32Array(vertices * 3);
+	for (let v = 0; v < vertices; v++) {
+		positions[v * 3] = mesh.vertProperties[v * stride]!;
+		positions[v * 3 + 1] = mesh.vertProperties[v * stride + 1]!;
+		positions[v * 3 + 2] = mesh.vertProperties[v * stride + 2]!;
+	}
+	return { positions, indices: Uint32Array.from(mesh.triVerts) };
 }
