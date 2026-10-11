@@ -1,5 +1,5 @@
 import { readZip } from '../formats/zip.ts';
-import { MAX_IMPORT_TRIANGLES, type RawMesh, weldMesh } from './weld.ts';
+import { fitsFloat32, MAX_IMPORT_TRIANGLES, type RawMesh, weldMesh } from './weld.ts';
 
 const decoder = new TextDecoder();
 
@@ -69,7 +69,7 @@ function parseObjectBody(body: string): ObjectData {
 		const transform = transformOf(c[1]!);
 		data.components.push(path === undefined ? { objectId, transform } : { objectId, path: path.replace(/^\/+/, ''), transform });
 	}
-	const badVertex = data.vertices.some((n) => !Number.isFinite(n));
+	const badVertex = data.vertices.some((n) => !fitsFloat32(n));
 	const badTriangle = data.triangles.some((n) => !Number.isInteger(n) || n < 0 || n * 3 >= data.vertices.length);
 	if (badVertex || badTriangle) throw new Error('This 3MF has a damaged mesh');
 	return data;

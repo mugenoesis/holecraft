@@ -1,4 +1,4 @@
-import { MAX_IMPORT_TRIANGLES, type RawMesh, weldMesh } from './weld.ts';
+import { fitsFloat32, MAX_IMPORT_TRIANGLES, type RawMesh, weldMesh } from './weld.ts';
 
 const decoder = new TextDecoder();
 
@@ -35,7 +35,7 @@ function ascii(text: string): RawMesh {
 	for (let m = re.exec(text); m; m = re.exec(text)) {
 		for (const part of [m[1]!, m[2]!, m[3]!]) {
 			const v = Number(part);
-			if (!Number.isFinite(v)) throw new Error('This STL contains invalid numbers');
+			if (!fitsFloat32(v)) throw new Error('This STL contains invalid numbers');
 			numbers.push(v);
 		}
 		if (numbers.length / 9 > MAX_IMPORT_TRIANGLES) throw new Error('This STL is too large');

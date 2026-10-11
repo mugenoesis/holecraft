@@ -193,6 +193,10 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/e2e.sh` | Playwright tests in the Playwright Docker image |
 | `scripts/docker-smoke.sh` | Build the image, run it, verify health and non-root user |
 | `scripts/package-desktop.sh` | Build the AppImage and .deb (in a Debian container) |
+| `npm run knip` | Unused files, exports and dependencies (fails the gate) |
+| `npm run coverage` | Unit tests with coverage; per-package floors in `vitest.config.ts` fail the gate, HTML report in `coverage/` |
+| `scripts/audit.sh` (`npm run audit:deps`) | Dependency vulnerabilities: anything that ships must be clean, build tools are only reported |
+| `scripts/docker-lint.sh [image]` | hadolint on the Dockerfile and trivy on its configuration and the built image (HIGH/CRITICAL with a fix fail it) |
 | `npm run lint` / `npm run format` | Biome: check formatting, lint rules and the complexity limit (15 per function); `format` fixes what it can. `scripts/check.sh` runs `lint` first |
 | `scripts/verify-orca-export.sh` | Write the OrcaSlicer-flavoured 3MF and have the real OrcaSlicer engine (from the local Trident image, in throwaway containers) load it, checking it does not crash and keeps every object's filament and the palette |
 | `scripts/update-orca-filament-defaults.sh` | Regenerate `orcaFilamentDefaults.ts` (the per-filament project settings) from the real engine; run after changing the Trident/OrcaSlicer version |

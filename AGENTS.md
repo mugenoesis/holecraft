@@ -308,6 +308,37 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - `orcaFilamentDefaults.ts` is generated and excluded. The big reformat commit is listed in
   `.git-blame-ignore-revs` so `git blame` skips it.
 
+## Other correctness checks
+- **TypeScript** also has `noUnusedLocals/Parameters`, `noImplicitReturns`, `noFallthroughCasesInSwitch` and
+  `exactOptionalPropertyTypes` (an optional property can't be given an explicit `undefined`: widen the type with
+  `| undefined` where passing "maybe nothing" through is the point, or omit the key). `tsconfig.tools.json` makes
+  `npm run typecheck` cover `e2e/` and `scripts/lib/` too.
+- **knip** (`npm run knip`, in the gate) fails on unused files, exports and dependencies, and on a package imported
+  without being listed in its own package.json (the web app once relied on `manifold-3d` being hoisted from `geometry`).
+- **Coverage floors** (`npm run coverage`, in the gate) are per package in `vitest.config.ts`, set just under the
+  current numbers. Raise a floor when the real number rises; never lower one to make a change pass: add tests. The web
+  app's floor is low only because its React/WebGL code is covered by `e2e/`, which doesn't count there.
+- **Dependencies**: `scripts/audit.sh` (CI `audit` job) fails on a vulnerability in anything that ships and only reports
+  build-tool ones (the 8 moderate `electron-builder` ones). Dependabot opens weekly PRs; `@playwright/test`, `electron`
+  and `@biomejs/biome` are excluded because they are pinned in step with other things (see `.github/dependabot.yml`).
+- **Docker**: `scripts/docker-lint.sh [image]` runs hadolint on the Dockerfile and trivy on its config and the built image
+  (HIGH/CRITICAL with a fix fail it; CI runs it after the smoke test). The runtime stage applies `apt-get upgrade` and removes
+  npm/corepack/yarn on purpose; if trivy reports a new Debian or npm finding, rebuild (the upgrade picks up fixes) or bump the base image.
+
+## Property-based tests (fast-check)
+- `packages/core/src/properties.test.ts`, `packages/geometry/src/properties.test.ts` and `apps/server/src/properties.test.ts` state
+  rules that must hold for *every* input and let fast-check try hundreds (and shrink a failure to a small counterexample): designs
+  survive save/load unchanged; `parseDesign` refuses junk with a `DesignValidationError` and nothing else; the file readers (STL, OBJ,
+  3MF, zip, stored meshes) get random bytes and corrupted real files and may only return a valid mesh or throw their own message;
+  export file names are safe everywhere; the API never answers 500 and never writes outside its folders; the real CSG engine's
+  volumes obey union/hole laws.
+- A failure means a real counterexample: fix the code (add a deterministic regression test for it next to the property), or, if the
+  rule was wrong, fix the rule. Seeds are random each run, so re-run a few times after changing something.
+- **Check a new property can fail**: temporarily break the code it guards and see it go red (a "mutation check"). This exposed a fuzz
+  test that never produced a too-large shape; random JSON rarely hits boundary values, so the generators mix in nasty ones (`nastyValue`).
+- Bugs these found: Windows device names with an extension (`con.txt` -> `con-design.txt.stl`), and coordinates that are finite
+  doubles but overflow to infinity as 32-bit floats (`fitsFloat32`, guarded again in `weldMesh`).
+
 ## Code conventions
 - Strict TypeScript (`noUncheckedIndexedAccess`). Import with `.ts` extensions.
 - `packages/core` must stay free of DOM, three.js, and Node APIs, so it can be pure and unit-tested.

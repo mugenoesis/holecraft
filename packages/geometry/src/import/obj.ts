@@ -1,9 +1,9 @@
-import { MAX_IMPORT_TRIANGLES, type RawMesh, weldMesh } from './weld.ts';
+import { fitsFloat32, MAX_IMPORT_TRIANGLES, type RawMesh, weldMesh } from './weld.ts';
 
 /** The three numbers of a "v x y z" line. */
 function parseVertex(line: string): [number, number, number] {
 	const [x, y, z] = line.slice(2).trim().split(/\s+/).map(Number);
-	if (![x, y, z].every((n) => n !== undefined && Number.isFinite(n))) throw new Error('This OBJ contains an invalid vertex');
+	if (![x, y, z].every((n) => n !== undefined && fitsFloat32(n))) throw new Error('This OBJ contains an invalid vertex');
 	return [x!, y!, z!];
 }
 

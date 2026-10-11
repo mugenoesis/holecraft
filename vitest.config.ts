@@ -18,10 +18,10 @@ export default defineConfig({
 			// React and WebGL code is exercised by the browser tests (e2e/), which do not count here, so its
 			// floor is low; the logic packages are held much higher. Raise a floor when the real number rises.
 			thresholds: {
-				'packages/core/src/**': { statements: 95, branches: 92, functions: 98, lines: 97 },
-				'packages/geometry/src/**': { statements: 92, branches: 75, functions: 95, lines: 97 },
-				'apps/server/src/**': { statements: 83, branches: 74, functions: 85, lines: 85 },
-				'apps/web/src/**': { statements: 40, branches: 39, functions: 32, lines: 40 },
+				'packages/core/src/**': { statements: 97, branches: 94, functions: 98, lines: 98 },
+				'packages/geometry/src/**': { statements: 95, branches: 82, functions: 97, lines: 98 },
+				'apps/server/src/**': { statements: 90, branches: 86, functions: 90, lines: 93 },
+				'apps/web/src/**': { statements: 41, branches: 40, functions: 33, lines: 41 },
 			},
 		},
 	},

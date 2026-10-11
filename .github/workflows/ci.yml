@@ -46,6 +46,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: scripts/docker-smoke.sh holecraft:ci
+      # hadolint on the Dockerfile; trivy on its configuration and on the built image (HIGH/CRITICAL with a fix)
+      - run: scripts/docker-lint.sh holecraft:ci
 
   desktop:
     runs-on: ubuntu-latest
