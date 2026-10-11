@@ -1,4 +1,4 @@
-import { eulerOfTransform, isUpright, rotationOfTransform, translationOf, type Design, type NodeId } from '@holecraft/core';
+import { descendantIds, eulerOfTransform, isUpright, rotationOfTransform, translationOf, type Design, type NodeId } from '@holecraft/core';
 import { useEffect, useState, type Dispatch, type FocusEvent, type KeyboardEvent } from 'react';
 import type { EditorAction } from './editorState.ts';
 
@@ -47,6 +47,27 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
     </label>
   );
 
+  // Solid or hole. Neither button is pressed when the selection is a mix.
+  const modes = new Set(nodes.map((n) => n.mode));
+  const typeToggle = (
+    <div className="field">
+      <span>Type</span>
+      <div className="segmented" role="group" aria-label="Type">
+        {(['solid', 'hole'] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            aria-pressed={modes.size === 1 && modes.has(mode)}
+            onClick={() => dispatch({ type: 'setMode', mode })}
+            title={mode === 'hole' ? 'Cut this shape out of anything it overlaps in its group' : 'Add this shape to the model'}
+          >
+            {mode === 'solid' ? 'Solid' : 'Hole'}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
   const only = nodes.length === 1 ? nodes[0]! : null;
 
   if (!only) {
@@ -54,6 +75,23 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
       <section aria-label="Properties">
         <h2>Properties</h2>
         <p>{nodes.length} shapes selected</p>
+        {typeToggle}
+        {color}
+        {actions}
+      </section>
+    );
+  }
+
+  if (only.kind === 'group') {
+    const shapes = descendantIds(design, only.id).filter((id) => design.nodes[id]?.kind === 'shape').length;
+    return (
+      <section aria-label="Properties">
+        <h2>Properties</h2>
+        <div key={only.id} className="fields">
+          <TextField label="Name" value={only.name} onCommit={(name) => dispatch({ type: 'rename', id: only.id, name })} />
+        </div>
+        <p>Contains {shapes} shapes</p>
+        {typeToggle}
         {color}
         {actions}
       </section>
@@ -89,6 +127,7 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
         <NumberField label="Rotate X" value={euler[0]} onCommit={turn(0)} />
         <NumberField label="Rotate Y" value={euler[1]} onCommit={turn(1)} />
         <NumberField label="Rotate Z" value={euler[2]} onCommit={turn(2)} />
+        {typeToggle}
         {color}
       </div>
       {tilted && (

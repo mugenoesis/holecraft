@@ -83,6 +83,23 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Shortcuts: viewport ones (Home, F, arrows) in `ViewportCanvas`, editing ones (Ctrl+Z/D/A,
   Delete, Esc) in `App`. Both skip typing targets via `isTypingTarget` in `keyboard.ts`.
 
+## Groups and holes
+- A group's children live in its coordinate frame: a child's world transform is the group's
+  transform times its own (`multiplyMat4`). Only top-level nodes are in `design.roots`; children
+  are reachable through the group. New groups start with an identity transform, so grouping
+  never moves anything, and ungrouping bakes the group's transform into the children.
+- Ask where something is with `nodeBoundsIn(design, id)` (it looks inside groups), never by
+  reading a group's own translation. Holes don't size a group unless it has no solids.
+- A group is positioned by the middle of what it holds (see `moveSelection`), not its origin.
+- `mode` (`solid` | `hole`) lives on shapes and groups. A hole keeps its colour, and a hole
+  group turns its children into holes when ungrouped. Phase 3a only *draws* holes as ghosts;
+  the boolean cut is Phase 3b.
+- `DesignScene` mirrors the document as nested `THREE.Group`s keyed by node id, reusing objects
+  when shapes are grouped or ungrouped. Picking, selection and marquee all work on the
+  **top-level** id, so hitting any shape in a group counts as hitting the group.
+- An Objects-list row is a full click (`pick` down then click), so it narrows a multi-selection.
+  The viewport sends the two phases separately so a multi-selection can still be dragged.
+
 ## Rotation
 - Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre
   position). Sizes stay as local params, so a mesh is just position, quaternion and scale.

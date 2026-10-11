@@ -1,4 +1,4 @@
-import { canRedo, canUndo, createEmptyDesign, newId, type NodeId, type ShapeType } from '@holecraft/core';
+import { canGroup, canRedo, canUndo, canUngroup, createEmptyDesign, newId, type NodeId, type ShapeType } from '@holecraft/core';
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { fetchHealth, type Health } from './api.ts';
 import { createEditorState, editorReducer } from './editorState.ts';
@@ -32,6 +32,7 @@ export function App() {
       if (mod && key === 'z') dispatch({ type: e.shiftKey ? 'redo' : 'undo' });
       else if (mod && key === 'y') dispatch({ type: 'redo' });
       else if (mod && key === 'd') dispatch({ type: 'duplicate' });
+      else if (mod && key === 'g') dispatch({ type: e.shiftKey ? 'ungroup' : 'group' });
       else if (mod && key === 'a') dispatch({ type: 'selectAll' });
       else if (!mod && key === 'd') dispatch({ type: 'dropToPlane' });
       else if (!mod && (e.key === 'Delete' || e.key === 'Backspace')) dispatch({ type: 'delete' });
@@ -44,10 +45,12 @@ export function App() {
   }, []);
 
   const addAt = useCallback((shape: ShapeType, at: [number, number]) => dispatch({ type: 'add', shape, at }), []);
-  const select = useCallback(
-    (id: NodeId, additive: boolean) => dispatch({ type: 'pick', id, additive, phase: 'down' }),
-    [],
-  );
+  // A list row is a complete click: the press selects (shift toggles), and the release narrows a
+  // multi-selection down to the clicked row, which the viewport only does when nothing was dragged.
+  const select = useCallback((id: NodeId, additive: boolean) => {
+    dispatch({ type: 'pick', id, additive, phase: 'down' });
+    dispatch({ type: 'pick', id, additive, phase: 'click' });
+  }, []);
 
   const [width, depth] = design.grid.size;
 
@@ -64,6 +67,19 @@ export function App() {
           </button>
           <button type="button" onClick={() => dispatch({ type: 'redo' })} disabled={!canRedo(state.history)} title="Redo (Ctrl+Shift+Z)">
             Redo
+          </button>
+        </div>
+        <div className="edit-actions" role="toolbar" aria-label="Group">
+          <button type="button" onClick={() => dispatch({ type: 'group' })} disabled={!canGroup(design, state.selection)} title="Group the selected shapes (Ctrl+G)">
+            Group
+          </button>
+          <button
+            type="button"
+            onClick={() => dispatch({ type: 'ungroup' })}
+            disabled={!canUngroup(design, state.selection)}
+            title="Split the selected group back into shapes (Ctrl+Shift+G)"
+          >
+            Ungroup
           </button>
         </div>
         <div className="design-name">{design.name}</div>

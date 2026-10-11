@@ -1,8 +1,11 @@
-import type { Design, DesignNode, NodeId, ShapeType } from '@holecraft/core';
+import type { Design, NodeId, ShapeNode, ShapeType } from '@holecraft/core';
 import * as THREE from 'three';
 
 const SELECTED_TINT = 0x1f6f8b;
 const OUTLINE_COLOR = 0x0f766e;
+/** Holes are drawn as pale, see-through ghosts, whatever colour the shape itself has. */
+const HOLE_COLOR = 0x8fa1b0;
+const HOLE_OPACITY = 0.35;
 
 /** Unit-sized geometry resting on z=0, scaled per shape by its width/depth/height. */
 function createUnitGeometry(type: ShapeType): THREE.BufferGeometry {
@@ -28,15 +31,24 @@ export interface NdcRect {
 /** Corners of the unit bounding box shared by every shape (x, y in ±0.5, z in 0..1). */
 const UNIT_CORNERS = [-0.5, 0.5].flatMap((x) => [-0.5, 0.5].flatMap((y) => [0, 1].map((z) => new THREE.Vector3(x, y, z))));
 
+const isShown = (obj: THREE.Object3D): boolean => {
+  for (let o: THREE.Object3D | null = obj; o; o = o.parent) if (!o.visible) return false;
+  return true;
+};
+
 /**
- * Mirrors a Design into three.js objects. `sync` is cheap to call after every change:
- * it updates existing meshes in place and only builds or discards what actually changed.
+ * Mirrors a Design into three.js objects: a mesh per shape and a THREE.Group per group, nested
+ * like the document. Everything is keyed by node id, so `sync` is cheap to call after every
+ * change and reuses objects when shapes are grouped, moved or ungrouped.
+ *
+ * Selection and picking work on top-level nodes: hitting any shape inside a group counts as
+ * hitting the group.
  */
 export class DesignScene {
   readonly root = new THREE.Group();
 
   private readonly geometries = new Map<ShapeType, THREE.BufferGeometry>();
-  private readonly meshes = new Map<NodeId, THREE.Mesh>();
+  private readonly objects = new Map<NodeId, THREE.Object3D>();
   private readonly outlineGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5));
   private selection = new Set<NodeId>();
 
@@ -46,43 +58,37 @@ export class DesignScene {
 
   sync(design: Design): void {
     const live = new Set<NodeId>();
+    for (const id of design.roots) this.place(design, id, this.root, id, false, live);
 
-    for (const id of design.roots) {
-      const node = design.nodes[id];
-      if (!node || node.kind !== 'shape') continue;
-      live.add(id);
-      this.upsert(id, node);
-    }
-
-    for (const [id, mesh] of this.meshes) {
+    for (const [id, obj] of this.objects) {
       if (live.has(id)) continue;
-      this.root.remove(mesh);
-      this.disposeMesh(mesh);
-      this.meshes.delete(id);
+      obj.parent?.remove(obj);
+      if (obj instanceof THREE.Mesh) this.disposeMesh(obj);
+      this.objects.delete(id);
     }
   }
 
   setSelection(ids: readonly NodeId[]): void {
     this.selection = new Set(ids);
-    for (const [id, mesh] of this.meshes) this.applySelection(id, mesh);
+    for (const mesh of this.meshes()) this.applySelection(mesh);
   }
 
-  /** The shape nearest to the ray's origin that it hits, or null. */
+  /** The top-level node nearest to the ray's origin that it hits (a group if a shape inside it is hit), or null. */
   pick(raycaster: THREE.Raycaster): NodeId | null {
     this.root.updateMatrixWorld(true);
-    const candidates = [...this.meshes.values()].filter((m) => m.visible);
+    const candidates = this.meshes().filter(isShown);
     const [hit] = raycaster.intersectObjects(candidates, false);
-    return hit ? (hit.object.userData.nodeId as NodeId) : null;
+    return hit ? (hit.object.userData.rootId as NodeId) : null;
   }
 
-  /** Visible shapes whose on-screen bounding box overlaps `rect` (marquee selection). */
+  /** Top-level nodes with a visible shape whose on-screen bounding box overlaps `rect` (marquee selection). */
   idsInRect(camera: THREE.Camera, rect: NdcRect): NodeId[] {
     this.root.updateMatrixWorld(true);
     camera.updateMatrixWorld();
-    const ids: NodeId[] = [];
+    const ids = new Set<NodeId>();
     const p = new THREE.Vector3();
-    for (const [id, mesh] of this.meshes) {
-      if (!mesh.visible) continue;
+    for (const mesh of this.meshes()) {
+      if (!isShown(mesh)) continue;
       let minX = Infinity;
       let maxX = -Infinity;
       let minY = Infinity;
@@ -94,43 +100,85 @@ export class DesignScene {
         minY = Math.min(minY, p.y);
         maxY = Math.max(maxY, p.y);
       }
-      if (maxX >= rect.minX && minX <= rect.maxX && maxY >= rect.minY && minY <= rect.maxY) ids.push(id);
+      if (maxX >= rect.minX && minX <= rect.maxX && maxY >= rect.minY && minY <= rect.maxY) ids.add(mesh.userData.rootId as NodeId);
     }
-    return ids;
+    return [...ids];
   }
 
   dispose(): void {
-    for (const mesh of this.meshes.values()) this.disposeMesh(mesh);
+    for (const obj of this.objects.values()) if (obj instanceof THREE.Mesh) this.disposeMesh(obj);
     for (const geometry of this.geometries.values()) geometry.dispose();
     this.outlineGeometry.dispose();
-    this.meshes.clear();
+    this.objects.clear();
     this.geometries.clear();
     this.root.clear();
   }
 
-  private upsert(id: NodeId, node: Extract<DesignNode, { kind: 'shape' }>): void {
-    let mesh = this.meshes.get(id);
-    if (!mesh) {
-      mesh = new THREE.Mesh(this.geometryFor(node.shapeType as ShapeType), new THREE.MeshStandardMaterial({ roughness: 0.55 }));
-      mesh.userData.nodeId = id;
-      const outline = new THREE.LineSegments(this.outlineGeometry, new THREE.LineBasicMaterial({ color: OUTLINE_COLOR }));
-      outline.name = 'selection-outline';
-      mesh.add(outline);
-      this.meshes.set(id, mesh);
-      this.root.add(mesh);
-      this.applySelection(id, mesh);
-    }
-    const { width, depth, height } = node.params as { width: number; depth: number; height: number };
-    const transform = new THREE.Matrix4().fromArray(node.transform);
-    mesh.position.setFromMatrixPosition(transform);
-    mesh.quaternion.setFromRotationMatrix(transform);
-    mesh.scale.set(width, depth, height);
-    (mesh.material as THREE.MeshStandardMaterial).color.set(node.color);
-    mesh.visible = !node.hidden;
+  private meshes(): THREE.Mesh[] {
+    return [...this.objects.values()].filter((o): o is THREE.Mesh => o instanceof THREE.Mesh);
   }
 
-  private applySelection(id: NodeId, mesh: THREE.Mesh): void {
-    const selected = this.selection.has(id);
+  /** Creates or updates the object for a node and everything beneath it, under `parent`. */
+  private place(design: Design, id: NodeId, parent: THREE.Object3D, rootId: NodeId, ghost: boolean, live: Set<NodeId>): void {
+    const node = design.nodes[id];
+    if (!node || node.kind === 'mesh') return;
+    live.add(id);
+
+    const isHole = ghost || node.mode === 'hole';
+    let obj = this.objects.get(id);
+
+    if (node.kind === 'group') {
+      if (!obj) {
+        obj = new THREE.Group();
+        obj.name = node.name;
+        this.objects.set(id, obj);
+      }
+      this.applyTransform(obj, node.transform);
+      obj.visible = !node.hidden;
+      if (obj.parent !== parent) parent.add(obj);
+      for (const childId of node.children) this.place(design, childId, obj, rootId, isHole, live);
+      return;
+    }
+
+    if (!obj) {
+      obj = this.createMesh(node);
+      this.objects.set(id, obj);
+    }
+    const mesh = obj as THREE.Mesh;
+    mesh.userData.rootId = rootId;
+    this.applyTransform(mesh, node.transform);
+    const { width, depth, height } = node.params as { width: number; depth: number; height: number };
+    mesh.scale.set(width, depth, height);
+    mesh.visible = !node.hidden;
+    this.applyLook(mesh.material as THREE.MeshStandardMaterial, node.color, isHole);
+    if (mesh.parent !== parent) parent.add(mesh);
+    this.applySelection(mesh);
+  }
+
+  private createMesh(node: ShapeNode): THREE.Mesh {
+    const mesh = new THREE.Mesh(this.geometryFor(node.shapeType as ShapeType), new THREE.MeshStandardMaterial({ roughness: 0.55 }));
+    mesh.userData.nodeId = node.id;
+    const outline = new THREE.LineSegments(this.outlineGeometry, new THREE.LineBasicMaterial({ color: OUTLINE_COLOR }));
+    outline.name = 'selection-outline';
+    mesh.add(outline);
+    return mesh;
+  }
+
+  private applyTransform(obj: THREE.Object3D, transform: readonly number[]): void {
+    new THREE.Matrix4().fromArray(transform).decompose(obj.position, obj.quaternion, obj.scale);
+  }
+
+  private applyLook(material: THREE.MeshStandardMaterial, color: string, hole: boolean): void {
+    if (material.transparent !== hole) material.needsUpdate = true;
+    material.transparent = hole;
+    material.opacity = hole ? HOLE_OPACITY : 1;
+    material.depthWrite = !hole;
+    if (hole) material.color.setHex(HOLE_COLOR);
+    else material.color.set(color);
+  }
+
+  private applySelection(mesh: THREE.Mesh): void {
+    const selected = this.selection.has(mesh.userData.rootId as NodeId);
     const material = mesh.material as THREE.MeshStandardMaterial;
     material.emissive.set(selected ? SELECTED_TINT : 0x000000);
     material.emissiveIntensity = selected ? 0.35 : 1;
