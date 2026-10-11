@@ -33,6 +33,7 @@ export function App() {
       else if (mod && key === 'y') dispatch({ type: 'redo' });
       else if (mod && key === 'd') dispatch({ type: 'duplicate' });
       else if (mod && key === 'a') dispatch({ type: 'selectAll' });
+      else if (!mod && key === 'd') dispatch({ type: 'dropToPlane' });
       else if (!mod && (e.key === 'Delete' || e.key === 'Backspace')) dispatch({ type: 'delete' });
       else if (!mod && e.key === 'Escape') dispatch({ type: 'clearSelection' });
       else return;
@@ -80,6 +81,7 @@ export function App() {
           onMoveEnd={() => dispatch({ type: 'moveEnd' })}
           onMarquee={(ids, additive) => dispatch({ type: 'marquee', ids, additive })}
           onNudge={(delta) => dispatch({ type: 'nudge', delta })}
+          onGeometry={(id, geometry) => dispatch({ type: 'setGeometry', id, geometry })}
         />
         <aside className="panel">
           <ShapesPanel onAddShape={(shape) => addAt(shape, [0, 0])} />

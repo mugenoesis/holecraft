@@ -333,6 +333,7 @@ body {
 
 .button-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
 }
@@ -361,6 +362,74 @@ body {
 .edit-actions button:disabled {
   opacity: 0.45;
   cursor: default;
+}
+
+.handles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border: 2px solid var(--accent);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 25%);
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.handle:hover,
+.handle:focus-visible {
+  background: var(--accent);
+  outline: none;
+}
+
+.handle.side {
+  border-radius: 50%;
+}
+
+.handle.height {
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+}
+
+/* The lift handle is a black cone pointing up, floating above the top face. */
+.handle.lift {
+  width: 0;
+  height: 0;
+  background: transparent;
+  border: 9px solid transparent;
+  border-top: 0;
+  border-bottom: 16px solid #111;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.handle.lift:hover,
+.handle.lift:focus-visible {
+  background: transparent;
+  border-bottom-color: var(--accent);
+}
+
+.dimension-label {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 12px;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: rgb(20 30 36 / 88%);
+  border-radius: 6px;
+  pointer-events: none;
 }
 
 .marquee {

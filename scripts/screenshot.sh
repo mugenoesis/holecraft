@@ -5,7 +5,7 @@
 # Usage: scripts/screenshot.sh <url> [out.png] [width] [height]
 #   scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png
 # The URL must be reachable from a container using host networking.
-# DEMO=1 adds sample shapes; VIEW=top picks a view; PRESS=Control+a presses keys. See scripts/lib/screenshot.mjs.
+# DEMO=1 adds sample shapes; VIEW=top picks a view; CLICK=dx,dy clicks; PRESS=Control+a presses keys. See scripts/lib/screenshot.mjs.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -14,6 +14,6 @@ OUT="${2:-test-results/screenshot.png}"
 mkdir -p "$(dirname "$OUT")"
 PW_VERSION="$(node -p "require('./node_modules/@playwright/test/package.json').version")"
 
-docker run --rm --network host -e DEMO -e VIEW -e PRESS -v "$ROOT:/repo" -w /repo "mcr.microsoft.com/playwright:v${PW_VERSION}-noble" \
+docker run --rm --network host -e DEMO -e VIEW -e PRESS -e CLICK -v "$ROOT:/repo" -w /repo "mcr.microsoft.com/playwright:v${PW_VERSION}-noble" \
   node scripts/lib/screenshot.mjs "$URL" "$OUT" "${3:-1280}" "${4:-800}"
 echo "Wrote $OUT"

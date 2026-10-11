@@ -3,6 +3,7 @@ import type { Design, DesignNode, NodeId, ShapeNode } from './design.ts';
 import { clampToWorkplane, snapToGrid } from './grid.ts';
 import { newId } from './ids.ts';
 import { translationOf } from './ops.ts';
+import type { ShapeGeometry } from './resize.ts';
 import { getShapeDef, type ShapeType } from './shapes.ts';
 
 /**
@@ -56,11 +57,47 @@ export function moveSelection(base: Design, ids: readonly NodeId[], delta: [numb
   return moveNodes(base, ids, [tx - sx, ty - sy, 0]);
 }
 
-export function setNodePosition(design: Design, id: NodeId, at: [number, number], now?: Date): Design {
+/** Sets X and Y, and optionally the height above the workplane (never below it). */
+export function setNodePosition(design: Design, id: NodeId, at: [number, number, number?], now?: Date): Design {
   const node = design.nodes[id];
-  if (!isEditable(node) || !at.every(Number.isFinite)) return design;
-  const [x, y] = translationOf(node.transform);
-  return moveNodes(design, [id], [at[0] - x, at[1] - y, 0], now);
+  const z = at[2];
+  if (!isEditable(node) || !at.every((v) => v === undefined || Number.isFinite(v)) || (z !== undefined && z < 0)) return design;
+  const [x, y, currentZ] = translationOf(node.transform);
+  return moveNodes(design, [id], [at[0] - x, at[1] - y, (z ?? currentZ) - currentZ], now);
+}
+
+/** Puts shapes back on the workplane, keeping their X and Y. */
+export function dropToWorkplane(design: Design, ids: readonly NodeId[], now?: Date): Design {
+  const nodes = { ...design.nodes };
+  let changed = false;
+  for (const id of ids) {
+    const node = nodes[id];
+    if (!isEditable(node) || node.transform[14] === 0) continue;
+    const transform = [...node.transform];
+    transform[14] = 0;
+    nodes[id] = { ...node, transform };
+    changed = true;
+  }
+  return changed ? withNodes(design, nodes, now) : design;
+}
+
+/** Sets a shape's position, height above the workplane and size in one edit (a handle drag). */
+export function setShapeGeometry(design: Design, id: NodeId, g: ShapeGeometry, now?: Date): Design {
+  const node = design.nodes[id];
+  if (!isEditable(node) || node.kind !== 'shape') return design;
+  const sizes = [g.width, g.depth, g.height];
+  if (![g.x, g.y, g.z, ...sizes].every(Number.isFinite) || g.z < 0 || sizes.some((v) => v <= 0 || v > MAX_SHAPE_SIZE)) return design;
+
+  const [x, y, z] = translationOf(node.transform);
+  const same = x === g.x && y === g.y && z === g.z && node.params.width === g.width && node.params.depth === g.depth && node.params.height === g.height;
+  if (same) return design;
+
+  const transform = [...node.transform];
+  transform[12] = g.x;
+  transform[13] = g.y;
+  transform[14] = g.z;
+  const params = { ...node.params, width: g.width, depth: g.depth, height: g.height };
+  return withNodes(design, { ...design.nodes, [id]: { ...node, transform, params } }, now);
 }
 
 export function setShapeSize(

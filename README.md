@@ -13,9 +13,9 @@ independent project with its own code and design, and it runs entirely on your o
 - **Docker**: self-host it and open it from any browser on your network.
 - **Linux desktop app**: AppImage or .deb that works fully offline.
 
-> **Status: early development (Phase 2a of the [plan](PLAN.md) done).** You can navigate a 3D
-> workplane, add boxes, cylinders and spheres, select and move them, edit their size and color,
-> and undo/redo. Resize and rotate handles, holes/groups and saving come in the next phases.
+> **Status: early development (Phase 2b of the [plan](PLAN.md) done).** You can navigate a 3D
+> workplane, add boxes, cylinders and spheres, select, move, resize and lift them, edit their
+> properties, and undo/redo. Rotation, holes/groups and saving come in the next phases.
 
 ## Using the editor
 
@@ -24,8 +24,10 @@ independent project with its own code and design, and it runs entirely on your o
 | Add a shape | Drag it from the Shapes panel onto the workplane, or click it (or press Enter) to add at the centre. Drops snap to the grid |
 | Select | Click a shape (or its row in the Objects list). Shift-click adds or removes. Drag a box around shapes to select several. `Ctrl+A` selects all, `Esc` clears |
 | Move | Drag a shape. It snaps to the grid and stays on the workplane. Dragging one of several selected shapes moves them all |
+| Resize | Select one shape and drag a handle. Corner handles resize width and depth, side handles one dimension, the top round handle the height. The opposite corner or side stays fixed, and the edge you drag snaps to the grid. Hold `Shift` to scale all three dimensions together, `Alt` to resize about the centre. The size shows live while you drag |
+| Lift | Drag the black cone above a shape to raise it off the workplane. Press `D` (or **Drop to workplane**) to put it back down |
 | Nudge | Arrow keys move the selection along the nearest workplane axis by the grid step (`Shift` for ten times as far) |
-| Edit properties | Select a shape, then type a name, position (X, Y), size (width, depth, height) or color in the Properties panel. Press Enter or click away to apply; invalid values are rejected |
+| Edit properties | Select a shape, then type a name, position (X, Y, Z), size (width, depth, height) or color in the Properties panel. Press Enter or click away to apply; invalid values are rejected |
 | Duplicate / delete | `Ctrl+D` / `Delete`, or the buttons in the Properties panel |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Shift+Z` (or `Ctrl+Y`), or the Undo and Redo buttons. A whole drag is one step |
 | Orbit | Right-drag |
@@ -105,7 +107,7 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/e2e.sh` | Playwright tests in the Playwright Docker image |
 | `scripts/docker-smoke.sh` | Build the image, run it, verify health and non-root user |
 | `scripts/package-desktop.sh` | Build the AppImage and .deb (in a Debian container) |
-| `scripts/screenshot.sh` | Screenshot a running instance with software WebGL (`DEMO=1` adds shapes, `VIEW=top` picks a view) |
+| `scripts/screenshot.sh` | Screenshot a running instance with software WebGL (`DEMO=1` adds shapes, `VIEW=top` picks a view, `CLICK=0,0` selects, `PRESS=Control+a` presses keys) |
 | `scripts/make-icon.sh` | Regenerate the app icons from the cube mark cropped out of `branding/logo.jpg` |
 
 ## License

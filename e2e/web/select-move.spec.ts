@@ -292,6 +292,21 @@ test.describe('properties panel', () => {
     await expect(field(page, 'Height')).toHaveValue('5');
   });
 
+  test('edits typed in quick succession are all kept', async ({ page }) => {
+    await dropShape(page, 'Box');
+    await click(page);
+    // Moving on to the next field right after Enter used to undo the previous edit when the
+    // blur raced the re-render, so repeat it enough times to catch that reliably.
+    for (let i = 1; i <= 12; i++) {
+      await field(page, 'Width').fill(String(20 + i));
+      await field(page, 'Width').press('Enter');
+      await field(page, 'Height').fill(String(5 + i));
+      await field(page, 'Height').blur();
+      await expect(field(page, 'Width')).toHaveValue(String(20 + i));
+      await expect(field(page, 'Height')).toHaveValue(String(5 + i));
+    }
+  });
+
   test('invalid sizes are rejected and the field reverts', async ({ page }) => {
     await dropShape(page, 'Box');
     await click(page);
