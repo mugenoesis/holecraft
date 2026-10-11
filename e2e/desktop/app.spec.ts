@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
@@ -71,6 +71,34 @@ test.describe('desktop app', () => {
       await expect(win.getByTestId('object-list')).toContainText('Sphere 1');
     } finally {
       await second.close();
+    }
+  });
+
+  test('exports a design as an STL file from the packaged app', async () => {
+    // Normally Electron asks where to save; HOLECRAFT_DOWNLOAD_DIR makes it save straight into a folder.
+    const downloads = path.join(dataDir, 'downloads');
+    const app = await electron.launch({
+      executablePath,
+      args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+      env: { ...process.env, HOLECRAFT_DATA_DIR: dataDir, HOLECRAFT_DOWNLOAD_DIR: downloads },
+    });
+    try {
+      const win = await app.firstWindow();
+      await win.waitForLoadState('load');
+      await win.getByRole('button', { name: 'New design' }).click();
+      await expect(win.getByTestId('viewport').locator('canvas')).toBeVisible();
+      await win.getByRole('button', { name: 'Box', exact: true }).click();
+
+      await win.getByRole('button', { name: 'Export', exact: true }).click();
+      await win.getByRole('menuitem', { name: /as STL/ }).click();
+
+      const saved = path.join(downloads, 'Untitled design.stl');
+      await expect.poll(() => existsSync(saved), { timeout: 10_000 }).toBe(true);
+      const file = readFileSync(saved);
+      expect(file.readUInt32LE(80)).toBe(12); // a cube is 12 triangles
+      expect(file.length).toBe(84 + 12 * 50);
+    } finally {
+      await app.close();
     }
   });
 

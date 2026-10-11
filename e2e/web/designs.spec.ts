@@ -25,6 +25,9 @@ test.describe('the designs list', () => {
     await new Promise((r) => setTimeout(r, 20));
     const second = await createDesignViaApi(request, uniqueName('Newer'));
     await page.goto('/');
+    // allInnerTexts() does not wait, so make sure both cards have been drawn before reading the order.
+    await expect(card(page, first.name)).toBeVisible();
+    await expect(card(page, second.name)).toBeVisible();
 
     const names = await page.getByTestId('design-card').getByRole('link').allInnerTexts();
     expect(names.indexOf(second.name)).toBeGreaterThanOrEqual(0);

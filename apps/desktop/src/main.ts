@@ -2,7 +2,7 @@ import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { createServer } from '@holecraft/server';
-import { BrowserWindow, app, shell } from 'electron';
+import { BrowserWindow, app, session, shell } from 'electron';
 
 declare const __HOLECRAFT_VERSION__: string;
 
@@ -19,6 +19,19 @@ function dataDir(): string {
 function webDir(): string {
   // Packaged: resources/web (see "extraResources"); dev: the Vite build output.
   return app.isPackaged ? path.join(process.resourcesPath, 'web') : path.resolve(__dirname, '../../web/dist');
+}
+
+/**
+ * Exports arrive as ordinary downloads. By default Electron asks where to save them. If
+ * HOLECRAFT_DOWNLOAD_DIR is set, they are saved straight into that folder instead (used by the
+ * tests, and handy for anyone who always wants the same place).
+ */
+function saveDownloadsTo(folder: string | undefined): void {
+  if (!folder) return;
+  session.defaultSession.on('will-download', (_event, item) => {
+    // basename: never let a file name step outside the folder.
+    item.setSavePath(path.join(folder, path.basename(item.getFilename())));
+  });
 }
 
 /** Runs the same server as the Docker image, bound to loopback on a free port. */
@@ -63,6 +76,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app
     .whenReady()
+    .then(() => saveDownloadsTo(process.env.HOLECRAFT_DOWNLOAD_DIR))
     .then(startServer)
     .then(createWindow)
     .catch((err: unknown) => {
