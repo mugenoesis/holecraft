@@ -182,6 +182,30 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Desktop: exports are normal downloads, so Electron asks where to save. `HOLECRAFT_DOWNLOAD_DIR`
   skips the dialog and saves into a folder, which is how the desktop e2e test works.
 
+## Imported models
+- An import is an **ordinary shape** with `shapeType: 'mesh'` (`MESH_SHAPE_TYPE`) and `params.mesh` = a
+  stored-mesh reference (SHA-256 of the bytes, 64 hex, `isMeshRef`). Bounds, move, resize, rotate,
+  duplicate, hole/group and the Properties panel therefore work unchanged. Anything that looks up
+  `getShapeDef(shapeType)` must special-case it (that bug already happened once, in `duplicateNodes`).
+  `MeshNode` (`kind: 'mesh'`) in design.ts is an unused leftover; don't build on it.
+- The stored mesh is **normalised into the unit box** every shape is built in (x, y in ±0.5, z 0..1;
+  `normalizeMesh`, which also flips inside-out triangles), and the shape's width/depth/height scale it.
+  `originalWidth/Depth/Height` params remember the real size (nothing uses them yet).
+- Readers live in `packages/geometry/src/import/` (STL binary+text, OBJ, 3MF; `importMeshFile`).
+  Compressed zips use the platform `DecompressionStream('deflate-raw')`, so no zip library. The format
+  on disk/wire is `encodeMesh`/`decodeMesh` in core. Corners are welded; degenerate triangles dropped.
+- Server: `POST /api/meshes` (raw bytes, validated with `decodeMesh`, answers `{ref}`) and
+  `GET /api/meshes/:ref` (immutable). Files are `<data>/meshes/<ref>.mesh`, never deleted (no garbage
+  collection yet). `parseDesign` rejects an imported shape without a valid ref.
+- Web: `MeshStore` downloads and caches models by ref (table replaced on change); `useMeshes` feeds it
+  from the design. `GeometryService.update(design, meshes)` waits until every model in a group has
+  arrived and passes the worker only the ones it needs; `DesignScene.sync(..., meshes)` draws a plain
+  box until a model arrives. Export gets the same table (`exportDeps(meshes)`).
+- CSG: `imported()` in evaluate.ts builds a manifold with `Manifold.ofMesh`; a mesh that is not
+  watertight throws a message naming the shape, which the group fallback and the export alert show.
+- Parsing, normalising and uploading run on the main thread (fine to a few hundred thousand triangles).
+- Test fixtures for e2e are built by `e2e/web/modelFiles.ts`, independently of the app's readers.
+
 ## Local test container
 - After the user merges a phase, run `scripts/deploy-local.sh` so they can try it by hand: it
   rebuilds from `origin/main` and restarts the `holecraft` container on port 8200, keeping the

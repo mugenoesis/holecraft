@@ -6,6 +6,7 @@ import { descendantIds } from './groups.ts';
 import { nodeBoundsIn, shapeBounds, translationOf } from './ops.ts';
 import type { ShapeGeometry } from './resize.ts';
 import { composeTransform, eulerToMatrix, shapeCenter } from './rotation.ts';
+import { MESH_SHAPE_TYPE } from './meshShape.ts';
 import { getShapeDef, type ShapeType } from './shapes.ts';
 
 /**
@@ -230,7 +231,7 @@ export function duplicateNodes(
       nodes[copyId] = {
         ...node,
         id: copyId,
-        name: `${getShapeDef(node.shapeType as ShapeType).name} ${count + 1}`,
+        name: node.shapeType === MESH_SHAPE_TYPE ? copyName(node.name, nodes) : `${getShapeDef(node.shapeType as ShapeType).name} ${count + 1}`,
         transform: [...node.transform],
         params: { ...node.params },
       };
@@ -254,6 +255,14 @@ export function duplicateNodes(
     created.push(copyId);
   }
   return created.length ? { design: { ...design, nodes, roots, updatedAt: stamp(now) }, ids: created } : { design, ids: [] };
+}
+
+/** "Bracket" becomes "Bracket copy", then "Bracket copy 2", "Bracket copy 3"... (copies of copies keep counting). */
+function copyName(name: string, nodes: Record<NodeId, { name: string }>): string {
+  const base = name.replace(/ copy( \d+)?$/, '');
+  const taken = new Set(Object.values(nodes).map((n) => n.name));
+  if (!taken.has(`${base} copy`)) return `${base} copy`;
+  for (let n = 2; ; n++) if (!taken.has(`${base} copy ${n}`)) return `${base} copy ${n}`;
 }
 
 /**

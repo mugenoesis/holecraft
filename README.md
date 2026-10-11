@@ -13,11 +13,29 @@ independent project with its own code and design, and it runs entirely on your o
 - **Docker**: self-host it and open it from any browser on your network.
 - **Linux desktop app**: AppImage or .deb that works fully offline.
 
-> **Status: early development (Phase 4b of the roadmap done).** You can keep a library
+> **Status: early development (Phase 4c of the roadmap done).** You can keep a library
 > of designs that save automatically, navigate a 3D workplane, add boxes, cylinders and spheres,
 > select, move, resize, lift and rotate them, edit their properties, make shapes into holes and
-> group them to cut real holes out of solids, undo/redo, and **export for 3D printing** (STL, OBJ,
-> 3MF). Importing existing models, and thumbnails on the designs list, come next.
+> group them to cut real holes out of solids, undo/redo, **import** existing models (STL, OBJ,
+> 3MF) and **export for 3D printing** (STL, OBJ, 3MF). Thumbnails on the designs list come next.
+
+## Importing models
+
+**Import** in the top bar brings in an STL (binary or text), OBJ or 3MF file (3MF files, including
+the compressed ones slicers write, are read in the units they were saved in and converted to
+millimetres). The model becomes a shape named after the file, resting on the workplane at its real
+size, and from then on it is like any other shape: move, resize, rotate, recolour, duplicate, turn it
+into a **hole**, group it, export it.
+
+- **Z is up.** An OBJ saved with Y up will arrive lying on its side; turn it with the rotation rings.
+- A model has to be **watertight** (a closed surface) to be cut or to cut something. If it has holes in
+  its surface it still imports and moves, but grouping it with a hole or exporting it as a group says
+  which model is the problem.
+- Limits: files up to 100 MB, about a million triangles, and no bigger than 1000 mm in any direction.
+  A model with no thickness is refused. Several objects in one file are joined into one shape.
+- Colours and materials in the file are not kept (imports are grey; recolour them). A model's data is
+  stored once on the server, in `<data folder>/meshes/`, so duplicating it costs nothing. Files for
+  models you have deleted are not cleaned up yet.
 
 ## Exporting for printing
 

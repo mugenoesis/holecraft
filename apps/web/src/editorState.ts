@@ -1,4 +1,5 @@
 import {
+  addMeshShape,
   addShape,
   canUndo,
   createHistory,
@@ -27,6 +28,7 @@ import {
   ungroupNodes,
   type Design,
   type History,
+  type MeshShapeInput,
   type NodeId,
   type ShapeGeometry,
   type ShapeType,
@@ -45,6 +47,8 @@ export interface EditorState {
 
 export type EditorAction =
   | { type: 'add'; shape: ShapeType; at: [number, number] }
+  /** An imported model, already stored on the server (see importModel). */
+  | { type: 'addMesh'; input: MeshShapeInput; at?: [number, number] }
   // 'down' is the pointer press; 'click' is the release when nothing was dragged.
   | { type: 'pick'; id: NodeId | null; additive: boolean; phase: 'down' | 'click' }
   | { type: 'marquee'; ids: NodeId[]; additive: boolean }
@@ -96,6 +100,11 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
   switch (action.type) {
     case 'add':
       return commit(state, addShape(design, action.shape, action.at).design);
+
+    case 'addMesh': {
+      const added = addMeshShape(design, action.input, { at: action.at });
+      return commit(state, added.design, [added.id]);
+    }
 
     case 'pick': {
       if (action.phase === 'down') {

@@ -17,7 +17,7 @@ export function registerDesignRoutes(app: FastifyInstance, store: DesignStore): 
     if (error instanceof StoredDesignError) return reply.code(500).send({ error: error.message });
 
     const status = (error as { statusCode?: number }).statusCode ?? 500;
-    if (status === 413) return reply.code(413).send({ error: 'That design is too large to save' });
+    if (status === 413) return reply.code(413).send({ error: 'That is too large to save' });
     if (status >= 400 && status < 500) return reply.code(status).send({ error: error instanceof Error ? error.message : 'Bad request' });
     request.log.error(error);
     return reply.code(500).send({ error: 'Something went wrong on the server' });

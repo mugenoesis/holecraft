@@ -1,4 +1,4 @@
-import type { Design } from '@holecraft/core';
+import type { Design, MeshData } from '@holecraft/core';
 import { exportFileName, write3mf, writeObj, writeStl, type ExportBody } from '@holecraft/geometry';
 import { downloadFile } from './download.ts';
 import { exportBodiesInWorker } from './geometry/exportInWorker.ts';
@@ -17,7 +17,10 @@ export interface ExportDeps {
   save: (fileName: string, data: Uint8Array | string, mime: string) => void;
 }
 
-const defaultDeps: ExportDeps = { bodies: exportBodiesInWorker, save: downloadFile };
+/** The real thing: the geometry worker, given the imported models the design uses, and a browser download. */
+export function exportDeps(meshes: ReadonlyMap<string, MeshData>): ExportDeps {
+  return { bodies: (design) => exportBodiesInWorker(design, meshes), save: downloadFile };
+}
 
 /** The same design with only the selected top-level shapes and groups left to export. */
 export function onlySelected(design: Design, selection: readonly string[]): Design {
@@ -37,7 +40,7 @@ export function hasExportableShapes(design: Design): boolean {
  * Exports the whole design as a file download. Throws, with a message fit to show, if there is
  * nothing to export (every solid is a hole, hidden, or has been cut away completely).
  */
-export async function runExport(design: Design, format: ExportFormat, deps: ExportDeps = defaultDeps): Promise<void> {
+export async function runExport(design: Design, format: ExportFormat, deps: ExportDeps): Promise<void> {
   const bodies = await deps.bodies(design);
   if (bodies.length === 0) throw new Error('Nothing to export: there are no solid shapes in this design');
 

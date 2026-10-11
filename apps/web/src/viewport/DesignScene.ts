@@ -1,4 +1,4 @@
-import type { Design, NodeId, ShapeNode, ShapeType } from '@holecraft/core';
+import { MESH_SHAPE_TYPE, type Design, type MeshData, type NodeId, type ShapeNode, type ShapeType } from '@holecraft/core';
 import type { GroupMesh } from '@holecraft/geometry';
 import * as THREE from 'three';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -33,12 +33,14 @@ export interface NdcRect {
 
 const NO_RESULTS: ReadonlyMap<NodeId, GroupResult> = new Map();
 const NO_FAILURES: ReadonlySet<NodeId> = new Set();
+const NO_MESHES: ReadonlyMap<string, MeshData> = new Map();
 /** Edges sharper than this stay crisp on a computed mesh; gentler ones are smoothed. */
 const CREASE_ANGLE = Math.PI / 6;
 
 interface PlaceContext {
   results: ReadonlyMap<NodeId, GroupResult>;
   failed: ReadonlySet<NodeId>;
+  meshes: ReadonlyMap<string, MeshData>;
   live: Set<NodeId>;
   liveResults: Set<NodeId>;
 }
@@ -85,6 +87,8 @@ export class DesignScene {
   readonly root = new THREE.Group();
 
   private readonly geometries = new Map<ShapeType, THREE.BufferGeometry>();
+  /** Geometry of imported models, one per stored mesh, shared by every shape that uses it. */
+  private readonly modelGeometries = new Map<string, { source: MeshData; geometry: THREE.BufferGeometry }>();
   private readonly objects = new Map<NodeId, THREE.Object3D>();
   private readonly outlineGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5));
   private readonly resultMeshes = new Map<NodeId, { mesh: THREE.Mesh; source: GroupMesh | null }>();
@@ -98,12 +102,18 @@ export class DesignScene {
    * Brings the scene in line with `design`. `results` holds the computed shape of top-level solid
    * groups (see GeometryService): a group with one is drawn as that single mesh, and the shapes it
    * was made from are hidden. A group with no result yet, or whose `failed`, shows its shapes
-   * as they are, holes as ghosts.
+   * as they are, holes as ghosts. `meshes` holds the stored models of imported shapes; until one has
+   * arrived its shape is drawn as a plain box of the right size.
    */
-  sync(design: Design, results: ReadonlyMap<NodeId, GroupResult> = NO_RESULTS, failed: ReadonlySet<NodeId> = NO_FAILURES): void {
+  sync(
+    design: Design,
+    results: ReadonlyMap<NodeId, GroupResult> = NO_RESULTS,
+    failed: ReadonlySet<NodeId> = NO_FAILURES,
+    meshes: ReadonlyMap<string, MeshData> = NO_MESHES,
+  ): void {
     const live = new Set<NodeId>();
     const liveResults = new Set<NodeId>();
-    const ctx: PlaceContext = { results, failed, live, liveResults };
+    const ctx: PlaceContext = { results, failed, meshes, live, liveResults };
     for (const id of design.roots) this.place(design, id, this.root, id, false, false, ctx);
 
     for (const [id, obj] of this.objects) {
@@ -160,6 +170,8 @@ export class DesignScene {
     for (const obj of this.objects.values()) if (obj instanceof THREE.Mesh) this.disposeMesh(obj);
     for (const entry of this.resultMeshes.values()) this.disposeResult(entry);
     for (const geometry of this.geometries.values()) geometry.dispose();
+    for (const { geometry } of this.modelGeometries.values()) geometry.dispose();
+    this.modelGeometries.clear();
     this.outlineGeometry.dispose();
     this.objects.clear();
     this.resultMeshes.clear();
@@ -206,10 +218,12 @@ export class DesignScene {
     }
 
     if (!obj) {
-      obj = this.createMesh(node);
+      obj = this.createMesh(node, ctx.meshes);
       this.objects.set(id, obj);
     }
     const mesh = obj as THREE.Mesh;
+    const geometry = this.geometryForNode(node, ctx.meshes);
+    if (mesh.geometry !== geometry) mesh.geometry = geometry; // an imported model has just arrived
     mesh.userData.rootId = rootId;
     this.applyTransform(mesh, node.transform);
     const { width, depth, height } = node.params as { width: number; depth: number; height: number };
@@ -268,8 +282,8 @@ export class DesignScene {
     this.disposeMesh(entry.mesh);
   }
 
-  private createMesh(node: ShapeNode): THREE.Mesh {
-    const mesh = new THREE.Mesh(this.geometryFor(node.shapeType as ShapeType), new THREE.MeshStandardMaterial({ roughness: 0.55 }));
+  private createMesh(node: ShapeNode, meshes: ReadonlyMap<string, MeshData>): THREE.Mesh {
+    const mesh = new THREE.Mesh(this.geometryForNode(node, meshes), new THREE.MeshStandardMaterial({ roughness: 0.55 }));
     mesh.userData.nodeId = node.id;
     const outline = new THREE.LineSegments(this.outlineGeometry, new THREE.LineBasicMaterial({ color: OUTLINE_COLOR }));
     outline.name = 'selection-outline';
@@ -304,6 +318,20 @@ export class DesignScene {
     mesh.getObjectByName('selection-outline')?.traverse((o) => {
       if (o instanceof THREE.LineSegments) (o.material as THREE.Material).dispose();
     });
+  }
+
+  private geometryForNode(node: ShapeNode, meshes: ReadonlyMap<string, MeshData>): THREE.BufferGeometry {
+    if (node.shapeType !== MESH_SHAPE_TYPE) return this.geometryFor(node.shapeType as ShapeType);
+    const ref = String(node.params.mesh);
+    const data = meshes.get(ref);
+    if (!data) return this.geometryFor('box'); // stand-in while the model downloads
+
+    const known = this.modelGeometries.get(ref);
+    if (known?.source === data) return known.geometry;
+    known?.geometry.dispose();
+    const geometry = buildResultGeometry(data);
+    this.modelGeometries.set(ref, { source: data, geometry });
+    return geometry;
   }
 
   private geometryFor(type: ShapeType): THREE.BufferGeometry {

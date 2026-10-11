@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyDesign } from './design.ts';
+import { duplicateNodes } from './edit.ts';
 import { addMeshShape, decodeMesh, encodeMesh, isMeshRef, MESH_SHAPE_TYPE, normalizeMesh, signedVolume, type MeshData } from './meshShape.ts';
 import { shapeBounds } from './ops.ts';
 import { parseDesign } from './validate.ts';
@@ -111,6 +112,28 @@ describe('normalizeMesh', () => {
     const huge = tetra();
     huge.positions[3] = 5000;
     expect(() => normalizeMesh(huge)).toThrow(/too large|1000/i);
+  });
+});
+
+describe('duplicating an imported model', () => {
+  const one = () => addMeshShape(createEmptyDesign('d', 'T'), { name: 'Bracket', ref: REF, size: [10, 20, 30] }, { id: 'm1' }).design;
+
+  it('copies it, sharing the same stored mesh, named as a copy', () => {
+    const { design, ids } = duplicateNodes(one(), ['m1'], [10, 10]);
+    expect(ids).toHaveLength(1);
+    const copy = design.nodes[ids[0]!]!;
+    expect(copy).toMatchObject({ kind: 'shape', shapeType: MESH_SHAPE_TYPE, name: 'Bracket copy' });
+    expect(copy.kind === 'shape' && copy.params.mesh).toBe(REF);
+    expect(design.roots).toHaveLength(2);
+  });
+
+  it('numbers further copies instead of piling up "copy copy"', () => {
+    let d = one();
+    d = duplicateNodes(d, ['m1'], [10, 10]).design;
+    const second = duplicateNodes(d, ['m1'], [20, 20]);
+    expect(second.design.nodes[second.ids[0]!]!.name).toBe('Bracket copy 2');
+    const third = duplicateNodes(second.design, [second.ids[0]!], [30, 30]);
+    expect(third.design.nodes[third.ids[0]!]!.name).toBe('Bracket copy 3');
   });
 });
 

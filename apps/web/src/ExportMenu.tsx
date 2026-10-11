@@ -1,9 +1,9 @@
-import type { Design, NodeId } from '@holecraft/core';
+import type { Design, MeshData, NodeId } from '@holecraft/core';
 import { useEffect, useRef, useState } from 'react';
-import { EXPORT_FORMATS, hasExportableShapes, onlySelected, runExport, type ExportFormat } from './exportDesign.ts';
+import { EXPORT_FORMATS, exportDeps, hasExportableShapes, onlySelected, runExport, type ExportFormat } from './exportDesign.ts';
 
 /** The "Export" button and its menu of file formats, for the top bar. */
-export function ExportMenu({ design, selection }: { design: Design; selection: readonly NodeId[] }) {
+export function ExportMenu({ design, selection, meshes }: { design: Design; selection: readonly NodeId[]; meshes: ReadonlyMap<string, MeshData> }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -35,7 +35,7 @@ export function ExportMenu({ design, selection }: { design: Design; selection: r
     setBusy(true);
     setProblem(null);
     try {
-      await runExport(usingSelection ? picked : design, format);
+      await runExport(usingSelection ? picked : design, format, exportDeps(meshes));
     } catch (error) {
       setProblem(error instanceof Error ? error.message : 'The export failed');
     } finally {
