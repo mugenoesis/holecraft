@@ -5,51 +5,51 @@
  * next time it is told about that version.
  */
 export class ThumbnailScheduler {
-  private timer: ReturnType<typeof setTimeout> | null = null;
-  private done: unknown = undefined;
-  private running = false;
-  private latest: { ready: boolean; version: unknown } = { ready: false, version: undefined };
-  private disposed = false;
+	private timer: ReturnType<typeof setTimeout> | null = null;
+	private done: unknown = undefined;
+	private running = false;
+	private latest: { ready: boolean; version: unknown } = { ready: false, version: undefined };
+	private disposed = false;
 
-  constructor(
-    private readonly run: () => Promise<void>,
-    private readonly delayMs = 2000,
-  ) {}
+	constructor(
+		private readonly run: () => Promise<void>,
+		private readonly delayMs = 2000,
+	) {}
 
-  /** Call whenever the design, its saved state or its geometry changes. `version` identifies the design as it is now. */
-  notify(ready: boolean, version: unknown): void {
-    if (this.disposed) return;
-    this.latest = { ready, version };
-    this.clear();
-    if (!ready || this.running || version === this.done) return;
+	/** Call whenever the design, its saved state or its geometry changes. `version` identifies the design as it is now. */
+	notify(ready: boolean, version: unknown): void {
+		if (this.disposed) return;
+		this.latest = { ready, version };
+		this.clear();
+		if (!ready || this.running || version === this.done) return;
 
-    this.timer = setTimeout(() => {
-      this.timer = null;
-      void this.take(version);
-    }, this.delayMs);
-  }
+		this.timer = setTimeout(() => {
+			this.timer = null;
+			void this.take(version);
+		}, this.delayMs);
+	}
 
-  dispose(): void {
-    this.disposed = true;
-    this.clear();
-  }
+	dispose(): void {
+		this.disposed = true;
+		this.clear();
+	}
 
-  private async take(version: unknown): Promise<void> {
-    this.running = true;
-    try {
-      await this.run();
-      this.done = version;
-    } catch (error) {
-      console.warn('Could not update the thumbnail:', error);
-    } finally {
-      this.running = false;
-      // The design may have changed while the picture was being taken; that version still needs its own.
-      if (this.latest.version !== version) this.notify(this.latest.ready, this.latest.version);
-    }
-  }
+	private async take(version: unknown): Promise<void> {
+		this.running = true;
+		try {
+			await this.run();
+			this.done = version;
+		} catch (error) {
+			console.warn('Could not update the thumbnail:', error);
+		} finally {
+			this.running = false;
+			// The design may have changed while the picture was being taken; that version still needs its own.
+			if (this.latest.version !== version) this.notify(this.latest.ready, this.latest.version);
+		}
+	}
 
-  private clear(): void {
-    if (this.timer) clearTimeout(this.timer);
-    this.timer = null;
-  }
+	private clear(): void {
+		if (this.timer) clearTimeout(this.timer);
+		this.timer = null;
+	}
 }

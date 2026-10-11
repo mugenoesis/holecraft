@@ -7,10 +7,10 @@ export { evaluateNode } from './evaluate.ts';
 
 /** One printable body: a top-level shape or group, in world coordinates (mm, Z up). */
 export interface ExportBody {
-  name: string;
-  /** #rrggbb */
-  color: string;
-  mesh: GroupMesh;
+	name: string;
+	/** #rrggbb */
+	color: string;
+	mesh: GroupMesh;
 }
 
 /**
@@ -18,13 +18,17 @@ export interface ExportBody {
  * cut out and its place in the design applied. Holes, hidden things and anything the holes cut away
  * completely are left out. Bodies keep the order of the design.
  */
-export function collectBodies(M: ManifoldToplevel, design: { nodes: Record<NodeId, DesignNode>; roots: NodeId[] }, meshes?: MeshTable): ExportBody[] {
-  const bodies: ExportBody[] = [];
-  for (const id of design.roots) {
-    const node = design.nodes[id];
-    if (!node || node.hidden || node.mode !== 'solid' || node.kind === 'mesh') continue;
-    const mesh = evaluateNode(M, design, id, meshes);
-    if (mesh) bodies.push({ name: node.name, color: node.color, mesh });
-  }
-  return bodies;
+export function collectBodies(
+	M: ManifoldToplevel,
+	design: { nodes: Record<NodeId, DesignNode>; roots: NodeId[] },
+	meshes?: MeshTable,
+): ExportBody[] {
+	const bodies: ExportBody[] = [];
+	for (const id of design.roots) {
+		const node = design.nodes[id];
+		if (!node || node.hidden || node.mode !== 'solid' || node.kind === 'mesh') continue;
+		const mesh = evaluateNode(M, design, id, meshes);
+		if (mesh) bodies.push({ name: node.name, color: node.color, mesh });
+	}
+	return bodies;
 }

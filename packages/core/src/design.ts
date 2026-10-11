@@ -8,14 +8,14 @@ export const DESIGN_FORMAT_VERSION = 2;
 
 /** What the designs list shows about each saved design. */
 export interface DesignSummary {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-  /** Top-level shapes and groups. */
-  objectCount: number;
-  /** When the design's thumbnail picture was last made (ms since 1970); absent if it has none. */
-  thumbnailAt?: number;
+	id: string;
+	name: string;
+	createdAt: string;
+	updatedAt: string;
+	/** Top-level shapes and groups. */
+	objectCount: number;
+	/** When the design's thumbnail picture was last made (ms since 1970); absent if it has none. */
+	thumbnailAt?: number;
 }
 
 /** Longest name the editor will give a design or a shape. */
@@ -31,26 +31,26 @@ export const IDENTITY: Readonly<Mat4> = Object.freeze([1, 0, 0, 0, 0, 1, 0, 0, 0
 export type SolidMode = 'solid' | 'hole';
 
 export interface BaseNode {
-  id: NodeId;
-  name: string;
-  transform: Mat4;
-  mode: SolidMode;
-  color: string;
-  hidden: boolean;
-  locked: boolean;
+	id: NodeId;
+	name: string;
+	transform: Mat4;
+	mode: SolidMode;
+	color: string;
+	hidden: boolean;
+	locked: boolean;
 }
 
 /** A parametric primitive (box, cylinder, text, ...) built by the geometry worker. */
 export interface ShapeNode extends BaseNode {
-  kind: 'shape';
-  shapeType: string;
-  params: Record<string, number | string | boolean>;
+	kind: 'shape';
+	shapeType: string;
+	params: Record<string, number | string | boolean>;
 }
 
 /** An imported mesh (STL, OBJ, 3MF); geometry lives in a separate blob. */
 export interface MeshNode extends BaseNode {
-  kind: 'mesh';
-  meshRef: string;
+	kind: 'mesh';
+	meshRef: string;
 }
 
 /**
@@ -58,40 +58,40 @@ export interface MeshNode extends BaseNode {
  * The boolean result is a derived cache and never stored, so ungrouping is lossless.
  */
 export interface GroupNode extends BaseNode {
-  kind: 'group';
-  children: NodeId[];
-  op: 'union' | 'intersect';
-  multicolor: boolean;
+	kind: 'group';
+	children: NodeId[];
+	op: 'union' | 'intersect';
+	multicolor: boolean;
 }
 
 export type DesignNode = ShapeNode | MeshNode | GroupNode;
 
 export interface Design {
-  formatVersion: number;
-  id: string;
-  name: string;
-  units: Units;
-  grid: GridSettings;
-  /** The design's filament colours, 1 to 16 of them: slot 1 is the first. Used for multi-material printing. */
-  palette: string[];
-  nodes: Record<NodeId, DesignNode>;
-  roots: NodeId[];
-  createdAt: string;
-  updatedAt: string;
+	formatVersion: number;
+	id: string;
+	name: string;
+	units: Units;
+	grid: GridSettings;
+	/** The design's filament colours, 1 to 16 of them: slot 1 is the first. Used for multi-material printing. */
+	palette: string[];
+	nodes: Record<NodeId, DesignNode>;
+	roots: NodeId[];
+	createdAt: string;
+	updatedAt: string;
 }
 
 export function createEmptyDesign(id: string, name = 'Untitled design', now = new Date()): Design {
-  const timestamp = now.toISOString();
-  return {
-    formatVersion: DESIGN_FORMAT_VERSION,
-    id,
-    name,
-    units: 'mm',
-    grid: { ...DEFAULT_GRID, size: [...DEFAULT_GRID.size] },
-    palette: [...DEFAULT_PALETTE],
-    nodes: {},
-    roots: [],
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  };
+	const timestamp = now.toISOString();
+	return {
+		formatVersion: DESIGN_FORMAT_VERSION,
+		id,
+		name,
+		units: 'mm',
+		grid: { ...DEFAULT_GRID, size: [...DEFAULT_GRID.size] },
+		palette: [...DEFAULT_PALETTE],
+		nodes: {},
+		roots: [],
+		createdAt: timestamp,
+		updatedAt: timestamp,
+	};
 }

@@ -8,12 +8,12 @@ import { MeshStore, registerMeshRoutes } from './meshes.ts';
 import { ThumbnailStore } from './thumbnails.ts';
 
 export interface ServerOptions {
-  /** Where designs, thumbnails and imported meshes are stored. Created if missing. */
-  dataDir: string;
-  /** Built web app (apps/web/dist). Omit to serve only the API. */
-  staticDir?: string;
-  version?: string;
-  logger?: boolean;
+	/** Where designs, thumbnails and imported meshes are stored. Created if missing. */
+	dataDir: string;
+	/** Built web app (apps/web/dist). Omit to serve only the API. */
+	staticDir?: string;
+	version?: string;
+	logger?: boolean;
 }
 
 /**
@@ -21,31 +21,31 @@ export interface ServerOptions {
  * Electron main process can share it (and tests can use `inject`).
  */
 export async function createServer(opts: ServerOptions): Promise<FastifyInstance> {
-  await mkdir(opts.dataDir, { recursive: true });
+	await mkdir(opts.dataDir, { recursive: true });
 
-  const app = Fastify({ logger: opts.logger ?? false, bodyLimit: MAX_DESIGN_BYTES });
-  const version = opts.version ?? 'dev';
+	const app = Fastify({ logger: opts.logger ?? false, bodyLimit: MAX_DESIGN_BYTES });
+	const version = opts.version ?? 'dev';
 
-  app.get('/api/health', async () => ({ status: 'ok', name: 'holecraft', version }));
-  const thumbnails = new ThumbnailStore(opts.dataDir);
-  await thumbnails.init();
-  registerDesignRoutes(app, new DesignStore(opts.dataDir), thumbnails);
-  const meshes = new MeshStore(opts.dataDir);
-  await meshes.init();
-  registerMeshRoutes(app, meshes);
+	app.get('/api/health', async () => ({ status: 'ok', name: 'holecraft', version }));
+	const thumbnails = new ThumbnailStore(opts.dataDir);
+	await thumbnails.init();
+	registerDesignRoutes(app, new DesignStore(opts.dataDir), thumbnails);
+	const meshes = new MeshStore(opts.dataDir);
+	await meshes.init();
+	registerMeshRoutes(app, meshes);
 
-  const staticDir = opts.staticDir;
-  if (staticDir) {
-    await app.register(fastifyStatic, { root: path.resolve(staticDir) });
-  }
+	const staticDir = opts.staticDir;
+	if (staticDir) {
+		await app.register(fastifyStatic, { root: path.resolve(staticDir) });
+	}
 
-  // Unknown GET routes fall back to the SPA shell; unknown API routes stay JSON 404s.
-  app.setNotFoundHandler((req, reply) => {
-    if (staticDir && req.method === 'GET' && !req.url.startsWith('/api/')) {
-      return reply.sendFile('index.html');
-    }
-    return reply.code(404).send({ error: 'Not found' });
-  });
+	// Unknown GET routes fall back to the SPA shell; unknown API routes stay JSON 404s.
+	app.setNotFoundHandler((req, reply) => {
+		if (staticDir && req.method === 'GET' && !req.url.startsWith('/api/')) {
+			return reply.sendFile('index.html');
+		}
+		return reply.code(404).send({ error: 'Not found' });
+	});
 
-  return app;
+	return app;
 }

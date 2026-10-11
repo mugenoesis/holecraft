@@ -1,20 +1,20 @@
 {
-  "name": "@holecraft/server",
-  "version": "0.1.0",
-  "private": true,
-  "description": "holecraft HTTP server: serves the web app and the design storage API",
-  "license": "AGPL-3.0-only",
-  "type": "module",
-  "exports": {
-    ".": "./src/server.ts"
-  },
-  "scripts": {
-    "dev": "HOLECRAFT_PORT=8080 HOLECRAFT_HOST=127.0.0.1 tsx watch src/main.ts",
-    "build": "node build.mjs"
-  },
-  "dependencies": {
-    "@fastify/static": "^10.1.6",
-    "@holecraft/core": "0.1.0",
-    "fastify": "^5.12.5"
-  }
+	"name": "@holecraft/server",
+	"version": "0.1.0",
+	"private": true,
+	"description": "holecraft HTTP server: serves the web app and the design storage API",
+	"license": "AGPL-3.0-only",
+	"type": "module",
+	"exports": {
+		".": "./src/server.ts"
+	},
+	"scripts": {
+		"dev": "HOLECRAFT_PORT=8080 HOLECRAFT_HOST=127.0.0.1 tsx watch src/main.ts",
+		"build": "node build.mjs"
+	},
+	"dependencies": {
+		"@fastify/static": "^10.1.6",
+		"@holecraft/core": "0.1.0",
+		"fastify": "^5.12.5"
+	}
 }

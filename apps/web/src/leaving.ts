@@ -6,10 +6,10 @@ let leaving: Promise<unknown> = Promise.resolve();
 
 /** Remember a save that is happening because the editor is being left. */
 export function trackLeaving(save: Promise<unknown>): void {
-  leaving = save;
+	leaving = save;
 }
 
 /** Resolves once the save started on leaving the editor (if any) has finished, successfully or not. */
 export async function afterLeaving(): Promise<void> {
-  await leaving.catch(() => undefined);
+	await leaving.catch(() => undefined);
 }

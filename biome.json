@@ -1,0 +1,33 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+	"files": {
+		"includes": ["**", "!**/dist", "!**/release", "!**/test-results", "!packages/geometry/src/formats/orcaFilamentDefaults.ts"]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineWidth": 140
+	},
+	"javascript": {
+		"formatter": { "quoteStyle": "single", "jsxQuoteStyle": "double" }
+	},
+	"assist": {
+		"actions": { "source": { "organizeImports": "on" } }
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended",
+			"complexity": {
+				"noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 15 } }
+			},
+			"style": {
+				"noNonNullAssertion": "off"
+			},
+			"a11y": {
+				"useSemanticElements": "off"
+			}
+		}
+	}
+}

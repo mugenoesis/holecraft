@@ -1,8 +1,9 @@
 // Writes an STL, OBJ and 3MF of a drilled box and a sphere with the real export writers.
 // Used by scripts/verify-exports.sh so a third-party mesh library can check the files.
+
+import { writeFileSync } from 'node:fs';
 import { addShape, createEmptyDesign, groupNodes, moveNodes, setNodeMode, setShapeSize } from '@holecraft/core';
 import { collectBodies, loadManifold, write3mf, writeObj, writeStl } from '@holecraft/geometry';
-import { writeFileSync } from 'node:fs';
 
 let d = createEmptyDesign('d', 'Check');
 d = addShape(d, 'box', [0, 0], { id: 'a' }).design;
