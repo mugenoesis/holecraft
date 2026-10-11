@@ -1,4 +1,4 @@
-import { translationOf, type Design, type NodeId } from '@holecraft/core';
+import { eulerOfTransform, isUpright, rotationOfTransform, translationOf, type Design, type NodeId } from '@holecraft/core';
 import { useEffect, useState, type Dispatch, type FocusEvent, type KeyboardEvent } from 'react';
 import type { EditorAction } from './editorState.ts';
 
@@ -61,6 +61,13 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
   }
 
   const [x, y, z] = translationOf(only.transform);
+  const euler = eulerOfTransform(only.transform);
+  const tilted = !isUpright(rotationOfTransform(only.transform));
+  const turn = (axis: 0 | 1 | 2) => (v: number) => {
+    const next: [number, number, number] = [...euler];
+    next[axis] = v;
+    dispatch({ type: 'setEuler', id: only.id, euler: next });
+  };
   const size = only.kind === 'shape' ? (only.params as { width: number; depth: number; height: number }) : null;
 
   return (
@@ -79,8 +86,16 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
             <NumberField label="Height" value={size.height} onCommit={(height) => dispatch({ type: 'setSize', id: only.id, size: { height } })} />
           </>
         )}
+        <NumberField label="Rotate X" value={euler[0]} onCommit={turn(0)} />
+        <NumberField label="Rotate Y" value={euler[1]} onCommit={turn(1)} />
+        <NumberField label="Rotate Z" value={euler[2]} onCommit={turn(2)} />
         {color}
       </div>
+      {tilted && (
+        <p className="muted hint">
+          This shape is tilted, so its resize and lift handles are hidden. Set Rotate X and Y back to 0 to use them.
+        </p>
+      )}
       {actions}
     </section>
   );

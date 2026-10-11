@@ -13,7 +13,9 @@ import {
   replacePresent,
   selectAll,
   setNodeColor,
+  setNodeEuler,
   setNodePosition,
+  setNodeRotation,
   setShapeGeometry,
   setShapeSize,
   toggleSelection,
@@ -49,6 +51,11 @@ export type EditorAction =
   // moveStart and moveEnd, like a move.
   | { type: 'setGeometry'; id: NodeId; geometry: ShapeGeometry }
   | { type: 'dropToPlane' }
+  // A rotation ring being dragged: previews the shape's orientation (a row-major 3x3). Runs
+  // between moveStart and moveEnd, like a move.
+  | { type: 'setRotation'; id: NodeId; rotation: number[] }
+  // Typed rotation in degrees (X, then Y, then Z).
+  | { type: 'setEuler'; id: NodeId; euler: [number, number, number] }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'delete' }
@@ -116,6 +123,14 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
       if (!state.drag || !state.drag.ids.includes(action.id)) return state;
       return { ...state, history: replacePresent(state.history, setShapeGeometry(state.drag.base, action.id, action.geometry)) };
     }
+
+    case 'setRotation': {
+      if (!state.drag || !state.drag.ids.includes(action.id)) return state;
+      return { ...state, history: replacePresent(state.history, setNodeRotation(state.drag.base, action.id, action.rotation)) };
+    }
+
+    case 'setEuler':
+      return commit(state, setNodeEuler(design, action.id, action.euler));
 
     case 'dropToPlane':
       return commit(state, dropToWorkplane(design, state.selection));

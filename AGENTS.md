@@ -83,6 +83,19 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Shortcuts: viewport ones (Home, F, arrows) in `ViewportCanvas`, editing ones (Ctrl+Z/D/A,
   Delete, Esc) in `App`. Both skip typing targets via `isTypingTarget` in `keyboard.ts`.
 
+## Rotation
+- Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre
+  position). Sizes stay as local params, so a mesh is just position, quaternion and scale.
+- Maths is in `packages/core/src/rotation.ts` and `ring.ts`. Euler angles (degrees) are X, then
+  Y, then Z about the **world** axes (R = Rz·Ry·Rx) and exist only for the typed fields; ring
+  drags work on matrices (`rotateAboutWorldAxis`) so they never hit gimbal problems.
+- Rotation always pivots about the shape's **centre** (`setNodeRotation`), which means a tipped
+  shape's base point (the X/Y/Z fields) moves. Use `shapeBounds` / `nodeBounds`, never raw
+  translation + size, to ask where a shape actually is.
+- Resize and lift handles only exist while `isUpright` (turned about Z only). Their maths is the
+  `*Yawed` variants in `resize.ts`.
+- Ring drags use `Viewport.pickPlane` and ignore moves where the ring plane is edge-on.
+
 ## Input fields
 - Properties fields edit a local draft and commit on Enter/blur (`useDraft`). After a commit,
   re-read the document value from an effect that runs *after* the dispatch rendered. Never

@@ -2,8 +2,9 @@ import type { Vec3 } from './camera.ts';
 import type { Design, DesignNode, NodeId, ShapeNode } from './design.ts';
 import { clampToWorkplane, snapToGrid } from './grid.ts';
 import { newId } from './ids.ts';
-import { translationOf } from './ops.ts';
+import { shapeBounds, translationOf } from './ops.ts';
 import type { ShapeGeometry } from './resize.ts';
+import { composeTransform, eulerToMatrix, shapeCenter } from './rotation.ts';
 import { getShapeDef, type ShapeType } from './shapes.ts';
 
 /**
@@ -66,19 +67,45 @@ export function setNodePosition(design: Design, id: NodeId, at: [number, number,
   return moveNodes(design, [id], [at[0] - x, at[1] - y, (z ?? currentZ) - currentZ], now);
 }
 
-/** Puts shapes back on the workplane, keeping their X and Y. */
+/**
+ * Moves shapes straight up or down until their lowest point rests on the workplane. X and Y
+ * are kept, and a tipped shape ends up touching the plane at its lowest corner.
+ */
 export function dropToWorkplane(design: Design, ids: readonly NodeId[], now?: Date): Design {
   const nodes = { ...design.nodes };
   let changed = false;
   for (const id of ids) {
     const node = nodes[id];
-    if (!isEditable(node) || node.transform[14] === 0) continue;
+    if (!isEditable(node) || node.kind !== 'shape') continue;
+    const lowest = shapeBounds(node).min[2];
+    if (Math.abs(lowest) < 1e-9) continue;
     const transform = [...node.transform];
-    transform[14] = 0;
+    transform[14] = transform[14]! - lowest;
     nodes[id] = { ...node, transform };
     changed = true;
   }
   return changed ? withNodes(design, nodes, now) : design;
+}
+
+/**
+ * Sets a shape's orientation (a row-major 3x3 rotation), turning it about its own centre so
+ * it stays where it is. Size is untouched.
+ */
+export function setNodeRotation(design: Design, id: NodeId, rotation: readonly number[], now?: Date): Design {
+  const node = design.nodes[id];
+  if (!isEditable(node) || node.kind !== 'shape' || rotation.length !== 9 || !rotation.every(Number.isFinite)) return design;
+  const height = node.params.height as number;
+  const centre = shapeCenter(node.transform, height);
+  const half = height / 2;
+  const base: Vec3 = [centre[0] - rotation[2]! * half, centre[1] - rotation[5]! * half, centre[2] - rotation[8]! * half];
+  const transform = composeTransform(base, rotation);
+  if (transform.every((v, i) => Math.abs(v - node.transform[i]!) < 1e-9)) return design;
+  return withNodes(design, { ...design.nodes, [id]: { ...node, transform } }, now);
+}
+
+/** Like setNodeRotation, from typed angles in degrees (X, then Y, then Z, about the world axes). */
+export function setNodeEuler(design: Design, id: NodeId, degrees: readonly [number, number, number], now?: Date): Design {
+  return setNodeRotation(design, id, eulerToMatrix(degrees), now);
 }
 
 /** Sets a shape's position, height above the workplane and size in one edit (a handle drag). */

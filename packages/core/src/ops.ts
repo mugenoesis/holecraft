@@ -1,5 +1,5 @@
 import type { Bounds, Vec3 } from './camera.ts';
-import type { Design, Mat4, NodeId, ShapeNode } from './design.ts';
+import type { Design, DesignNode, Mat4, NodeId, ShapeNode } from './design.ts';
 import { newId } from './ids.ts';
 import { getShapeDef, type ShapeType } from './shapes.ts';
 
@@ -56,22 +56,47 @@ export function addShape(
   };
 }
 
+/**
+ * Axis-aligned world bounds of a shape's box, however it is turned. Ignores visibility, so
+ * callers that care (see nodeBounds) must check it themselves.
+ */
+export function shapeBounds(node: ShapeNode): Bounds {
+  const { width, depth, height } = node.params as { width: number; depth: number; height: number };
+  const m = node.transform;
+  const min: Vec3 = [Infinity, Infinity, Infinity];
+  const max: Vec3 = [-Infinity, -Infinity, -Infinity];
+  for (const x of [-width / 2, width / 2]) {
+    for (const y of [-depth / 2, depth / 2]) {
+      for (const z of [0, height]) {
+        for (let k = 0; k < 3; k++) {
+          // + 0 turns a -0 from the multiplications into 0.
+          const v = m[k]! * x + m[4 + k]! * y + m[8 + k]! * z + m[12 + k]! + 0;
+          min[k] = Math.min(min[k]!, v);
+          max[k] = Math.max(max[k]!, v);
+        }
+      }
+    }
+  }
+  return { min, max };
+}
+
+/** World bounds of a visible shape, or null for hidden nodes and anything that is not a shape. */
+export function nodeBounds(node: DesignNode | undefined): Bounds | null {
+  return node && !node.hidden && node.kind === 'shape' ? shapeBounds(node) : null;
+}
+
 /** Axis-aligned bounds of all visible top-level shapes, or null when there are none. */
 export function designBounds(design: Design): Bounds | null {
   let bounds: Bounds | null = null;
   for (const id of design.roots) {
-    const node = design.nodes[id];
-    if (!node || node.hidden || node.kind !== 'shape') continue;
-    const { width, depth, height } = node.params as { width: number; depth: number; height: number };
-    const [x, y, z] = translationOf(node.transform);
-    const min: Vec3 = [x - width / 2, y - depth / 2, z];
-    const max: Vec3 = [x + width / 2, y + depth / 2, z + height];
+    const b = nodeBounds(design.nodes[id]);
+    if (!b) continue;
     bounds = bounds
       ? {
-          min: [0, 1, 2].map((k) => Math.min(bounds!.min[k]!, min[k]!)) as Vec3,
-          max: [0, 1, 2].map((k) => Math.max(bounds!.max[k]!, max[k]!)) as Vec3,
+          min: [0, 1, 2].map((k) => Math.min(bounds!.min[k]!, b.min[k]!)) as Vec3,
+          max: [0, 1, 2].map((k) => Math.max(bounds!.max[k]!, b.max[k]!)) as Vec3,
         }
-      : { min, max };
+      : b;
   }
   return bounds;
 }

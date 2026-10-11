@@ -3,6 +3,7 @@ import {
   applyViewPreset,
   designBounds,
   fitToBounds,
+  rayAnyPlaneIntersection,
   rayPlaneIntersection,
   rayVerticalPlaneIntersection,
   translationOf,
@@ -170,6 +171,13 @@ export class Viewport {
       [cam.x - at[0], cam.y - at[1]],
     );
     return hit ? hit[2] : null;
+  }
+
+  /** Where a screen position meets the plane through `point` with normal `normal`, or null (edge-on, or behind). */
+  pickPlane(clientX: number, clientY: number, point: Vec3, normal: Vec3): Vec3 | null {
+    if (!this.aim(clientX, clientY)) return null;
+    const { origin, direction } = this.raycaster.ray;
+    return rayAnyPlaneIntersection([origin.x, origin.y, origin.z], [direction.x, direction.y, direction.z], point, normal);
   }
 
   /** Pixel position within the viewport of a world point, or null if it is behind the camera. */

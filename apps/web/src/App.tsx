@@ -82,6 +82,7 @@ export function App() {
           onMarquee={(ids, additive) => dispatch({ type: 'marquee', ids, additive })}
           onNudge={(delta) => dispatch({ type: 'nudge', delta })}
           onGeometry={(id, geometry) => dispatch({ type: 'setGeometry', id, geometry })}
+          onRotation={(id, rotation) => dispatch({ type: 'setRotation', id, rotation })}
         />
         <aside className="panel">
           <ShapesPanel onAddShape={(shape) => addAt(shape, [0, 0])} />
