@@ -1,0 +1,36 @@
+{
+  "name": "holecraft",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source, offline, browser-based 3D modeling for makers",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @holecraft/server & npm run dev --workspace @holecraft/web; wait",
+    "build": "npm run build --workspace @holecraft/web && npm run build --workspace @holecraft/server",
+    "build:desktop": "npm run build && npm run build --workspace @holecraft/desktop",
+    "dist:desktop": "npm run build:desktop && npm run dist --workspace @holecraft/desktop",
+    "start": "node apps/server/dist/main.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "scripts/e2e.sh",
+    "check": "scripts/check.sh",
+    "typecheck": "tsc -p packages/core && tsc -p apps/web && tsc -p apps/server && tsc -p apps/desktop",
+    "docker:build": "docker build -f docker/Dockerfile -t holecraft:latest ."
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

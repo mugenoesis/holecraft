@@ -1,0 +1,54 @@
+{
+  "name": "@holecraft/desktop",
+  "productName": "Holecraft",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Holecraft desktop app for Linux",
+  "license": "AGPL-3.0-only",
+  "author": {
+    "name": "Holecraft contributors",
+    "email": "noreply@holecraft.invalid"
+  },
+  "homepage": "https://github.com/mugenoesis/holecraft",
+  "desktopName": "holecraft.desktop",
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "electron .",
+    "dist": "electron-builder --linux AppImage deb"
+  },
+  "devDependencies": {
+    "@holecraft/server": "0.1.0",
+    "electron": "44.7.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "org.holecraft.desktop",
+    "productName": "Holecraft",
+    "executableName": "holecraft",
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/dist",
+        "to": "web"
+      }
+    ],
+    "linux": {
+      "category": "Graphics",
+      "syncDesktopName": true,
+      "synopsis": "Easy offline 3D modeling for makers",
+      "icon": "build/icon.png",
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  }
+}

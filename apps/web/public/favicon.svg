@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <path d="M32 4 58 18v28L32 60 6 46V18z" fill="#0f766e"/>
+  <path d="M32 4 58 18 32 32 6 18z" fill="#2dd4bf"/>
+  <path d="M32 32v28L6 46V18z" fill="#14b8a6"/>
+  <ellipse cx="32" cy="18" rx="9" ry="4.5" fill="#0f766e"/>
+</svg>

@@ -1,6 +1,6 @@
 # Open-Source, Offline 3D Modeler (Tinkercad-inspired): Project Plan
 
-Name: **ezcad** (working name, chosen 2026-10-11).
+Name: **Holecraft** (chosen 2026-10-11; first working name "ezcad" was dropped because EZCAD is established laser-marking software used by the same maker audience).
 
 Goal: an **open-source**, self-hosted, fully offline 3D modeling app. It is *inspired by*
 Tinkercad's approachable workflow (drag-and-drop primitives, solid/hole booleans,
@@ -84,7 +84,7 @@ Feature names below describe *capabilities*. Our own UI can name and arrange the
 | Autosave + design version history | P0 (autosave), P1 (history) |
 | Import STL, OBJ, 3MF; import SVG (extrude) | P0 (STL), P1 rest |
 | Export STL, OBJ, 3MF, GLB; SVG (top projection for laser cutting) | P0 (STL/OBJ), P1 rest |
-| Share / export design as a portable file (`.ezcad`) | P1 |
+| Share / export design as a portable file (`.holecraft`) | P1 |
 
 ### Out of scope for v1 (separate future projects)
 - **Circuits** (electronics + Arduino simulation): this is a whole product of its own.
@@ -115,7 +115,7 @@ Feature names below describe *capabilities*. Our own UI can name and arrange the
 └─────────────────────────────────────────────────────────────────────────────┘
    Docker: server runs as the container's process, port 8080, volume /data
    Desktop: Electron main process starts the same server on 127.0.0.1:<random>
-            and opens a BrowserWindow pointed at it. Data goes in ~/.local/share/ezcad
+            and opens a BrowserWindow pointed at it. Data goes in ~/.local/share/holecraft
 ```
 
 ### Why these choices
@@ -152,7 +152,7 @@ interface Design   { version: number; units: 'mm'|'in'; grid: GridSettings; node
   ancestors' booleans.
 - Every mutation goes through a **Command** (`MoveNodes`, `SetParam`, `Group`, ...) using Immer
   patches, which gives undo/redo, autosave diffs, and a future collaboration hook for free.
-- On-disk format: versioned JSON with migrations. The portable `.ezcad` file is a zip of the JSON,
+- On-disk format: versioned JSON with migrations. The portable `.holecraft` file is a zip of the JSON,
   any imported meshes, and a thumbnail.
 
 ### Shape definitions (extensible, also powers Shape Generators later)
@@ -168,12 +168,12 @@ User shape generators use the same API inside a sandboxed worker with no DOM or 
 
 ---
 
-## 3. Repository layout (pnpm monorepo)
+## 3. Repository layout (npm workspaces monorepo)
 
 ```
 apps/
   web/          Vite + React UI, viewport engine, editor screens, dashboard
-  server/       Fastify API + static hosting, SQLite (better-sqlite3), migrations
+  server/       Fastify API + static hosting, SQLite (built-in node:sqlite, no native modules), migrations
   desktop/      Electron main/preload, electron-builder config (AppImage, deb, rpm), Flatpak manifest
 packages/
   core/         Document model, commands, undo, selection, snapping math (no DOM, 100% unit-testable)
@@ -184,8 +184,12 @@ packages/
 docker/
   Dockerfile    multi-stage: build → node:22-slim runtime, non-root, /data volume, healthcheck
   compose.yaml
-e2e/            Playwright tests (Chromium with SwiftShader WebGL)
+e2e/            Playwright tests (Chromium with SwiftShader WebGL; packaged Electron app)
+scripts/        Repeatable tasks: check, e2e, docker-smoke, package-desktop, screenshot
 ```
+
+The server and the Electron main process are bundled with esbuild, so the Docker image and
+the desktop package ship without node_modules.
 
 ---
 
@@ -196,7 +200,7 @@ something runnable.
 
 | Phase | Deliverable | Size |
 |---|---|---|
-| **0. Skeleton** | Monorepo, Vite app with an empty three.js canvas, Fastify server, Dockerfile running it, Electron shell loading it, CI (lint, test, build image + AppImage) | 1 wk |
+| **0. Skeleton** ✅ | Monorepo, Vite app with a three.js workplane, Fastify server, Dockerfile running it, Electron shell loading it, unit + Playwright tests (web and packaged desktop), CI. **Done 2026-10-11** | 1 wk |
 | **1. Viewport** | Workplane grid, Tinkercad camera controls, view cube, home/fit, ortho toggle, drag a Box/Cylinder/Sphere from the panel onto the grid | 2 wk |
 | **2. Manipulation** | Selection (click, shift, marquee), move with snap, lift cone, resize handles with live dimension labels + typed input, rotation arcs with snaps, nudge keys, drop-to-plane, undo/redo, inspector (color, solid/hole, params) | 3–4 wk |
 | **3. CSG** | Geometry worker with manifold, Group/Ungroup with holes, cached subtree evaluation, hole transparency rendering, delete/copy/paste/duplicate | 2 wk |
@@ -227,30 +231,31 @@ something runnable.
 ## 6. Docker deployment (target)
 ```yaml
 services:
-  ezcad:
-    image: ezcad:latest
+  holecraft:
+    image: holecraft:latest
     ports: ["8080:8080"]
-    volumes: ["/mnt/user/appdata/ezcad:/data"]
-    environment:
-      - EZCAD_AUTH=none       # v1: no auth (LAN appliance)
-      - PUID=99               # Unraid-friendly user mapping
-      - PGID=100
+    volumes: ["/mnt/user/appdata/holecraft:/data"]
+    user: "99:100"            # Unraid nobody:users; v1 has no auth (LAN appliance)
 ```
 No outbound network calls at runtime. All fonts, icons, and WASM are bundled in the image.
 An Unraid Community Apps template can follow.
 
 ## 7. Desktop app (target)
-- `electron-builder` → `ezcad-x.y.z.AppImage`, `.deb`, `.rpm`; Flatpak via `flatpak-builder`.
-- Main process: start Fastify on `127.0.0.1:0` with data dir `$XDG_DATA_HOME/ezcad`, open
+- `electron-builder` → `holecraft-x.y.z.AppImage`, `.deb`, `.rpm`; Flatpak via `flatpak-builder`.
+- Main process: start Fastify on `127.0.0.1:0` with data dir `$XDG_DATA_HOME/holecraft`, open
   the window, and add native menus (File > Import/Export use native dialogs via IPC).
-- Associate the `.ezcad` file type, so double-clicking opens the design.
+- Associate the `.holecraft` file type, so double-clicking opens the design.
 
 ## 8. Testing strategy
+**Test-driven development**: every feature or fix starts with a failing test (see AGENTS.md).
 - **Unit (Vitest)**: core commands, undo/redo, snapping, group semantics, file migrations.
 - **Geometry golden tests**: build each shape and boolean scenario, then assert volume, bbox,
   manifoldness, and triangle count against stored values.
 - **E2E (Playwright)**: drag shape in, resize via handle, group with hole, export STL, reload, and
-  confirm persistence. Run against both the Docker image and the Electron build.
+  confirm persistence. Run against both the web build and the packaged Electron app
+  (`scripts/e2e.sh`, inside the Playwright Docker image).
+- **Server**: Fastify `inject` tests for every route.
+- **Smoke**: `scripts/docker-smoke.sh` for the image, and the desktop e2e for packages.
 - **Visual regression**: screenshot the viewport for key scenes.
 
 ## 9. Open-source identity, licensing & prior art
@@ -272,7 +277,7 @@ An Unraid Community Apps template can follow.
     Tinkercad-level ease. That combination is this project's niche.
 
 ## 10. Decisions (2026-10-11)
-1. **Name**: ezcad (working name).
+1. **Name**: Holecraft (renamed from ezcad on 2026-10-11).
 2. **License**: AGPL-3.0.
 3. **Docker auth**: none in v1 (single-user LAN appliance). Revisit later.
 4. **Desktop shell**: Electron.
