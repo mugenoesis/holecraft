@@ -1,0 +1,16 @@
+services:
+  ezcad:
+    image: ezcad:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ezcad
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+    # On Unraid, run as nobody:users and point the volume at appdata, e.g.
+    #   user: "99:100"
+    #   volumes: ["/mnt/user/appdata/ezcad:/data"]
+    # The host directory must be writable by that user.

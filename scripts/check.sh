@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# The full pre-commit gate: typecheck, unit tests, build, browser integration tests.
+#
+# Usage: scripts/check.sh           # fast gate (no packaging)
+#        FULL=1 scripts/check.sh    # also Docker smoke test + desktop package + desktop e2e
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+step() { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
+
+step "typecheck";          npm run typecheck
+step "unit tests";         npm test
+step "build";              npm run build
+
+if [[ "${FULL:-0}" == "1" ]]; then
+  step "docker smoke";     scripts/docker-smoke.sh
+  step "package desktop";  scripts/package-desktop.sh
+  step "e2e (all)";        SKIP_BUILD=1 scripts/e2e.sh
+else
+  step "e2e (web)";        SKIP_BUILD=1 scripts/e2e.sh --project web
+fi
+
+step "all checks passed"
