@@ -5,6 +5,7 @@ export * from './formats/obj.ts';
 export * from './formats/stl.ts';
 export * from './formats/threemf.ts';
 export * from './formats/zip.ts';
+export * from './import/index.ts';
 export * from './load.ts';
 export * from './subtree.ts';
 export * from './types.ts';

@@ -1,4 +1,4 @@
-import { descendantIds, type Design, type DesignNode, type NodeId } from '@holecraft/core';
+import { MESH_SHAPE_TYPE, descendantIds, type Design, type DesignNode, type NodeId } from '@holecraft/core';
 import type { Subtree } from './types.ts';
 
 /** Bump when evaluation changes what a given subtree produces, so cached results are not reused. */
@@ -54,4 +54,17 @@ function cyrb53(text: string): number {
  */
 export function subtreeHash(design: { nodes: Record<NodeId, DesignNode> }, groupId: NodeId): string {
   return cyrb53(FORMAT + JSON.stringify(describe(design.nodes, groupId, true))).toString(36);
+}
+
+/** The stored meshes needed to build these nodes (and everything inside them), each listed once. */
+export function meshRefsIn(design: { nodes: Record<NodeId, DesignNode> }, ids: readonly NodeId[]): string[] {
+  const refs = new Set<string>();
+  const visit = (id: NodeId): void => {
+    const node = design.nodes[id];
+    if (!node) return;
+    if (node.kind === 'group') node.children.forEach(visit);
+    else if (node.kind === 'shape' && node.shapeType === MESH_SHAPE_TYPE) refs.add(String(node.params.mesh));
+  };
+  ids.forEach(visit);
+  return [...refs];
 }

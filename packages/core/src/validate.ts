@@ -8,6 +8,7 @@ import {
 } from './design.ts';
 import { MAX_SHAPE_SIZE } from './edit.ts';
 import type { GridSettings } from './grid.ts';
+import { isMeshRef, MESH_SHAPE_TYPE } from './meshShape.ts';
 import { isShapeType } from './shapes.ts';
 
 /** A saved design that cannot be trusted, with where in it the problem is. */
@@ -87,7 +88,7 @@ function parseNode(key: string, raw: unknown): DesignNode {
 
   switch (raw.kind) {
     case 'shape': {
-      if (typeof raw.shapeType !== 'string' || !isShapeType(raw.shapeType)) fail(`${path}.shapeType`, 'is not a known shape');
+      if (typeof raw.shapeType !== 'string' || (raw.shapeType !== MESH_SHAPE_TYPE && !isShapeType(raw.shapeType))) fail(`${path}.shapeType`, 'is not a known shape');
       if (!isRecord(raw.params)) fail(`${path}.params`, 'must be an object');
       const params: Record<string, number | string | boolean> = {};
       for (const dim of ['width', 'depth', 'height']) {
@@ -99,6 +100,8 @@ function parseNode(key: string, raw: unknown): DesignNode {
         if (name in params) continue;
         if (isFiniteNumber(v) || typeof v === 'boolean' || (typeof v === 'string' && v.length <= MAX_STRING_PARAM)) params[name] = v;
       }
+      // An imported model must point at a stored mesh by a proper reference: it becomes a file name.
+      if (raw.shapeType === MESH_SHAPE_TYPE && !isMeshRef(params.mesh)) fail(`${path}.params.mesh`, 'an imported model needs a valid mesh reference');
       return { ...base, kind: 'shape', shapeType: raw.shapeType, params };
     }
     case 'group': {

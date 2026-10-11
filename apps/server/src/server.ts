@@ -4,6 +4,7 @@ import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { MAX_DESIGN_BYTES, registerDesignRoutes } from './designRoutes.ts';
 import { DesignStore } from './designs.ts';
+import { MeshStore, registerMeshRoutes } from './meshes.ts';
 
 export interface ServerOptions {
   /** Where designs, thumbnails and imported meshes are stored. Created if missing. */
@@ -26,6 +27,9 @@ export async function createServer(opts: ServerOptions): Promise<FastifyInstance
 
   app.get('/api/health', async () => ({ status: 'ok', name: 'holecraft', version }));
   registerDesignRoutes(app, new DesignStore(opts.dataDir));
+  const meshes = new MeshStore(opts.dataDir);
+  await meshes.init();
+  registerMeshRoutes(app, meshes);
 
   const staticDir = opts.staticDir;
   if (staticDir) {

@@ -9,6 +9,7 @@ import {
   rayVerticalPlaneIntersection,
   translationOf,
   type Design,
+  type MeshData,
   type NodeId,
   type OrbitState,
   type Vec3,
@@ -126,9 +127,9 @@ export class Viewport {
   }
 
   /** `results` and `failed` come from the GeometryService: the computed shapes of top-level groups. */
-  setDesign(design: Design, results?: ReadonlyMap<NodeId, GroupResult>, failed?: ReadonlySet<NodeId>): void {
+  setDesign(design: Design, results?: ReadonlyMap<NodeId, GroupResult>, failed?: ReadonlySet<NodeId>, meshes?: ReadonlyMap<string, MeshData>): void {
     this.design = design;
-    this.designScene.sync(design, results, failed);
+    this.designScene.sync(design, results, failed, meshes);
     this.requestRender();
   }
 

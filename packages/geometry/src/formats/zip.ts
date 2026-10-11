@@ -98,8 +98,56 @@ export function writeStoredZip(entries: readonly ZipEntry[]): Uint8Array {
   return out;
 }
 
+/**
+ * Reads any ordinary zip (stored or deflate-compressed entries), checking every checksum. Real 3MF
+ * files from slicers and CAD programs are compressed. Uses the platform's DecompressionStream, which
+ * browsers and Node both have, so no library is needed.
+ */
+export async function readZip(bytes: Uint8Array): Promise<Map<string, Uint8Array>> {
+  return readEntries(bytes, async (name, method, raw, size) => {
+    if (method === 0) return raw;
+    if (method !== 8) throw new Error(`Unsupported zip: ${name} uses compression method ${method}`);
+    const stream = new Blob([raw as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    const out = new Uint8Array(await new Response(stream).arrayBuffer());
+    if (out.length !== size) throw new Error(`Damaged zip: ${name} has the wrong size`);
+    return out;
+  });
+}
+
 /** Reads a zip made of stored (uncompressed) entries, checking every checksum. Throws on anything else. */
 export function readStoredZip(bytes: Uint8Array): Map<string, Uint8Array> {
+  const files = new Map<string, Uint8Array>();
+  for (const e of listEntries(bytes)) {
+    if (e.method !== 0) throw new Error(`Unsupported zip: ${e.name} is compressed`);
+    if (crc32(e.raw) !== e.crc) throw new Error(`Damaged zip: checksum mismatch in ${e.name}`);
+    files.set(e.name, e.raw);
+  }
+  return files;
+}
+
+type Unpack = (name: string, method: number, raw: Uint8Array, size: number) => Promise<Uint8Array>;
+
+async function readEntries(bytes: Uint8Array, unpack: Unpack): Promise<Map<string, Uint8Array>> {
+  const files = new Map<string, Uint8Array>();
+  for (const e of listEntries(bytes)) {
+    const data = await unpack(e.name, e.method, e.raw, e.size);
+    if (crc32(data) !== e.crc) throw new Error(`Damaged zip: checksum mismatch in ${e.name}`);
+    files.set(e.name, data);
+  }
+  return files;
+}
+
+interface RawEntry {
+  name: string;
+  method: number;
+  crc: number;
+  /** Uncompressed size. */
+  size: number;
+  /** The bytes as stored in the file (compressed, if the method says so). */
+  raw: Uint8Array;
+}
+
+function listEntries(bytes: Uint8Array): RawEntry[] {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 
   let end = -1;
@@ -113,25 +161,23 @@ export function readStoredZip(bytes: Uint8Array): Map<string, Uint8Array> {
 
   const count = view.getUint16(end + 10, true);
   let at = view.getUint32(end + 16, true);
-  const files = new Map<string, Uint8Array>();
+  const entries: RawEntry[] = [];
 
   for (let i = 0; i < count; i++) {
     if (view.getUint32(at, true) !== 0x02014b50) throw new Error('Damaged zip: bad directory entry');
     const method = view.getUint16(at + 10, true);
     const crc = view.getUint32(at + 16, true);
+    const packedSize = view.getUint32(at + 20, true);
     const size = view.getUint32(at + 24, true);
     const nameLength = view.getUint16(at + 28, true);
     const extraLength = view.getUint16(at + 30, true);
     const commentLength = view.getUint16(at + 32, true);
     const localOffset = view.getUint32(at + 42, true);
     const name = decoder.decode(bytes.subarray(at + 46, at + 46 + nameLength));
-    if (method !== 0) throw new Error(`Unsupported zip: ${name} is compressed`);
 
     const dataStart = localOffset + 30 + view.getUint16(localOffset + 26, true) + view.getUint16(localOffset + 28, true);
-    const data = bytes.subarray(dataStart, dataStart + size);
-    if (crc32(data) !== crc) throw new Error(`Damaged zip: checksum mismatch in ${name}`);
-    files.set(name, data);
+    entries.push({ name, method, crc, size, raw: bytes.subarray(dataStart, dataStart + packedSize) });
     at += 46 + nameLength + extraLength + commentLength;
   }
-  return files;
+  return entries;
 }

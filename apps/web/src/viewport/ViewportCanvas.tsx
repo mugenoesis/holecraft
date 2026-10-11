@@ -10,6 +10,7 @@ import {
   snapToGrid,
   translationOf,
   type Design,
+  type MeshData,
   type NodeId,
   type OrbitState,
   type ShapeGeometry,
@@ -30,6 +31,8 @@ import { Viewport, type PixelRect } from './Viewport.ts';
 
 interface Props {
   design: Design;
+  /** The imported models downloaded so far, by stored reference. */
+  meshes: ReadonlyMap<string, MeshData>;
   selection: readonly NodeId[];
   onDropShape: (type: ShapeType, at: [number, number]) => void;
   onPick: (id: NodeId | null, additive: boolean, phase: 'down' | 'click') => void;
@@ -89,7 +92,7 @@ const VIEW_OPTIONS: ReadonlyArray<{ value: ViewPresetName; label: string }> = [
 
 /** React host for the imperative three.js viewport, plus its overlay controls. */
 export function ViewportCanvas(props: Props) {
-  const { design, selection, onDropShape } = props;
+  const { design, selection, meshes, onDropShape } = props;
   const hostRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<Viewport | null>(null);
   // The Viewport outlives renders, so it reads the latest props through this ref.
@@ -132,7 +135,7 @@ export function ViewportCanvas(props: Props) {
     }
     setFailed(false);
     const service = serviceRef.current;
-    viewport.setDesign(latest.current.design, service?.results(), service?.failed());
+    viewport.setDesign(latest.current.design, service?.results(), service?.failed(), latest.current.meshes);
     viewport.setSelection(latest.current.selection);
     viewportRef.current = viewport;
     return () => {
@@ -147,7 +150,7 @@ export function ViewportCanvas(props: Props) {
     const evaluator = createWorkerEvaluator();
     const service = new GeometryService(evaluator.evaluate, () => setResultVersion((v) => v + 1));
     serviceRef.current = service;
-    service.update(latest.current.design);
+    service.update(latest.current.design, latest.current.meshes);
     return () => {
       serviceRef.current = null;
       service.dispose();
@@ -157,9 +160,9 @@ export function ViewportCanvas(props: Props) {
 
   useEffect(() => {
     const service = serviceRef.current;
-    service?.update(design);
-    viewportRef.current?.setDesign(design, service?.results(), service?.failed());
-  }, [design, resultVersion]);
+    service?.update(design, meshes);
+    viewportRef.current?.setDesign(design, service?.results(), service?.failed(), meshes);
+  }, [design, meshes, resultVersion]);
 
   useEffect(() => {
     viewportRef.current?.setSelection(selection);

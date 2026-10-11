@@ -16,7 +16,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request(url: string, init: RequestInit = {}): Promise<Response> {
+export async function request(url: string, init: RequestInit = {}): Promise<Response> {
   let response: Response;
   try {
     response = await fetch(url, init);

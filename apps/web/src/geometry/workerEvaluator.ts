@@ -43,12 +43,12 @@ export function createWorkerEvaluator(): WorkerEvaluator {
   };
 
   return {
-    evaluate: (subtree: Subtree) =>
+    evaluate: (subtree: Subtree, meshes) =>
       new Promise((resolve, reject) => {
         worker ??= start();
         const id = nextId++;
         pending.set(id, { resolve, reject });
-        const request: WorkerRequest = { kind: 'group', id, subtree };
+        const request: WorkerRequest = { kind: 'group', id, subtree, meshes };
         worker.postMessage(request);
       }),
     dispose: () => failAll(new Error('The geometry worker was shut down')),

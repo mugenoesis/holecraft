@@ -3,6 +3,8 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { ApiError, getDesign, saveDesign } from './designsApi.ts';
 import { createEditorState, editorReducer } from './editorState.ts';
 import { ExportMenu } from './ExportMenu.tsx';
+import { ImportButton } from './ImportButton.tsx';
+import { useMeshes } from './useMeshes.ts';
 import { trackLeaving } from './leaving.ts';
 import { isTypingTarget } from './keyboard.ts';
 import { Link } from './Link.tsx';
@@ -62,6 +64,7 @@ const STATUS_LABEL: Record<SaveStatus, string> = {
 function EditorView({ initial }: { initial: Design }) {
   const [state, dispatch] = useReducer(editorReducer, initial, createEditorState);
   const design = state.history.present;
+  const { meshes, add: addMesh } = useMeshes(design);
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const controller = useRef<SaveController | null>(null);
@@ -171,7 +174,13 @@ function EditorView({ initial }: { initial: Design }) {
           </button>
         </div>
         <DesignNameField name={design.name} onCommit={(name) => dispatch({ type: 'renameDesign', name })} />
-        <ExportMenu design={design} selection={state.selection} />
+        <ImportButton
+          onImported={(input, mesh) => {
+            addMesh(input.ref, mesh);
+            dispatch({ type: 'addMesh', input });
+          }}
+        />
+        <ExportMenu design={design} selection={state.selection} meshes={meshes} />
         <span className={`save-status ${saveStatus}`} data-testid="save-status" aria-live="polite" title={controller.current?.lastError?.message}>
           {STATUS_LABEL[saveStatus]}
           {saveStatus === 'error' && saveProblem ? `: ${saveProblem}` : ''}
@@ -182,6 +191,7 @@ function EditorView({ initial }: { initial: Design }) {
       <main className="workspace">
         <ViewportCanvas
           design={design}
+          meshes={meshes}
           selection={state.selection}
           onDropShape={addAt}
           onPick={(id, additive, phase) => dispatch({ type: 'pick', id, additive, phase })}

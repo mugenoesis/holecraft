@@ -1,7 +1,10 @@
-import type { Design, NodeId } from '@holecraft/core';
-import { rootSolidGroups, subtreeHash, subtreeOf, type GroupMesh, type Subtree } from '@holecraft/geometry';
+import type { Design, MeshData, NodeId } from '@holecraft/core';
+import { meshRefsIn, rootSolidGroups, subtreeHash, subtreeOf, type GroupMesh, type Subtree } from '@holecraft/geometry';
 
-export type Evaluator = (subtree: Subtree) => Promise<GroupMesh | null>;
+/** Works out a group's shape. `meshes` holds the stored models of the imported shapes inside it. */
+export type Evaluator = (subtree: Subtree, meshes: ReadonlyMap<string, MeshData>) => Promise<GroupMesh | null>;
+
+const NO_MESHES: ReadonlyMap<string, MeshData> = new Map();
 
 /** The shape of a group: `mesh` is null when the holes left nothing of it. */
 export interface GroupResult {
@@ -13,6 +16,7 @@ export interface GroupResult {
 interface Job {
   hash: string;
   subtree: Subtree;
+  meshes: ReadonlyMap<string, MeshData>;
 }
 
 const DEFAULT_CACHE_SIZE = 48;
@@ -59,8 +63,12 @@ export class GeometryService {
     return new Set(this.failures.keys());
   }
 
-  /** Looks at a new version of the design and requests whatever shapes are not already known. */
-  update(design: Design): void {
+  /**
+   * Looks at a new version of the design and requests whatever shapes are not already known.
+   * `meshes` are the imported models downloaded so far; a group is only worked out once every model
+   * inside it has arrived (call update again when more do).
+   */
+  update(design: Design, meshes: ReadonlyMap<string, MeshData> = NO_MESHES): void {
     if (this.disposed) return;
     const ids = rootSolidGroups(design);
 
@@ -85,7 +93,9 @@ export class GeometryService {
       } else {
         // Delete first so the newest request goes to the back of the line.
         this.queue.delete(id);
-        this.queue.set(id, { hash, subtree: subtreeOf(design, id) });
+        const needed = meshRefsIn(design, [id]);
+        if (needed.some((ref) => !meshes.has(ref))) continue; // wait for the models to download
+        this.queue.set(id, { hash, subtree: subtreeOf(design, id), meshes: new Map(needed.map((ref) => [ref, meshes.get(ref)!])) });
       }
     }
     this.pump();
@@ -105,7 +115,7 @@ export class GeometryService {
     const [id, job] = next.value;
     this.queue.delete(id);
     this.inFlight = { id, hash: job.hash };
-    this.evaluate(job.subtree).then(
+    this.evaluate(job.subtree, job.meshes).then(
       (mesh) => this.finish(id, job.hash, mesh),
       (error: unknown) => this.fail(id, job.hash, error),
     );

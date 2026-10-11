@@ -1,3 +1,4 @@
+import { cube3mf } from '../web/modelFiles.ts';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -97,6 +98,40 @@ test.describe('desktop app', () => {
       const file = readFileSync(saved);
       expect(file.readUInt32LE(80)).toBe(12); // a cube is 12 triangles
       expect(file.length).toBe(84 + 12 * 50);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('imports a compressed 3MF model and keeps it after a restart', async () => {
+    const launch = () =>
+      electron.launch({
+        executablePath,
+        args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+        env: { ...process.env, HOLECRAFT_DATA_DIR: dataDir },
+      });
+
+    let app = await launch();
+    try {
+      const win = await app.firstWindow();
+      await win.waitForLoadState('load');
+      await win.getByRole('button', { name: 'New design' }).click();
+      await expect(win.getByTestId('viewport').locator('canvas')).toBeVisible();
+      await win.getByTestId('import-file').setInputFiles({ name: 'Part.3mf', mimeType: 'application/octet-stream', buffer: cube3mf(2, 'centimeter') });
+      await expect(win.getByTestId('object-list').getByRole('button', { name: /Part/ })).toBeVisible();
+      await expect(win.getByTestId('save-status')).toHaveText('Saved');
+    } finally {
+      await app.close();
+    }
+
+    app = await launch();
+    try {
+      const win = await app.firstWindow();
+      await win.waitForLoadState('load');
+      await win.getByRole('link', { name: /Untitled design/ }).first().click();
+      await expect(win.getByTestId('object-list').getByRole('button', { name: /Part/ })).toBeVisible();
+      await win.getByTestId('object-list').getByRole('button', { name: /Part/ }).click();
+      await expect(win.getByRole('region', { name: 'Properties' }).getByLabel('Width', { exact: true })).toHaveValue('20');
     } finally {
       await app.close();
     }
