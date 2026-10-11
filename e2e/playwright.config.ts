@@ -10,6 +10,10 @@ export default defineConfig({
   reporter: [['list']],
   fullyParallel: false,
   retries: 0,
+  timeout: 15_000,
+  expect: { timeout: 4_000 },
+  timeout: 15_000,
+  expect: { timeout: 4_000 },
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: 'retain-on-failure',

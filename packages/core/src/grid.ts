@@ -12,6 +12,12 @@ export const DEFAULT_GRID: Readonly<GridSettings> = Object.freeze({
   snap: 1,
 });
 
+/** Keeps a workplane point inside the plane, which is centred on the origin. */
+export function clampToWorkplane(point: [number, number], size: [number, number]): [number, number] {
+  const limit = (half: number, v: number) => Math.min(half, Math.max(-half, v));
+  return [limit(size[0] / 2, point[0]), limit(size[1] / 2, point[1])];
+}
+
 /** Rounds to the nearest multiple of `step`, trimming float noise (0.1 * 3 → 0.3). */
 export function snapToGrid(value: number, step: number): number {
   if (step <= 0) return value;

@@ -71,6 +71,21 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Workspace packages export TypeScript source directly (`"exports": "./src/index.ts"`). Vite,
   esbuild, tsx, and Vitest consume it, and there is no per-package build step.
 
+## Testing the viewport
+- Put maths in `packages/core` (camera, picking, snapping, shape ops) and unit-test it there.
+  three.js classes that need no WebGL (`CameraRig`, `DesignScene`) are unit-tested under
+  `apps/web/src/viewport/` in plain Vitest.
+- E2E tests read camera state from `data-*` attributes on `[data-testid=viewport]`
+  (`data-azimuth`, `data-polar`, `data-distance`, `data-target`, `data-projection`) and the
+  document from the Objects list and status bar. Keep those stable, or update the tests with them.
+- The camera eases to new views, so e2e tests must `expect.poll` until it arrives rather than
+  read the camera right after a click.
+- Native HTML5 drag-and-drop (shapes panel → viewport) works with Playwright's `dragTo`.
+- Only the view-cube faces the camera can see are clickable. Tests reach the other sides through
+  the "Standard views" menu.
+- After visual changes (especially CSS 3D like the view cube), check a real screenshot:
+  `DEMO=1 scripts/screenshot.sh <url>`. Passing tests don't prove it looks right.
+
 ## Code conventions
 - Strict TypeScript (`noUncheckedIndexedAccess`). Import with `.ts` extensions.
 - `packages/core` must stay free of DOM, three.js, and Node APIs, so it can be pure and unit-tested.
