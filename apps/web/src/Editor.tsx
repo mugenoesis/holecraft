@@ -1,19 +1,14 @@
-import { canGroup, canRedo, canUndo, canUngroup, type Design, type NodeId, type ShapeType } from '@holecraft/core';
-import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { ApiError, getDesign, saveDesign, uploadThumbnail } from './designsApi.ts';
-import { ExportMenu } from './ExportMenu.tsx';
+import type { Design, NodeId, ShapeType } from '@holecraft/core';
+import { useCallback, useEffect, useReducer, useState } from 'react';
+import { ApiError, getDesign, uploadThumbnail } from './designsApi.ts';
+import { useEditorShortcuts } from './editorShortcuts.ts';
 import { createEditorState, editorReducer } from './editorState.ts';
-import { ImportButton } from './ImportButton.tsx';
-import { isTypingTarget } from './keyboard.ts';
-import { Link } from './Link.tsx';
-import { trackLeaving } from './leaving.ts';
 import { NotFound } from './NotFound.tsx';
 import { PalettePanel } from './PalettePanel.tsx';
 import { PropertiesPanel } from './PropertiesPanel.tsx';
-import { ServerStatus } from './ServerStatus.tsx';
 import { ObjectList, ShapesPanel } from './ShapesPanel.tsx';
-import { SaveController, type SaveStatus } from './saveController.ts';
-import { useDraft } from './useDraft.ts';
+import { TopBar } from './TopBar.tsx';
+import { useAutosave } from './useAutosave.ts';
 import { useMeshes } from './useMeshes.ts';
 import { ViewportCanvas } from './viewport/ViewportCanvas.tsx';
 
@@ -56,89 +51,23 @@ export function Editor({ id }: { id: string }) {
 	return <EditorView initial={load.design} />;
 }
 
-const STATUS_LABEL: Record<SaveStatus, string> = {
-	saved: 'Saved',
-	dirty: 'Unsaved changes',
-	saving: 'Saving…',
-	error: 'Couldn’t save',
-};
+/** Shows the design's name in the browser tab while the editor is open. */
+function useDocumentTitle(name: string): void {
+	useEffect(() => {
+		document.title = `${name} – Holecraft`;
+		return () => {
+			document.title = 'Holecraft';
+		};
+	}, [name]);
+}
 
 function EditorView({ initial }: { initial: Design }) {
 	const [state, dispatch] = useReducer(editorReducer, initial, createEditorState);
 	const design = state.history.present;
 	const { meshes, add: addMesh } = useMeshes(design);
-
-	const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
-	const controller = useRef<SaveController | null>(null);
-	const [saveProblem, setSaveProblem] = useState<string | null>(null);
-
-	// Autosave: the controller saves the latest design shortly after changes stop, retrying on failure.
-	useEffect(() => {
-		const c = new SaveController(
-			(d) => saveDesign(d).then(() => undefined),
-			(status) => {
-				setSaveStatus(status);
-				if (status === 'error') {
-					const e = c.lastError;
-					setSaveProblem(
-						e instanceof ApiError && e.status === 404
-							? 'this design no longer exists'
-							: e instanceof ApiError && !e.retryable
-								? e.message
-								: 'retrying…',
-					);
-				} else setSaveProblem(null);
-			},
-			{ shouldRetry: (e) => !(e instanceof ApiError) || e.retryable },
-		);
-		controller.current = c;
-
-		// If the tab is closed or hidden with changes still waiting, send them now.
-		const onPageHide = () => {
-			const pending = c.pendingDesign();
-			if (pending) void saveDesign(pending, { keepalive: true }).catch(() => undefined);
-		};
-		window.addEventListener('pagehide', onPageHide);
-
-		return () => {
-			window.removeEventListener('pagehide', onPageHide);
-			controller.current = null;
-			// Leaving for the list: save whatever is still waiting, then stop.
-			trackLeaving(c.flush().finally(() => c.dispose()));
-		};
-	}, []);
-
-	useEffect(() => {
-		if (design !== initial) controller.current?.schedule(design);
-	}, [design, initial]);
-
-	useEffect(() => {
-		document.title = `${design.name} – Holecraft`;
-		return () => {
-			document.title = 'Holecraft';
-		};
-	}, [design.name]);
-
-	useEffect(() => {
-		const onKeyDown = (e: KeyboardEvent) => {
-			if (isTypingTarget(e.target) || e.altKey) return;
-			const mod = e.ctrlKey || e.metaKey;
-			const key = e.key.toLowerCase();
-
-			if (mod && key === 'z') dispatch({ type: e.shiftKey ? 'redo' : 'undo' });
-			else if (mod && key === 'y') dispatch({ type: 'redo' });
-			else if (mod && key === 'd') dispatch({ type: 'duplicate' });
-			else if (mod && key === 'g') dispatch({ type: e.shiftKey ? 'ungroup' : 'group' });
-			else if (mod && key === 'a') dispatch({ type: 'selectAll' });
-			else if (!mod && key === 'd') dispatch({ type: 'dropToPlane' });
-			else if (!mod && (e.key === 'Delete' || e.key === 'Backspace')) dispatch({ type: 'delete' });
-			else if (!mod && e.key === 'Escape') dispatch({ type: 'clearSelection' });
-			else return;
-			e.preventDefault();
-		};
-		window.addEventListener('keydown', onKeyDown);
-		return () => window.removeEventListener('keydown', onKeyDown);
-	}, []);
+	const save = useAutosave(design, initial);
+	useDocumentTitle(design.name);
+	useEditorShortcuts(dispatch);
 
 	const addAt = useCallback((shape: ShapeType, at: [number, number]) => dispatch({ type: 'add', shape, at }), []);
 	// A list row is a complete click: the press selects (shift toggles), and the release narrows a
@@ -152,65 +81,22 @@ function EditorView({ initial }: { initial: Design }) {
 
 	return (
 		<div className="app">
-			<header className="topbar">
-				<Link to="/" className="back-link" title="Back to all your designs">
-					← All designs
-				</Link>
-				<div className="brand">
-					<img src="/icon-192.png" alt="" width={24} height={24} />
-					<span>Holecraft</span>
-				</div>
-				<div className="edit-actions" role="toolbar" aria-label="Edit">
-					<button type="button" onClick={() => dispatch({ type: 'undo' })} disabled={!canUndo(state.history)} title="Undo (Ctrl+Z)">
-						Undo
-					</button>
-					<button type="button" onClick={() => dispatch({ type: 'redo' })} disabled={!canRedo(state.history)} title="Redo (Ctrl+Shift+Z)">
-						Redo
-					</button>
-				</div>
-				<div className="edit-actions" role="toolbar" aria-label="Group">
-					<button
-						type="button"
-						onClick={() => dispatch({ type: 'group' })}
-						disabled={!canGroup(design, state.selection)}
-						title="Group the selected shapes (Ctrl+G)"
-					>
-						Group
-					</button>
-					<button
-						type="button"
-						onClick={() => dispatch({ type: 'ungroup' })}
-						disabled={!canUngroup(design, state.selection)}
-						title="Split the selected group back into shapes (Ctrl+Shift+G)"
-					>
-						Ungroup
-					</button>
-				</div>
-				<DesignNameField name={design.name} onCommit={(name) => dispatch({ type: 'renameDesign', name })} />
-				<ImportButton
-					onImported={(input, mesh) => {
-						addMesh(input.ref, mesh);
-						dispatch({ type: 'addMesh', input });
-					}}
-				/>
-				<ExportMenu design={design} selection={state.selection} meshes={meshes} />
-				<span
-					className={`save-status ${saveStatus}`}
-					data-testid="save-status"
-					aria-live="polite"
-					title={controller.current?.lastError?.message}
-				>
-					{STATUS_LABEL[saveStatus]}
-					{saveStatus === 'error' && saveProblem ? `: ${saveProblem}` : ''}
-				</span>
-				<ServerStatus />
-			</header>
+			<TopBar
+				state={state}
+				dispatch={dispatch}
+				meshes={meshes}
+				save={save}
+				onImported={(input, mesh) => {
+					addMesh(input.ref, mesh);
+					dispatch({ type: 'addMesh', input });
+				}}
+			/>
 
 			<main className="workspace">
 				<ViewportCanvas
 					design={design}
 					meshes={meshes}
-					thumbnailReady={saveStatus === 'saved'}
+					thumbnailReady={save.status === 'saved'}
 					onThumbnail={(picture) => uploadThumbnail(design.id, picture)}
 					selection={state.selection}
 					onDropShape={addAt}
@@ -242,22 +128,5 @@ function EditorView({ initial }: { initial: Design }) {
 				{state.selection.length > 0 && <span>Selected: {state.selection.length}</span>}
 			</footer>
 		</div>
-	);
-}
-
-/** The design's name, editable in place in the top bar. */
-function DesignNameField({ name, onCommit }: { name: string; onCommit: (name: string) => void }) {
-	const d = useDraft(name, onCommit);
-	return (
-		<input
-			className="design-name-input"
-			aria-label="Design name"
-			type="text"
-			maxLength={120}
-			value={d.value}
-			onChange={(e) => d.onChange(e.target.value)}
-			onBlur={d.onBlur}
-			onKeyDown={d.onKeyDown}
-		/>
 	);
 }

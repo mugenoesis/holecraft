@@ -1,0 +1,5 @@
+# Commits that only reformat code, so `git blame` can skip them.
+# GitHub reads this file by itself; locally run: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Add Biome and format the whole codebase (tabs, 140 columns, sorted imports)
+19366fd69dcf50c9e3dfdeb48b15e06206197605

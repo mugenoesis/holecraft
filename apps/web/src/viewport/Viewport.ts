@@ -50,6 +50,12 @@ const WHEEL_RATE = 0.001;
 /** Pixels the pointer must travel before a press becomes a drag. */
 const DRAG_THRESHOLD = 4;
 
+/** What a press that has started to move becomes. Shift-pressing a shape only toggles it, so it doesn't start a move. */
+function dragModeFor(press: LeftPress): LeftPress['mode'] {
+	if (press.id === null) return press.touch ? 'orbit' : 'marquee';
+	return press.additive ? 'none' : 'move';
+}
+
 type CameraDrag = { mode: 'orbit' | 'pan'; x: number; y: number };
 
 interface LeftPress {
@@ -411,12 +417,21 @@ export class Viewport {
 
 	private moveLeftPress(e: PointerEvent): void {
 		const press = this.left!;
-		if (!press.mode) {
-			if (Math.hypot(e.clientX - press.startX, e.clientY - press.startY) < DRAG_THRESHOLD) return;
-			// Shift-pressing a shape only toggles it; it doesn't start a move.
-			press.mode = press.id === null ? (press.touch ? 'orbit' : 'marquee') : press.additive ? 'none' : 'move';
-			if (press.mode === 'move') this.opts.onMoveStart();
-		}
+		if (!press.mode && !this.beginDrag(press, e)) return;
+		this.continueDrag(press, e);
+		press.lastX = e.clientX;
+		press.lastY = e.clientY;
+	}
+
+	/** Once the pointer has travelled far enough, decides what the press has become. False while it is still a click. */
+	private beginDrag(press: LeftPress, e: PointerEvent): boolean {
+		if (Math.hypot(e.clientX - press.startX, e.clientY - press.startY) < DRAG_THRESHOLD) return false;
+		press.mode = dragModeFor(press);
+		if (press.mode === 'move') this.opts.onMoveStart();
+		return true;
+	}
+
+	private continueDrag(press: LeftPress, e: PointerEvent): void {
 		if (press.mode === 'move') {
 			const ground = this.pickWorkplane(e.clientX, e.clientY, press.planeZ);
 			if (ground && press.startGround) this.opts.onMove([ground[0] - press.startGround[0], ground[1] - press.startGround[1]]);
@@ -425,8 +440,6 @@ export class Viewport {
 		} else if (press.mode === 'orbit') {
 			this.rig.orbitBy(e.clientX - press.lastX, e.clientY - press.lastY);
 		}
-		press.lastX = e.clientX;
-		press.lastY = e.clientY;
 	}
 
 	private endLeftPress(e: PointerEvent): void {

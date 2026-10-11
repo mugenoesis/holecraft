@@ -1,35 +1,31 @@
 import {
-	clampToWorkplane,
 	type Design,
 	eulerOfTransform,
 	HOME_VIEW,
-	isShapeType,
 	isUpright,
 	type MeshData,
 	type NodeId,
-	nudgeDirections,
 	type OrbitState,
 	rotationOfTransform,
 	type ShapeGeometry,
 	type ShapeType,
 	shapeCenter,
-	snapToGrid,
 	translationOf,
 	type Vec3,
-	type ViewPresetName,
 } from '@holecraft/core';
 import { meshRefsIn } from '@holecraft/geometry';
-import { type DragEvent, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GeometryService } from '../geometry/GeometryService.ts';
 import { createWorkerEvaluator } from '../geometry/workerEvaluator.ts';
-import { isTypingTarget } from '../keyboard.ts';
-import { SHAPE_DRAG_TYPE } from '../shapeDrag.ts';
 import { ThumbnailScheduler } from '../thumbnailScheduler.ts';
 import type { Projection } from './CameraRig.ts';
 import { HandlesOverlay } from './HandlesOverlay.tsx';
 import { RotationRings } from './RotationRings.tsx';
+import { shapeDropHandlers } from './shapeDrop.ts';
 import { ViewCube } from './ViewCube.tsx';
 import { type PixelRect, Viewport } from './Viewport.ts';
+import { ViewToolbar } from './ViewToolbar.tsx';
+import { useViewKeys } from './viewKeys.ts';
 
 interface Props {
 	design: Design;
@@ -85,16 +81,6 @@ function selectedShape(design: Design, selection: readonly NodeId[]): SelectedSh
 		ringRadius: Math.hypot(width, depth, height) / 2 + 6,
 	};
 }
-
-const VIEW_OPTIONS: ReadonlyArray<{ value: ViewPresetName; label: string }> = [
-	{ value: 'iso', label: 'Isometric' },
-	{ value: 'front', label: 'Front' },
-	{ value: 'back', label: 'Back' },
-	{ value: 'left', label: 'Left' },
-	{ value: 'right', label: 'Right' },
-	{ value: 'top', label: 'Top' },
-	{ value: 'bottom', label: 'Bottom' },
-];
 
 /** React host for the imperative three.js viewport, plus its overlay controls. */
 export function ViewportCanvas(props: Props) {
@@ -196,43 +182,9 @@ export function ViewportCanvas(props: Props) {
 		viewportRef.current?.setSelection(selection);
 	}, [selection]);
 
-	useEffect(() => {
-		const ARROWS: Record<string, [number, number]> = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+	useViewKeys({ viewport: viewportRef, camera: cameraRef, latest });
 
-		const onKeyDown = (e: KeyboardEvent) => {
-			if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
-			const arrow = ARROWS[e.key];
-			if (arrow) {
-				// Arrow keys move along the world axis closest to the on-screen direction.
-				const step = (latest.current.design.grid.snap || 1) * (e.shiftKey ? 10 : 1);
-				const dirs = nudgeDirections(cameraRef.current.state.azimuth);
-				const along = arrow[1] !== 0 ? dirs.up : dirs.right;
-				const sign = arrow[0] + arrow[1];
-				latest.current.onNudge([along[0] * sign * step, along[1] * sign * step]);
-			} else if (e.key === 'Home') viewportRef.current?.home();
-			else if (e.key === 'f' || e.key === 'F') viewportRef.current?.fitAll();
-			else return;
-			e.preventDefault();
-		};
-		window.addEventListener('keydown', onKeyDown);
-		return () => window.removeEventListener('keydown', onKeyDown);
-	}, []);
-
-	const onDragOver = (e: DragEvent) => {
-		if (!e.dataTransfer.types.includes(SHAPE_DRAG_TYPE)) return;
-		e.preventDefault();
-		e.dataTransfer.dropEffect = 'copy';
-	};
-
-	const onDrop = (e: DragEvent) => {
-		const type = e.dataTransfer.getData(SHAPE_DRAG_TYPE);
-		if (!isShapeType(type)) return;
-		e.preventDefault();
-		const hit = viewportRef.current?.pickWorkplane(e.clientX, e.clientY);
-		if (!hit) return; // pointer is over the sky or an edge-on workplane
-		const [x, y] = clampToWorkplane(hit, design.grid.size);
-		onDropShape(type, [snapToGrid(x, design.grid.snap), snapToGrid(y, design.grid.snap)]);
-	};
+	const { onDragOver, onDrop } = shapeDropHandlers(viewportRef, design.grid, onDropShape);
 
 	const { state, projection } = camera;
 	const selected = selectedShape(design, selection);
@@ -267,37 +219,7 @@ export function ViewportCanvas(props: Props) {
 				</div>
 			) : (
 				<>
-					<div className="viewport-toolbar" role="toolbar" aria-label="View controls">
-						<button type="button" onClick={() => viewportRef.current?.home()} aria-label="Home view" title="Home view (Home)">
-							Home
-						</button>
-						<button type="button" onClick={() => viewportRef.current?.fitAll()} aria-label="Fit all" title="Fit all (F)">
-							Fit
-						</button>
-						<button
-							type="button"
-							aria-pressed={projection === 'orthographic'}
-							aria-label="Orthographic"
-							title="Toggle orthographic projection"
-							onClick={() => viewportRef.current?.setProjection(projection === 'orthographic' ? 'perspective' : 'orthographic')}
-						>
-							Ortho
-						</button>
-						<select
-							aria-label="Standard views"
-							value=""
-							onChange={(e) => {
-								if (e.target.value) viewportRef.current?.setView(e.target.value as ViewPresetName);
-							}}
-						>
-							<option value="">View…</option>
-							{VIEW_OPTIONS.map((o) => (
-								<option key={o.value} value={o.value}>
-									{o.label}
-								</option>
-							))}
-						</select>
-					</div>
+					<ViewToolbar viewport={viewportRef} projection={projection} />
 					<ViewCube camera={state} onSelect={(view) => viewportRef.current?.setView(view)} />
 					{selected?.upright && (
 						<HandlesOverlay

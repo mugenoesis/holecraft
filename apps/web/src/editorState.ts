@@ -103,18 +103,16 @@ function commit(state: EditorState, next: Design, selection: NodeId[] = state.se
 	return { ...state, history, selection: pruneSelection(next, selection) };
 }
 
-export function editorReducer(state: EditorState, action: EditorAction): EditorState {
-	const design = state.history.present;
+type ActionOf<T extends EditorAction['type']> = Extract<EditorAction, { type: T }>;
+type SelectionAction = ActionOf<'pick' | 'marquee' | 'selectAll' | 'clearSelection'>;
+type DragAction = ActionOf<'moveStart' | 'move' | 'moveEnd' | 'setGeometry' | 'setRotation'>;
+type HistoryAction = ActionOf<'undo' | 'redo'>;
+/** Everything else: edits to the document itself, each one an undoable step. */
+type EditAction = Exclude<EditorAction, SelectionAction | DragAction | HistoryAction>;
 
+/** Changes to what is selected. */
+function reduceSelection(state: EditorState, action: SelectionAction): EditorState {
 	switch (action.type) {
-		case 'add':
-			return commit(state, addShape(design, action.shape, action.at).design);
-
-		case 'addMesh': {
-			const added = addMeshShape(design, action.input, { at: action.at });
-			return commit(state, added.design, [added.id]);
-		}
-
 		case 'pick': {
 			if (action.phase === 'down') {
 				return { ...state, selection: toggleSelection(state.selection, action.id, action.additive, { keepGroup: true }) };
@@ -129,11 +127,18 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 		}
 
 		case 'selectAll':
-			return { ...state, selection: selectAll(design) };
+			return { ...state, selection: selectAll(state.history.present) };
 
 		case 'clearSelection':
 			return state.selection.length ? { ...state, selection: [] } : state;
+	}
+}
 
+/** Drags (moving, resizing, turning): live previews that become one undo step when the drag ends. */
+function reduceDrag(state: EditorState, action: DragAction): EditorState {
+	const design = state.history.present;
+
+	switch (action.type) {
 		case 'moveStart':
 			return state.drag || state.selection.length === 0 ? state : { ...state, drag: { base: design, ids: [...state.selection] } };
 
@@ -159,6 +164,29 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 			if (!state.drag?.ids.includes(action.id)) return state;
 			return { ...state, history: replacePresent(state.history, setNodeRotation(state.drag.base, action.id, action.rotation)) };
 		}
+	}
+}
+
+/** Undo and redo (ignored while a drag is in progress). */
+function reduceHistory(state: EditorState, action: HistoryAction): EditorState {
+	if (state.drag) return state;
+	const history = action.type === 'undo' ? undo(state.history) : redo(state.history);
+	if (history === state.history) return state;
+	return { ...state, history, selection: pruneSelection(history.present, state.selection) };
+}
+
+/** Edits to the document: each is one undoable step, or nothing at all when it changes nothing. */
+function reduceEdit(state: EditorState, action: EditAction): EditorState {
+	const design = state.history.present;
+
+	switch (action.type) {
+		case 'add':
+			return commit(state, addShape(design, action.shape, action.at).design);
+
+		case 'addMesh': {
+			const added = addMeshShape(design, action.input, { at: action.at });
+			return commit(state, added.design, [added.id]);
+		}
 
 		case 'setEuler':
 			return commit(state, setNodeEuler(design, action.id, action.euler));
@@ -182,18 +210,8 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 		case 'renameDesign':
 			return commit(state, renameDesign(design, action.name));
 
-		case 'undo':
-		case 'redo': {
-			if (state.drag) return state;
-			const history = action.type === 'undo' ? undo(state.history) : redo(state.history);
-			if (history === state.history) return state;
-			return { ...state, history, selection: pruneSelection(history.present, state.selection) };
-		}
-
-		case 'delete': {
-			const next = deleteNodes(design, state.selection);
-			return commit(state, next, []);
-		}
+		case 'delete':
+			return commit(state, deleteNodes(design, state.selection), []);
 
 		case 'duplicate': {
 			const copy = duplicateNodes(design, state.selection, DUPLICATE_OFFSET);
@@ -223,5 +241,29 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
 		case 'setColor':
 			return commit(state, setNodeColor(design, action.ids, action.color));
+	}
+}
+
+export function editorReducer(state: EditorState, action: EditorAction): EditorState {
+	switch (action.type) {
+		case 'pick':
+		case 'marquee':
+		case 'selectAll':
+		case 'clearSelection':
+			return reduceSelection(state, action);
+
+		case 'moveStart':
+		case 'move':
+		case 'moveEnd':
+		case 'setGeometry':
+		case 'setRotation':
+			return reduceDrag(state, action);
+
+		case 'undo':
+		case 'redo':
+			return reduceHistory(state, action);
+
+		default:
+			return reduceEdit(state, action);
 	}
 }

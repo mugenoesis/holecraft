@@ -1,4 +1,4 @@
-import { type Design, MESH_SHAPE_TYPE, type MeshData, type NodeId, type ShapeNode, type ShapeType } from '@holecraft/core';
+import { type Design, type GroupNode, MESH_SHAPE_TYPE, type MeshData, type NodeId, type ShapeNode, type ShapeType } from '@holecraft/core';
 import type { GroupMesh } from '@holecraft/geometry';
 import * as THREE from 'three';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -214,31 +214,43 @@ export class DesignScene {
 		ctx.live.add(id);
 
 		const isHole = ghost || node.mode === 'hole';
-		let obj = this.objects.get(id);
+		if (node.kind === 'group') this.placeGroup(design, node, parent, rootId, isHole, covered, ctx);
+		else this.placeShape(node, parent, rootId, isHole, covered, ctx);
+	}
 
-		if (node.kind === 'group') {
-			if (!obj) {
-				obj = new THREE.Group();
-				obj.name = node.name;
-				this.objects.set(id, obj);
-			}
-			this.applyTransform(obj, node.transform);
-			obj.visible = !node.hidden;
-			if (obj.parent !== parent) parent.add(obj);
-
-			// Only a top-level solid group is drawn as a computed mesh; anything nested inside is part of it.
-			const result = id === rootId && node.mode === 'solid' && !ctx.failed.has(id) ? ctx.results.get(id) : undefined;
-			for (const childId of node.children) this.place(design, childId, obj, rootId, isHole, covered || result !== undefined, ctx);
-			if (result) {
-				ctx.liveResults.add(id);
-				this.showResult(id, obj, node.color, result);
-			}
-			return;
+	private placeGroup(
+		design: Design,
+		node: GroupNode,
+		parent: THREE.Object3D,
+		rootId: NodeId,
+		isHole: boolean,
+		covered: boolean,
+		ctx: PlaceContext,
+	): void {
+		let obj = this.objects.get(node.id);
+		if (!obj) {
+			obj = new THREE.Group();
+			obj.name = node.name;
+			this.objects.set(node.id, obj);
 		}
+		this.applyTransform(obj, node.transform);
+		obj.visible = !node.hidden;
+		if (obj.parent !== parent) parent.add(obj);
 
+		// Only a top-level solid group is drawn as a computed mesh; anything nested inside is part of it.
+		const result = node.id === rootId && node.mode === 'solid' && !ctx.failed.has(node.id) ? ctx.results.get(node.id) : undefined;
+		for (const childId of node.children) this.place(design, childId, obj, rootId, isHole, covered || result !== undefined, ctx);
+		if (result) {
+			ctx.liveResults.add(node.id);
+			this.showResult(node.id, obj, node.color, result);
+		}
+	}
+
+	private placeShape(node: ShapeNode, parent: THREE.Object3D, rootId: NodeId, isHole: boolean, covered: boolean, ctx: PlaceContext): void {
+		let obj = this.objects.get(node.id);
 		if (!obj) {
 			obj = this.createMesh(node, ctx.meshes);
-			this.objects.set(id, obj);
+			this.objects.set(node.id, obj);
 		}
 		const mesh = obj as THREE.Mesh;
 		const geometry = this.geometryForNode(node, ctx.meshes);

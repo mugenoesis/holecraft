@@ -71,34 +71,47 @@ export class GeometryService {
 	update(design: Design, meshes: ReadonlyMap<string, MeshData> = NO_MESHES): void {
 		if (this.disposed) return;
 		const ids = rootSolidGroups(design);
+		this.forgetGroupsNotIn(ids);
+		for (const id of ids) this.requestShape(design, id, meshes);
+		this.pump();
+	}
 
+	/** Drops everything remembered about groups that are no longer top-level solid groups. */
+	private forgetGroupsNotIn(current: readonly NodeId[]): void {
 		for (const known of [...this.wanted.keys()]) {
-			if (ids.includes(known)) continue;
+			if (current.includes(known)) continue;
 			this.wanted.delete(known);
 			this.shapes.delete(known);
 			this.queue.delete(known);
 			this.failures.delete(known);
 		}
+	}
 
-		for (const id of ids) {
-			const hash = subtreeHash(design, id);
-			this.wanted.set(id, hash);
-			if (this.failures.has(id) && this.failures.get(id) !== hash) this.failures.delete(id);
+	/** Makes sure one group's current shape is known, or on its way. */
+	private requestShape(design: Design, id: NodeId, meshes: ReadonlyMap<string, MeshData>): void {
+		const hash = subtreeHash(design, id);
+		this.wanted.set(id, hash);
+		if (this.failures.has(id) && this.failures.get(id) !== hash) this.failures.delete(id);
 
-			if (this.cache.has(hash)) {
-				this.shapes.set(id, { hash, mesh: this.touch(hash) });
-				this.queue.delete(id); // anything waiting for this group is out of date now
-			} else if (this.failures.get(id) === hash || (this.inFlight?.id === id && this.inFlight.hash === hash)) {
-				// Known to fail, or already being worked on.
-			} else {
-				// Delete first so the newest request goes to the back of the line.
-				this.queue.delete(id);
-				const needed = meshRefsIn(design, [id]);
-				if (needed.some((ref) => !meshes.has(ref))) continue; // wait for the models to download
-				this.queue.set(id, { hash, subtree: subtreeOf(design, id), meshes: new Map(needed.map((ref) => [ref, meshes.get(ref)!])) });
-			}
+		if (this.cache.has(hash)) {
+			this.shapes.set(id, { hash, mesh: this.touch(hash) });
+			this.queue.delete(id); // anything waiting for this group is out of date now
+			return;
 		}
-		this.pump();
+		const knownToFail = this.failures.get(id) === hash;
+		const alreadyWorkedOn = this.inFlight?.id === id && this.inFlight.hash === hash;
+		if (knownToFail || alreadyWorkedOn) return;
+
+		// Delete first so the newest request goes to the back of the line.
+		this.queue.delete(id);
+		this.enqueue(design, id, hash, meshes);
+	}
+
+	/** Queues a group for working out, unless some imported model inside it has not downloaded yet. */
+	private enqueue(design: Design, id: NodeId, hash: string, meshes: ReadonlyMap<string, MeshData>): void {
+		const needed = meshRefsIn(design, [id]);
+		if (needed.some((ref) => !meshes.has(ref))) return;
+		this.queue.set(id, { hash, subtree: subtreeOf(design, id), meshes: new Map(needed.map((ref) => [ref, meshes.get(ref)!])) });
 	}
 
 	dispose(): void {
