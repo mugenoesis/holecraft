@@ -13,7 +13,7 @@ function parse(css: string): number[] {
 describe('viewCubeMatrix', () => {
 	it('is the identity for the front view, so the front face points at the viewer', () => {
 		const m = parse(viewCubeMatrix(viewRotation(level(0))));
-		[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1].forEach((v, i) => expect(m[i]).toBeCloseTo(v, 5));
+		for (const [i, v] of [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1].entries()) expect(m[i]).toBeCloseTo(v, 5);
 	});
 
 	it('brings the right face (local +x) to the viewer when looking from the right', () => {

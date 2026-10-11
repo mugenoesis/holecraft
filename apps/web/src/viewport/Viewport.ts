@@ -154,7 +154,10 @@ export class Viewport {
 	/** Frames everything in the design; with nothing to frame, returns to the home view. */
 	fitAll(): void {
 		const bounds = this.design && designBounds(this.design);
-		if (!bounds) return this.home();
+		if (!bounds) {
+			this.home();
+			return;
+		}
 		const aspect = this.host.clientWidth / Math.max(1, this.host.clientHeight);
 		this.rig.goTo(fitToBounds(this.rig.state, bounds, FOV_DEG, aspect));
 		this.requestRender();
@@ -292,8 +295,14 @@ export class Viewport {
 	}
 
 	private onPointerDown = (e: PointerEvent): void => {
-		if (e.pointerType === 'touch') return this.touchDown(e);
-		if (e.button === 0) return this.beginLeftPress(e);
+		if (e.pointerType === 'touch') {
+			this.touchDown(e);
+			return;
+		}
+		if (e.button === 0) {
+			this.beginLeftPress(e);
+			return;
+		}
 		// Right orbits (shift pans), middle pans.
 		const mode = e.button === 2 ? (e.shiftKey ? 'pan' : 'orbit') : e.button === 1 ? 'pan' : null;
 		if (!mode) return;
@@ -303,8 +312,14 @@ export class Viewport {
 	};
 
 	private onPointerMove = (e: PointerEvent): void => {
-		if (e.pointerType === 'touch') return this.touchMove(e);
-		if (this.left) return this.moveLeftPress(e);
+		if (e.pointerType === 'touch') {
+			this.touchMove(e);
+			return;
+		}
+		if (this.left) {
+			this.moveLeftPress(e);
+			return;
+		}
 		if (!this.cameraDrag) return;
 		const dx = e.clientX - this.cameraDrag.x;
 		const dy = e.clientY - this.cameraDrag.y;
@@ -315,7 +330,10 @@ export class Viewport {
 	};
 
 	private onPointerUp = (e: PointerEvent): void => {
-		if (e.pointerType === 'touch') return this.touchUp(e);
+		if (e.pointerType === 'touch') {
+			this.touchUp(e);
+			return;
+		}
 		if (this.left && e.button === 0) this.endLeftPress(e);
 		else if (this.cameraDrag) this.cameraDrag = null;
 		else return;
@@ -326,7 +344,10 @@ export class Viewport {
 		e.preventDefault();
 		this.canvas.setPointerCapture(e.pointerId);
 		this.fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-		if (this.fingers.size === 1) return this.beginLeftPress(e);
+		if (this.fingers.size === 1) {
+			this.beginLeftPress(e);
+			return;
+		}
 		if (this.fingers.size === 2) {
 			this.abandonLeftPress();
 			this.pinch = [...this.fingers.values()] as [Point, Point];

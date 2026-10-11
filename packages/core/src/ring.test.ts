@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { axisVector, normalizeAngle, rayAnyPlaneIntersection, ringAngle, ringPoint, snapAngle } from './ring.ts';
 
-const close = (a: readonly number[], b: readonly number[]) => b.forEach((v, i) => expect(a[i]).toBeCloseTo(v, 9));
+const close = (a: readonly number[], b: readonly number[]) => {
+	for (const [i, v] of b.entries()) expect(a[i]).toBeCloseTo(v, 9);
+};
 
 describe('axisVector', () => {
 	it('returns the unit vector for each axis', () => {

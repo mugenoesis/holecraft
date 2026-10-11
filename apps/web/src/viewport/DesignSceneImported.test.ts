@@ -27,7 +27,9 @@ beforeEach(() => {
 
 const meshOf = (id: string) => {
 	let found: THREE.Mesh | undefined;
-	scene.root.traverse((o) => o instanceof THREE.Mesh && o.userData.nodeId === id && (found = o));
+	scene.root.traverse((o) => {
+		if (o instanceof THREE.Mesh && o.userData.nodeId === id) found = o;
+	});
 	return found!;
 };
 

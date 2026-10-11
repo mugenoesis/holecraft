@@ -19,7 +19,7 @@ const front: OrbitState = { target: [0, 0, 0], azimuth: 0, polar: Math.PI / 2, d
 
 function expectVec(actual: readonly number[], expected: readonly number[]) {
 	expect(actual).toHaveLength(expected.length);
-	expected.forEach((v, i) => expect(actual[i]).toBeCloseTo(v, 6));
+	for (const [i, v] of expected.entries()) expect(actual[i]).toBeCloseTo(v, 6);
 }
 
 describe('cameraPosition (Z-up, azimuth 0 looks at the front from -Y)', () => {

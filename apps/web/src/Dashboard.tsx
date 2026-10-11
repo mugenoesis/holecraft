@@ -200,7 +200,8 @@ function RenameBox({ name, onCommit, onCancel }: { name: string; onCommit: (name
 			aria-label="Design name"
 			defaultValue={name}
 			maxLength={120}
-			autoFocus // the box only appears because the user asked to rename
+			// biome-ignore lint/a11y/noAutofocus: the box only appears because the user asked to rename
+			autoFocus
 			onKeyDown={onKeyDown}
 			onBlur={(e) => finish(() => (e.currentTarget.value.trim() ? onCommit(e.currentTarget.value.trim()) : onCancel()))}
 		/>

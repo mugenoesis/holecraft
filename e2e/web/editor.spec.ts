@@ -161,7 +161,13 @@ test.describe('view cube', () => {
 	// clicked on the cube itself. The other sides are reached through the Standard views menu.
 	const cube: Array<[string, (c: Awaited<ReturnType<typeof camera>>) => void]> = [
 		['Top view', (c) => expect(c.polar).toBeLessThan(0.01)],
-		['Front view', (c) => (expect(c.azimuth).toBeCloseTo(0, 6), expect(c.polar).toBeCloseTo(Math.PI / 2, 6))],
+		[
+			'Front view',
+			(c) => {
+				expect(c.azimuth).toBeCloseTo(0, 6);
+				expect(c.polar).toBeCloseTo(Math.PI / 2, 6);
+			},
+		],
 		['Left view', (c) => expect(c.azimuth).toBeCloseTo(-Math.PI / 2, 6)],
 	];
 

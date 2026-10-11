@@ -1,7 +1,7 @@
 import { DesignValidationError } from '@holecraft/core';
 import type { FastifyInstance } from 'fastify';
-import { DesignStore, StoredDesignError } from './designs.ts';
-import { MAX_THUMBNAIL_BYTES, ThumbnailStore } from './thumbnails.ts';
+import { type DesignStore, StoredDesignError } from './designs.ts';
+import { MAX_THUMBNAIL_BYTES, type ThumbnailStore } from './thumbnails.ts';
 
 const NOT_FOUND = { error: 'Design not found' };
 

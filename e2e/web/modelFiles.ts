@@ -39,7 +39,9 @@ export function cubeStl(s: number, drop = 0): Buffer {
 	out.writeUInt32LE(tris.length, 80);
 	const c = CORNERS(s);
 	tris.forEach((tri, t) => {
-		tri.forEach((corner, k) => c[corner]!.forEach((v, axis) => out.writeFloatLE(v, 84 + t * 50 + 12 + k * 12 + axis * 4)));
+		for (const [k, corner] of tri.entries()) {
+			for (const [axis, v] of c[corner]!.entries()) out.writeFloatLE(v, 84 + t * 50 + 12 + k * 12 + axis * 4);
+		}
 	});
 	return out;
 }
@@ -63,7 +65,7 @@ export function cubeObj(s: number): Buffer {
 export function flatStl(): Buffer {
 	const out = Buffer.alloc(84 + 50);
 	out.writeUInt32LE(1, 80);
-	[0, 0, 0, 10, 0, 0, 0, 10, 0].forEach((v, i) => out.writeFloatLE(v, 84 + 12 + i * 4));
+	for (const [i, v] of [0, 0, 0, 10, 0, 0, 0, 10, 0].entries()) out.writeFloatLE(v, 84 + 12 + i * 4);
 	return out;
 }
 

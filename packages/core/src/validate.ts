@@ -175,7 +175,9 @@ export function parseDesign(input: unknown): Design {
 		if (id in reached) fail(path, `node "${id}" is used more than once (it already has a parent)`);
 		if (depth > MAX_GROUP_DEPTH) fail(path, `groups are nested too deeply (the limit is ${MAX_GROUP_DEPTH})`);
 		reached[id] = node;
-		if (node.kind === 'group') node.children.forEach((child, i) => visit(child, `nodes.${id}.children[${i}]`, depth + 1));
+		if (node.kind === 'group') {
+			for (const [i, child] of node.children.entries()) visit(child, `nodes.${id}.children[${i}]`, depth + 1);
+		}
 	};
 
 	const roots = raw.roots as string[];

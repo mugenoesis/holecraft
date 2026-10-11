@@ -49,7 +49,9 @@ function bounds(mesh: GroupMesh) {
 
 const near = (actual: number, expected: number, fraction = 0.01) =>
 	expect(Math.abs(actual - expected)).toBeLessThanOrEqual(Math.abs(expected) * fraction);
-const close = (a: readonly number[], b: readonly number[], digits = 4) => b.forEach((v, i) => expect(a[i]).toBeCloseTo(v, digits));
+const close = (a: readonly number[], b: readonly number[], digits = 4) => {
+	for (const [i, v] of b.entries()) expect(a[i]).toBeCloseTo(v, digits);
+};
 
 function twoShapes(): Design {
 	let d = createEmptyDesign('d', 'Test');

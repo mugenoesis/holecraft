@@ -38,7 +38,10 @@ export function evaluateNode(M: ManifoldToplevel, design: Nodes, id: NodeId, mes
 
 function build(M: ManifoldToplevel, design: Nodes, rootId: NodeId, placeRoot: boolean, meshes?: MeshTable): GroupMesh | null {
 	const owned: Manifold[] = [];
-	const track = (m: Manifold): Manifold => (owned.push(m), m);
+	const track = (m: Manifold): Manifold => {
+		owned.push(m);
+		return m;
+	};
 
 	/** An imported model as a manifold, in the unit box. Fails with a message fit to show if it cannot be cut. */
 	const imported = (node: ShapeNode): Manifold => {
@@ -75,7 +78,7 @@ function build(M: ManifoldToplevel, design: Nodes, rootId: NodeId, placeRoot: bo
 	/** A group's contents: solids joined, holes cut out. Null when there is nothing solid left. */
 	const contents = (id: NodeId): Manifold | null => {
 		const group = design.nodes[id];
-		if (!group || group.kind !== 'group') return null;
+		if (group?.kind !== 'group') return null;
 
 		const solids: Manifold[] = [];
 		const holes: Manifold[] = [];

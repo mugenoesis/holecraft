@@ -12,10 +12,13 @@ function sample(): Design {
 	return groupNodes(d, ['a', 'b'], { id: 'g' }).design;
 }
 
-/** Deep copy as plain JSON, as a design arrives off the wire. */
-const wire = (d: Design = sample()) => JSON.parse(JSON.stringify(d)) as Record<string, any>;
+// biome-ignore lint/suspicious/noExplicitAny: the tests reach into arbitrary, untrusted JSON shapes on purpose
+type Wire = Record<string, any>;
 
-function rejects(mutate: (d: Record<string, any>) => void, message?: RegExp) {
+/** Deep copy as plain JSON, as a design arrives off the wire. */
+const wire = (d: Design = sample()) => JSON.parse(JSON.stringify(d)) as Wire;
+
+function rejects(mutate: (d: Wire) => void, message?: RegExp) {
 	const d = wire();
 	mutate(d);
 	expect(() => parseDesign(d)).toThrow(DesignValidationError);
@@ -48,7 +51,7 @@ describe('parseDesign: good designs', () => {
 		const d = wire();
 		d.evil = '<script>';
 		d.nodes.a.extra = 1;
-		const out = parseDesign(d) as unknown as Record<string, any>;
+		const out = parseDesign(d) as unknown as Wire;
 		expect(out.evil).toBeUndefined();
 		expect(out.nodes.a.extra).toBeUndefined();
 	});

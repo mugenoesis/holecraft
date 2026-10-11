@@ -14,7 +14,7 @@ function selectedBox(): EditorState {
 const euler = (s: EditorState, id: string) => eulerOfTransform(s.history.present.nodes[id]!.transform);
 
 function close(actual: readonly number[], expected: readonly number[]) {
-	expected.forEach((v, i) => expect(actual[i]).toBeCloseTo(v, 6));
+	for (const [i, v] of expected.entries()) expect(actual[i]).toBeCloseTo(v, 6);
 }
 
 describe('ring drags (setRotation)', () => {

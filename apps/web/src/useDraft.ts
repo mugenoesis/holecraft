@@ -12,6 +12,7 @@ export function useDraft(value: string, onCommit: (draft: string) => void) {
 	// draft straight away would flash the old value, and a blur landing in that gap would
 	// commit it and silently undo the edit.
 	const [settled, setSettled] = useState(0);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `settled` is the trigger that re-reads the value after a commit (see above)
 	useEffect(() => setDraft(value), [value, settled]);
 
 	// Commit what is actually in the box, not the last rendered draft, so a fast Enter or blur

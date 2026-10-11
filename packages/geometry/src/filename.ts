@@ -8,6 +8,7 @@ const RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 export function exportFileName(designName: string, extension: string): string {
 	let base = designName
 		.replace(/[\\/:*?"<>|]/g, '-')
+		// biome-ignore lint/suspicious/noControlCharactersInRegex: removing control characters is the point of this
 		.replace(/[\u0000-\u001f\u007f]/g, ' ')
 		.replace(/\s+/g, ' ')
 		.replace(/^[\s.]+|[\s.]+$/g, '');

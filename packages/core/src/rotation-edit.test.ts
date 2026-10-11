@@ -15,7 +15,7 @@ const node = (d: Design, id: string) => d.nodes[id]!;
 const center = (d: Design, id: string) => shapeCenter(node(d, id).transform, 20);
 
 function close(actual: readonly number[], expected: readonly number[], digits = 6) {
-	expected.forEach((v, i) => expect(actual[i]).toBeCloseTo(v, digits));
+	for (const [i, v] of expected.entries()) expect(actual[i]).toBeCloseTo(v, digits);
 }
 
 describe('setNodeEuler', () => {

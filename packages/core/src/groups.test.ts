@@ -18,7 +18,7 @@ const group = (d: Design, id: string) => d.nodes[id] as GroupNode;
 const pos = (d: Design, id: string) => translationOf(d.nodes[id]!.transform);
 
 function close(actual: readonly number[], expected: readonly number[], digits = 6) {
-	expected.forEach((v, i) => expect(actual[i]).toBeCloseTo(v, digits));
+	for (const [i, v] of expected.entries()) expect(actual[i]).toBeCloseTo(v, digits);
 }
 
 describe('multiplyMat4 and transformPoint', () => {

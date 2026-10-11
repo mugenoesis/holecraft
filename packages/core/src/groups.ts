@@ -15,7 +15,7 @@ const isEditable = (n: DesignNode | undefined): n is DesignNode => !!n && !n.loc
 /** Every node inside a group, at any depth (not including the group itself). */
 export function descendantIds(design: Design, id: NodeId): NodeId[] {
 	const node = design.nodes[id];
-	if (!node || node.kind !== 'group') return [];
+	if (node?.kind !== 'group') return [];
 	return node.children.flatMap((child) => [child, ...descendantIds(design, child)]);
 }
 

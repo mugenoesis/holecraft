@@ -164,6 +164,7 @@ export function ViewportCanvas(props: Props) {
 		};
 	}, []);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `resultVersion` is bumped when a group's computed shape arrives, to bring the scene up to date
 	useEffect(() => {
 		const service = serviceRef.current;
 		service?.update(design, meshes);
@@ -184,6 +185,7 @@ export function ViewportCanvas(props: Props) {
 		};
 	}, []);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `resultVersion` changes when the geometry settles, which is when a picture may be due
 	useEffect(() => {
 		const modelsArrived = meshRefsIn(design, design.roots).every((ref) => meshes.has(ref));
 		const settled = !serviceRef.current?.busy && modelsArrived;
@@ -236,6 +238,7 @@ export function ViewportCanvas(props: Props) {
 	const selected = selectedShape(design, selection);
 
 	return (
+		// biome-ignore lint/a11y/noStaticElementInteractions: a drop target for shapes dragged from the Shapes panel (which can also add them by keyboard)
 		<div
 			className="viewport"
 			data-testid="viewport"

@@ -5,7 +5,7 @@ const g: ShapeGeometry = { x: 10, y: -5, z: 3, width: 20, depth: 30, height: 40 
 const off = { snap: 0, uniform: false, fromCenter: false };
 
 function close(actual: readonly number[], expected: readonly number[], digits = 6) {
-	expected.forEach((v, i) => expect(actual[i]).toBeCloseTo(v, digits));
+	for (const [i, v] of expected.entries()) expect(actual[i]).toBeCloseTo(v, digits);
 }
 
 describe('handlePositionYawed', () => {

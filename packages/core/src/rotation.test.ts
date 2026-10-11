@@ -17,7 +17,7 @@ const rad = (d: number) => (d * Math.PI) / 180;
 
 function expectMat(actual: readonly number[], expected: readonly number[], digits = 9) {
 	expect(actual).toHaveLength(expected.length);
-	expected.forEach((v, i) => expect(actual[i]).toBeCloseTo(v, digits));
+	for (const [i, v] of expected.entries()) expect(actual[i]).toBeCloseTo(v, digits);
 }
 
 describe('eulerToMatrix', () => {

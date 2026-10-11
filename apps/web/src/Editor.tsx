@@ -24,6 +24,7 @@ export function Editor({ id }: { id: string }) {
 	const [load, setLoad] = useState<Load>({ kind: 'loading' });
 	const [attempt, setAttempt] = useState(0);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` is bumped by "Try again" to load the design afresh
 	useEffect(() => {
 		let cancelled = false;
 		setLoad({ kind: 'loading' });

@@ -13,6 +13,7 @@ export function formatNumber(n: number): string {
 export function oneLine(name: string, fallback: string): string {
 	return (
 		name
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: removing control characters is the point of this
 			.replace(/[\u0000-\u001f\u007f]/g, ' ')
 			.replace(/\s+/g, ' ')
 			.trim() || fallback

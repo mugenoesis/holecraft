@@ -54,7 +54,7 @@ test.describe('the designs list', () => {
 	});
 
 	test('renames a design in place', async ({ page, request }) => {
-		const { id, name } = await createDesignViaApi(request, uniqueName('Before'));
+		const { id } = await createDesignViaApi(request, uniqueName('Before'));
 		const renamed = uniqueName('After');
 		await page.goto('/');
 		await cardById(page, id)

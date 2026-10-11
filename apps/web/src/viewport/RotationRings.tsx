@@ -111,8 +111,8 @@ export function RotationRings({ nodeId, center, radius, rotation, getViewport, o
 						}
 					}
 					if (run.length) runs.push(run.join(' '));
-					return runs.map((pts, i) => (
-						<polyline key={`${axis}-${i}`} points={pts} fill="none" stroke={COLORS[axis]} strokeWidth={1.5} strokeOpacity={0.55} />
+					return runs.map((pts) => (
+						<polyline key={`${axis}-${pts}`} points={pts} fill="none" stroke={COLORS[axis]} strokeWidth={1.5} strokeOpacity={0.55} />
 					));
 				})}
 			</svg>

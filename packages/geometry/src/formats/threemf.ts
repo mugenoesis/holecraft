@@ -10,6 +10,7 @@ const escapeXml = (text: string) =>
 		.replace(/</g, '&lt;')
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
+		// biome-ignore lint/suspicious/noControlCharactersInRegex: XML 1.0 cannot hold these characters, so they are removed
 		.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, ' ');
 
 const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8"?>
@@ -95,7 +96,7 @@ export function write3mf(bodies: readonly ExportBody[], options: ThreeMfOptions 
 	});
 
 	out.push('</resources><build>');
-	bodies.forEach((_, index) => out.push(`<item objectid="${MATERIALS_ID + 1 + index}"/>`));
+	for (let index = 0; index < bodies.length; index++) out.push(`<item objectid="${MATERIALS_ID + 1 + index}"/>`);
 	out.push('</build></model>');
 
 	const encode = (text: string) => new TextEncoder().encode(text);

@@ -23,7 +23,7 @@ describe('snapToGrid', () => {
 	});
 
 	it('returns the value unchanged when snapping is off', () => {
-		expect(snapToGrid(3.14159, 0)).toBe(3.14159);
+		expect(snapToGrid(3.3125, 0)).toBe(3.3125);
 	});
 });
 

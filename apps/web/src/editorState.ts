@@ -151,12 +151,12 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 		}
 
 		case 'setGeometry': {
-			if (!state.drag || !state.drag.ids.includes(action.id)) return state;
+			if (!state.drag?.ids.includes(action.id)) return state;
 			return { ...state, history: replacePresent(state.history, setShapeGeometry(state.drag.base, action.id, action.geometry)) };
 		}
 
 		case 'setRotation': {
-			if (!state.drag || !state.drag.ids.includes(action.id)) return state;
+			if (!state.drag?.ids.includes(action.id)) return state;
 			return { ...state, history: replacePresent(state.history, setNodeRotation(state.drag.base, action.id, action.rotation)) };
 		}
 
