@@ -1,37 +1,5 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
-
-const viewport = (page: Page) => page.getByTestId('viewport');
-
-async function camera(page: Page) {
-  const d = await viewport(page).evaluate((el) => ({ ...(el as HTMLElement).dataset }));
-  return {
-    azimuth: Number(d.azimuth),
-    polar: Number(d.polar),
-    distance: Number(d.distance),
-    target: JSON.parse(d.target ?? '[0,0,0]') as number[],
-    projection: d.projection,
-  };
-}
-
-async function selectView(page: Page, view: string) {
-  await page.getByLabel('Standard views').selectOption(view);
-}
-
-async function center(locator: Locator) {
-  const box = await locator.boundingBox();
-  if (!box) throw new Error('element has no box');
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2, box };
-}
-
-/** Parses "Box 1 (12, -3)" rows from the object list. */
-async function objects(page: Page) {
-  const rows = await page.getByTestId('object-list').getByRole('listitem').allInnerTexts();
-  return rows.map((text) => {
-    const m = /^(.+?)\s+\((-?[\d.]+), (-?[\d.]+)\)/.exec(text.trim());
-    if (!m) throw new Error(`unparseable row: ${text}`);
-    return { name: m[1]!, x: Number(m[2]), y: Number(m[3]) };
-  });
-}
+import { expect, test, type Page } from '@playwright/test';
+import { camera, center, objects, selectView, viewport } from './helpers.ts';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');

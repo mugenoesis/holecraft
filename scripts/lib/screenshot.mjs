@@ -2,6 +2,7 @@
 // Usage: node scripts/lib/screenshot.mjs <url> <out.png> [width] [height]
 // Env:   DEMO=1        drop a few shapes on the workplane first
 //        VIEW=<name>   pick a standard view first (front, back, left, right, top, bottom, iso)
+//        PRESS=a,b     press these keys (Playwright names, comma-separated) after DEMO, e.g. Control+a
 import { chromium } from '@playwright/test';
 
 const [url, output, width = '1280', height = '800'] = process.argv.slice(2);
@@ -32,6 +33,9 @@ if (process.env.DEMO === '1') {
       targetPosition: { x: box.width / 2 + dx * 2, y: box.height / 2 + dy * 2 },
     });
   }
+}
+for (const key of (process.env.PRESS ?? '').split(',').filter(Boolean)) {
+  await page.keyboard.press(key);
 }
 if (process.env.VIEW) {
   await page.getByLabel('Standard views').selectOption(process.env.VIEW);

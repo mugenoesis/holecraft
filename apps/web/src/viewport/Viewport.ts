@@ -5,6 +5,7 @@ import {
   fitToBounds,
   rayPlaneIntersection,
   type Design,
+  type NodeId,
   type OrbitState,
   type ViewPresetName,
 } from '@holecraft/core';
@@ -13,21 +14,51 @@ import { CameraRig, FOV_DEG, type Projection } from './CameraRig.ts';
 import { DesignScene } from './DesignScene.ts';
 import { createWorkplane } from './workplane.ts';
 
+/** Rectangle in pixels, relative to the viewport. */
+export interface PixelRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface ViewportOptions {
   workplaneWidth: number;
   workplaneDepth: number;
   /** Called whenever the camera moves, including once at start-up. */
   onCameraChange: (state: OrbitState, projection: Projection) => void;
+  /** `down` on press; `click` on release if the pointer never dragged. `id` is null over empty space. */
+  onPick: (id: NodeId | null, additive: boolean, phase: 'down' | 'click') => void;
+  onMoveStart: () => void;
+  /** Total pointer movement on the workplane since the drag began, in mm. */
+  onMove: (delta: [number, number]) => void;
+  onMoveEnd: () => void;
+  onMarquee: (ids: NodeId[], additive: boolean) => void;
+  /** The marquee being dragged, or null when it ends. */
+  onMarqueeRect: (rect: PixelRect | null) => void;
 }
 
 const WHEEL_RATE = 0.001;
+/** Pixels the pointer must travel before a press becomes a drag. */
+const DRAG_THRESHOLD = 4;
+
+type CameraDrag = { mode: 'orbit' | 'pan'; x: number; y: number };
+
+interface LeftPress {
+  id: NodeId | null;
+  additive: boolean;
+  startX: number;
+  startY: number;
+  startGround: [number, number] | null;
+  mode: 'move' | 'marquee' | 'none' | null;
+}
 
 /**
- * Imperative three.js engine. React only mounts it; per-frame work (camera, picking, and
- * later gizmos) stays here. The scene is Z-up, in millimetres, and renders on demand.
+ * Imperative three.js engine. React only mounts it; per-frame work (camera, picking,
+ * dragging) stays here. The scene is Z-up, in millimetres, and renders on demand.
  *
- * Mouse: right-drag orbits, middle-drag or shift+right-drag pans, wheel zooms. The left
- * button is left free for selecting and moving shapes.
+ * Left button: click selects, dragging a shape moves it, dragging empty space draws a marquee.
+ * Right-drag orbits, middle-drag or shift+right-drag pans, wheel zooms.
  */
 export class Viewport {
   private readonly renderer: THREE.WebGLRenderer;
@@ -39,11 +70,12 @@ export class Viewport {
   private readonly canvas: HTMLCanvasElement;
   private design: Design | null = null;
   private frame = 0;
-  private drag: { mode: 'orbit' | 'pan'; x: number; y: number } | null = null;
+  private cameraDrag: CameraDrag | null = null;
+  private left: LeftPress | null = null;
 
   constructor(
     private readonly host: HTMLElement,
-    opts: ViewportOptions,
+    private readonly opts: ViewportOptions,
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -82,6 +114,11 @@ export class Viewport {
     this.requestRender();
   }
 
+  setSelection(ids: readonly NodeId[]): void {
+    this.designScene.setSelection(ids);
+    this.requestRender();
+  }
+
   home(): void {
     this.rig.goTo(HOME_VIEW);
     this.requestRender();
@@ -107,13 +144,15 @@ export class Viewport {
 
   /** Workplane (x, y) in mm under a screen position, or null if it points at the sky. */
   pickWorkplane(clientX: number, clientY: number): [number, number] | null {
-    const rect = this.canvas.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return null;
-    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -(((clientY - rect.top) / rect.height) * 2 - 1));
-    this.raycaster.setFromCamera(ndc, this.rig.active);
+    if (!this.aim(clientX, clientY)) return null;
     const { origin, direction } = this.raycaster.ray;
     const hit = rayPlaneIntersection([origin.x, origin.y, origin.z], [direction.x, direction.y, direction.z], 0);
     return hit ? [hit[0], hit[1]] : null;
+  }
+
+  /** The shape under a screen position, or null. */
+  pickNode(clientX: number, clientY: number): NodeId | null {
+    return this.aim(clientX, clientY) ? this.designScene.pick(this.raycaster) : null;
   }
 
   dispose(): void {
@@ -137,6 +176,15 @@ export class Viewport {
     this.canvas.remove();
   }
 
+  /** Points the raycaster through a screen position. False if the canvas has no size. */
+  private aim(clientX: number, clientY: number): boolean {
+    const rect = this.canvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return false;
+    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -(((clientY - rect.top) / rect.height) * 2 - 1));
+    this.raycaster.setFromCamera(ndc, this.rig.active);
+    return true;
+  }
+
   private requestRender = (): void => {
     if (this.frame) return;
     this.frame = requestAnimationFrame(this.tick);
@@ -157,29 +205,93 @@ export class Viewport {
   }
 
   private onPointerDown = (e: PointerEvent): void => {
-    // Left button is reserved for selection; right orbits (shift pans), middle pans.
+    if (e.button === 0) return this.beginLeftPress(e);
+    // Right orbits (shift pans), middle pans.
     const mode = e.button === 2 ? (e.shiftKey ? 'pan' : 'orbit') : e.button === 1 ? 'pan' : null;
     if (!mode) return;
     e.preventDefault();
     this.canvas.setPointerCapture(e.pointerId);
-    this.drag = { mode, x: e.clientX, y: e.clientY };
+    this.cameraDrag = { mode, x: e.clientX, y: e.clientY };
   };
 
   private onPointerMove = (e: PointerEvent): void => {
-    if (!this.drag) return;
-    const dx = e.clientX - this.drag.x;
-    const dy = e.clientY - this.drag.y;
-    this.drag.x = e.clientX;
-    this.drag.y = e.clientY;
-    if (this.drag.mode === 'orbit') this.rig.orbitBy(dx, dy);
+    if (this.left) return this.moveLeftPress(e);
+    if (!this.cameraDrag) return;
+    const dx = e.clientX - this.cameraDrag.x;
+    const dy = e.clientY - this.cameraDrag.y;
+    this.cameraDrag.x = e.clientX;
+    this.cameraDrag.y = e.clientY;
+    if (this.cameraDrag.mode === 'orbit') this.rig.orbitBy(dx, dy);
     else this.rig.panBy(dx, dy);
   };
 
   private onPointerUp = (e: PointerEvent): void => {
-    if (!this.drag) return;
-    this.drag = null;
+    if (this.left && e.button === 0) this.endLeftPress(e);
+    else if (this.cameraDrag) this.cameraDrag = null;
+    else return;
     if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
   };
+
+  private beginLeftPress(e: PointerEvent): void {
+    const id = this.pickNode(e.clientX, e.clientY);
+    const additive = e.shiftKey;
+    this.canvas.setPointerCapture(e.pointerId);
+    this.opts.onPick(id, additive, 'down');
+    this.left = {
+      id,
+      additive,
+      startX: e.clientX,
+      startY: e.clientY,
+      startGround: this.pickWorkplane(e.clientX, e.clientY),
+      mode: null,
+    };
+  }
+
+  private moveLeftPress(e: PointerEvent): void {
+    const press = this.left!;
+    if (!press.mode) {
+      if (Math.hypot(e.clientX - press.startX, e.clientY - press.startY) < DRAG_THRESHOLD) return;
+      // Shift-pressing a shape only toggles it; it doesn't start a move.
+      press.mode = press.id === null ? 'marquee' : press.additive ? 'none' : 'move';
+      if (press.mode === 'move') this.opts.onMoveStart();
+    }
+    if (press.mode === 'move') {
+      const ground = this.pickWorkplane(e.clientX, e.clientY);
+      if (ground && press.startGround) this.opts.onMove([ground[0] - press.startGround[0], ground[1] - press.startGround[1]]);
+    } else if (press.mode === 'marquee') {
+      this.opts.onMarqueeRect(this.marqueeRect(press, e));
+    }
+  }
+
+  private endLeftPress(e: PointerEvent): void {
+    const press = this.left!;
+    this.left = null;
+    if (press.mode === 'move') {
+      this.opts.onMoveEnd();
+    } else if (press.mode === 'marquee') {
+      this.opts.onMarqueeRect(null);
+      const rect = this.canvas.getBoundingClientRect();
+      const r = this.marqueeRect(press, e);
+      const toNdcX = (px: number) => (px / rect.width) * 2 - 1;
+      const toNdcY = (px: number) => -((px / rect.height) * 2 - 1);
+      const ids = this.designScene.idsInRect(this.rig.active, {
+        minX: toNdcX(r.x),
+        maxX: toNdcX(r.x + r.width),
+        minY: toNdcY(r.y + r.height),
+        maxY: toNdcY(r.y),
+      });
+      this.opts.onMarquee(ids, press.additive);
+    } else if (press.mode === null) {
+      this.opts.onPick(press.id, press.additive, 'click');
+    }
+  }
+
+  private marqueeRect(press: LeftPress, e: PointerEvent): PixelRect {
+    const rect = this.canvas.getBoundingClientRect();
+    const x0 = Math.min(press.startX, e.clientX) - rect.left;
+    const y0 = Math.min(press.startY, e.clientY) - rect.top;
+    return { x: x0, y: y0, width: Math.abs(e.clientX - press.startX), height: Math.abs(e.clientY - press.startY) };
+  }
 
   private onWheel = (e: WheelEvent): void => {
     e.preventDefault();

@@ -2,21 +2,31 @@ import {
   HOME_VIEW,
   clampToWorkplane,
   isShapeType,
+  nudgeDirections,
   snapToGrid,
   type Design,
+  type NodeId,
   type OrbitState,
   type ShapeType,
   type ViewPresetName,
 } from '@holecraft/core';
 import { useEffect, useRef, useState, type DragEvent } from 'react';
+import { isTypingTarget } from '../keyboard.ts';
 import { SHAPE_DRAG_TYPE } from '../shapeDrag.ts';
 import type { Projection } from './CameraRig.ts';
 import { ViewCube } from './ViewCube.tsx';
-import { Viewport } from './Viewport.ts';
+import { Viewport, type PixelRect } from './Viewport.ts';
 
 interface Props {
   design: Design;
+  selection: readonly NodeId[];
   onDropShape: (type: ShapeType, at: [number, number]) => void;
+  onPick: (id: NodeId | null, additive: boolean, phase: 'down' | 'click') => void;
+  onMoveStart: () => void;
+  onMove: (delta: [number, number]) => void;
+  onMoveEnd: () => void;
+  onMarquee: (ids: NodeId[], additive: boolean) => void;
+  onNudge: (delta: [number, number]) => void;
 }
 
 const VIEW_OPTIONS: ReadonlyArray<{ value: ViewPresetName; label: string }> = [
@@ -29,19 +39,20 @@ const VIEW_OPTIONS: ReadonlyArray<{ value: ViewPresetName; label: string }> = [
   { value: 'bottom', label: 'Bottom' },
 ];
 
-function isTypingTarget(target: EventTarget | null): boolean {
-  return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
-}
-
 /** React host for the imperative three.js viewport, plus its overlay controls. */
-export function ViewportCanvas({ design, onDropShape }: Props) {
+export function ViewportCanvas(props: Props) {
+  const { design, selection, onDropShape } = props;
   const hostRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<Viewport | null>(null);
-  const designRef = useRef(design);
-  designRef.current = design;
+  // The Viewport outlives renders, so it reads the latest props through this ref.
+  const latest = useRef(props);
+  latest.current = props;
 
   const [failed, setFailed] = useState(false);
+  const [marquee, setMarquee] = useState<PixelRect | null>(null);
   const [camera, setCamera] = useState<{ state: OrbitState; projection: Projection }>({ state: HOME_VIEW, projection: 'perspective' });
+  const cameraRef = useRef(camera);
+  cameraRef.current = camera;
 
   const [width, depth] = design.grid.size;
 
@@ -55,6 +66,12 @@ export function ViewportCanvas({ design, onDropShape }: Props) {
         workplaneWidth: width,
         workplaneDepth: depth,
         onCameraChange: (state, projection) => setCamera({ state, projection }),
+        onPick: (...a) => latest.current.onPick(...a),
+        onMoveStart: () => latest.current.onMoveStart(),
+        onMove: (d) => latest.current.onMove(d),
+        onMoveEnd: () => latest.current.onMoveEnd(),
+        onMarquee: (...a) => latest.current.onMarquee(...a),
+        onMarqueeRect: setMarquee,
       });
     } catch (err) {
       console.warn('Viewport failed to start:', err);
@@ -62,7 +79,8 @@ export function ViewportCanvas({ design, onDropShape }: Props) {
       return;
     }
     setFailed(false);
-    viewport.setDesign(designRef.current);
+    viewport.setDesign(latest.current.design);
+    viewport.setSelection(latest.current.selection);
     viewportRef.current = viewport;
     return () => {
       viewportRef.current = null;
@@ -75,9 +93,23 @@ export function ViewportCanvas({ design, onDropShape }: Props) {
   }, [design]);
 
   useEffect(() => {
+    viewportRef.current?.setSelection(selection);
+  }, [selection]);
+
+  useEffect(() => {
+    const ARROWS: Record<string, [number, number]> = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
-      if (e.key === 'Home') viewportRef.current?.home();
+      const arrow = ARROWS[e.key];
+      if (arrow) {
+        // Arrow keys move along the world axis closest to the on-screen direction.
+        const step = (latest.current.design.grid.snap || 1) * (e.shiftKey ? 10 : 1);
+        const dirs = nudgeDirections(cameraRef.current.state.azimuth);
+        const along = arrow[1] !== 0 ? dirs.up : dirs.right;
+        const sign = arrow[0] + arrow[1];
+        latest.current.onNudge([along[0] * sign * step, along[1] * sign * step]);
+      } else if (e.key === 'Home') viewportRef.current?.home();
       else if (e.key === 'f' || e.key === 'F') viewportRef.current?.fitAll();
       else return;
       e.preventDefault();
@@ -117,6 +149,14 @@ export function ViewportCanvas({ design, onDropShape }: Props) {
       onDrop={onDrop}
     >
       <div className="viewport-canvas" ref={hostRef} />
+
+      {marquee && (
+        <div
+          className="marquee"
+          data-testid="marquee"
+          style={{ left: marquee.x, top: marquee.y, width: marquee.width, height: marquee.height }}
+        />
+      )}
 
       {failed ? (
         <div className="viewport-error" role="alert">
