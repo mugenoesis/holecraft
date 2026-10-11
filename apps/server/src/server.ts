@@ -11,9 +11,9 @@ export interface ServerOptions {
 	/** Where designs, thumbnails and imported meshes are stored. Created if missing. */
 	dataDir: string;
 	/** Built web app (apps/web/dist). Omit to serve only the API. */
-	staticDir?: string;
-	version?: string;
-	logger?: boolean;
+	staticDir?: string | undefined;
+	version?: string | undefined;
+	logger?: boolean | undefined;
 }
 
 /**
