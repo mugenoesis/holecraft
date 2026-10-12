@@ -128,6 +128,16 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Bundle changes that touch the worker must be checked in all three targets: `FULL=1
   scripts/check.sh` runs the web, Docker (wasm served and typed correctly) and desktop tests.
 
+## Arrange (align and flip)
+- `packages/core/src/arrange.ts`: `alignNodes(design, ids, axis, edge)` moves each top-level node along one axis so its low edge / centre /
+  high edge meets the selection's (via `nodeBoundsIn`, so groups work); `flipNodes(design, ids, axis)` mirrors through a plane at the
+  selection's centre. Both return the same object when nothing changes; `canAlign` / `canFlip` drive the buttons.
+- Flip never stores a negative scale (transforms are rotation + position only). Every node's frame is also flipped about its local x,
+  `L' = F_parent · L · FLIP_X` (root: the world reflection instead of `F_parent`), which is exact because every built-in shape is symmetric
+  about its own x. **A shape that isn't x-symmetric, and imported models, can't use this**: `flipNodes` refuses imported models today.
+  When a non-symmetric shape arrives (library, text), choose its flip axis per shape or mirror its mesh.
+- UI is `ArrangePanel` (actions `align` / `flip`); no keyboard shortcuts yet (Tinkercad-style L and M are reserved for tools).
+
 ## Rotation
 - Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre
   position). Sizes stay as local params, so a mesh is just position, quaternion and scale.

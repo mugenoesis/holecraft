@@ -1,13 +1,17 @@
 import {
+	type AlignEdge,
+	type Axis,
 	addMeshShape,
 	addPaletteColor,
 	addShape,
+	alignNodes,
 	canUndo,
 	createHistory,
 	type Design,
 	deleteNodes,
 	dropToWorkplane,
 	duplicateNodes,
+	flipNodes,
 	groupNodes,
 	type History,
 	type MeshShapeInput,
@@ -65,6 +69,9 @@ export type EditorAction =
 	// moveStart and moveEnd, like a move.
 	| { type: 'setGeometry'; id: NodeId; geometry: ShapeGeometry }
 	| { type: 'dropToPlane' }
+	// Line the selection up on one axis (needs two or more objects), or mirror it across one.
+	| { type: 'align'; axis: Axis; edge: AlignEdge }
+	| { type: 'flip'; axis: Axis }
 	| { type: 'group' }
 	| { type: 'ungroup' }
 	| { type: 'renameDesign'; name: string }
@@ -193,6 +200,12 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 
 		case 'dropToPlane':
 			return commit(state, dropToWorkplane(design, state.selection));
+
+		case 'align':
+			return commit(state, alignNodes(design, state.selection, action.axis, action.edge));
+
+		case 'flip':
+			return commit(state, flipNodes(design, state.selection, action.axis));
 
 		case 'group': {
 			const grouped = groupNodes(design, state.selection);
