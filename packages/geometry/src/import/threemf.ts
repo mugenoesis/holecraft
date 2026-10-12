@@ -118,6 +118,12 @@ function modelLoader(files: Map<string, Uint8Array>): (name: string) => Model {
 	};
 }
 
+/** True when a transform mirrors (its 3x3 part has a negative determinant). */
+function mirrors(m: Transform): boolean {
+	const det = m[0]! * (m[4]! * m[8]! - m[5]! * m[7]!) - m[1]! * (m[3]! * m[8]! - m[5]! * m[6]!) + m[2]! * (m[3]! * m[7]! - m[4]! * m[6]!);
+	return det < 0;
+}
+
 /** Collects the triangles of every object placed, joined into one mesh. */
 class MeshCollector {
 	readonly positions: number[] = [];
@@ -136,7 +142,10 @@ class MeshCollector {
 				(x * transform[2]! + y * transform[5]! + z * transform[8]! + transform[11]!) * this.scale,
 			);
 		}
-		for (const v of object.triangles) this.indices.push(base + v);
+		// A mirroring transform turns the surface inside out; turning each triangle round keeps it facing outwards.
+		const t = object.triangles;
+		if (mirrors(transform)) for (let i = 0; i + 2 < t.length; i += 3) this.indices.push(base + t[i]!, base + t[i + 2]!, base + t[i + 1]!);
+		else for (const v of t) this.indices.push(base + v);
 		if (this.indices.length / 3 > MAX_IMPORT_TRIANGLES) throw new Error('This 3MF is too large');
 	}
 }

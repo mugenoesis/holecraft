@@ -322,11 +322,16 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   `getShapeDef(shapeType)` must special-case it (that bug already happened once, in `duplicateNodes`).
   `MeshNode` (`kind: 'mesh'`) in design.ts is an unused leftover; don't build on it.
 - The stored mesh is **normalised into the unit box** every shape is built in (x, y in ±0.5, z 0..1;
-  `normalizeMesh`, which also flips inside-out triangles), and the shape's width/depth/height scale it.
+  `normalizeMesh`), and the shape's width/depth/height scale it. `normalizeMesh` also turns inside-out pieces round **per shell**
+  (`faceShellsOutwards`, core/shells.ts): shells are groups of triangles sharing corners, and a shell enclosed by an odd number of
+  others (a hollow's inner wall) must face inwards, so nesting is found with a box test then a ray-parity test. Checking only the
+  whole model's volume missed files where some pieces were inside out and the rest outweighed them.
   `originalWidth/Depth/Height` params remember the real size (nothing uses them yet).
 - Readers live in `packages/geometry/src/import/` (STL binary+text, OBJ, 3MF; `importMeshFile`).
   Compressed zips use the platform `DecompressionStream('deflate-raw')`, so no zip library. The format
   on disk/wire is `encodeMesh`/`decodeMesh` in core. Corners are welded; degenerate triangles dropped.
+  The 3MF reader turns every triangle round for a placement that **mirrors** (negative determinant), as slicers do: files often
+  build left and right parts from one mirrored model.
 - Server: `POST /api/meshes` (raw bytes, validated with `decodeMesh`, answers `{ref}`) and
   `GET /api/meshes/:ref` (immutable). Files are `<data>/meshes/<ref>.mesh`, never deleted (no garbage
   collection yet). `parseDesign` rejects an imported shape without a valid ref.
