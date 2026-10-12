@@ -2,8 +2,9 @@ import type { Vec3 } from './camera.ts';
 import { type Design, type DesignNode, MAX_NAME_LENGTH, type NodeId, type SolidMode } from './design.ts';
 import { clampToWorkplane, snapToGrid } from './grid.ts';
 import { descendantIds } from './groups.ts';
-import { setGroupRotation } from './groupTransform.ts';
+import { setGroupGeometry, setGroupRotation } from './groupTransform.ts';
 import { newId } from './ids.ts';
+import { MAX_SHAPE_SIZE } from './limits.ts';
 import { MESH_SHAPE_TYPE } from './meshShape.ts';
 import { nodeBoundsIn, shapeBounds, translationOf } from './ops.ts';
 import type { ShapeGeometry } from './resize.ts';
@@ -15,7 +16,7 @@ import { getShapeDef, type ShapeType } from './shapes.ts';
  * changed, so callers can skip recording an undo step with a simple identity check.
  */
 
-export const MAX_SHAPE_SIZE = 1000;
+export { MAX_SHAPE_SIZE } from './limits.ts';
 
 const stamp = (now?: Date) => (now ?? new Date()).toISOString();
 const isEditable = (n: DesignNode | undefined): n is DesignNode => !!n && !n.locked;
@@ -122,6 +123,7 @@ export function setNodeEuler(design: Design, id: NodeId, degrees: readonly [numb
 /** Sets a shape's position, height above the workplane and size in one edit (a handle drag). */
 export function setShapeGeometry(design: Design, id: NodeId, g: ShapeGeometry, now?: Date): Design {
 	const node = design.nodes[id];
+	if (node?.kind === 'group') return setGroupGeometry(design, id, g, now);
 	if (!isEditable(node) || node.kind !== 'shape') return design;
 	const sizes = [g.width, g.depth, g.height];
 	if (![g.x, g.y, g.z, ...sizes].every(Number.isFinite) || g.z < 0 || sizes.some((v) => v <= 0 || v > MAX_SHAPE_SIZE)) return design;

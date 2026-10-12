@@ -175,8 +175,12 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   frame, mapped through the group's transform. Turning never touches the children, and the pivot doesn't drift between turns (using the world
   bounds' middle would). `groupRings` gives the rings' centre, radius and orientation. The group's own transform is not part of `subtreeHash`,
   so turning a group never recomputes its CSG; export applies it via `evaluateNode` (covered by a test).
-- Groups still have no resize or lift handles: a group has no scale of its own, so resizing means rescaling every child (only sound while they are
-  turned in 90 degree steps in the group's frame). That is the next piece.
+- **Resizing a group** (`setGroupGeometry`, reached through `setShapeGeometry` so the `setGeometry` drag action works unchanged): a group has no
+  scale of its own, so the contents are stretched from their old local box to the new one (`groupGeometry` presents that box as a
+  `ShapeGeometry`, so `HandlesOverlay` is reused). Each child's position is `factor * t + shift` in its parent's frame, and each shape's
+  width/depth/height is scaled by the factor of the parent axis it lines up with (`axisMap`), recursing through nested groups. That is exact only
+  when every inner node is turned in quarter turns and the group is upright, which `canResizeGroup` checks (otherwise no handles); a result
+  outside 0.1..1000 mm for any shape is refused. `MAX_SHAPE_SIZE` now lives in `limits.ts` to avoid an import cycle with edit.ts.
 
 ## Rotation
 - Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre

@@ -1,19 +1,6 @@
-import type { Design, Mat4, NodeId } from './design.ts';
+import type { Design, NodeId } from './design.ts';
 import { duplicateNodes } from './edit.ts';
-import { multiplyMat4 } from './mat4.ts';
-
-/** Inverse of a rotation + translation matrix (transforms here never scale). */
-function rigidInverse(m: Readonly<Mat4>): Mat4 {
-	const r = (row: number, col: number) => m[col * 4 + row]!; // the transpose of the rotation
-	const t = [m[12]!, m[13]!, m[14]!];
-	const out: Mat4 = new Array<number>(16).fill(0);
-	for (let col = 0; col < 3; col++) {
-		for (let row = 0; row < 3; row++) out[col * 4 + row] = r(col, row);
-		out[12 + col] = -(out[col]! * t[0]! + out[4 + col]! * t[1]! + out[8 + col]! * t[2]!);
-	}
-	out[15] = 1;
-	return out;
-}
+import { multiplyMat4, rigidInverse } from './mat4.ts';
 
 /**
  * "Duplicate and repeat": `copies` were made from `sources` and then moved, lifted or turned. This

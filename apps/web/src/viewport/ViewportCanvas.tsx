@@ -18,7 +18,7 @@ import type { Projection } from './CameraRig.ts';
 import { HandlesOverlay } from './HandlesOverlay.tsx';
 import { RotationRings } from './RotationRings.tsx';
 import { RulerOverlay } from './RulerOverlay.tsx';
-import { selectedRings, selectedShape } from './selectedShape.ts';
+import { selectedHandles, selectedRings } from './selectedShape.ts';
 import { shapeDropHandlers } from './shapeDrop.ts';
 import type { SurfaceTool } from './surfaceTool.ts';
 import { ViewCube } from './ViewCube.tsx';
@@ -170,7 +170,7 @@ export function ViewportCanvas(props: Props) {
 	);
 
 	const { state, projection } = camera;
-	const selected = selectedShape(design, selection);
+	const handles = selectedHandles(design, selection);
 	const rings = selectedRings(design, selection);
 
 	return (
@@ -212,12 +212,12 @@ export function ViewportCanvas(props: Props) {
 						onResetPlane={() => props.onPlane(null)}
 					/>
 					<ViewCube camera={state} onSelect={(view) => viewportRef.current?.setView(view)} />
-					{!tool && selected?.upright && (
+					{!tool && handles && (
 						<HandlesOverlay
-							key={selected.id}
-							nodeId={selected.id}
-							geometry={selected.geometry}
-							yaw={selected.yaw}
+							key={handles.id}
+							nodeId={handles.id}
+							geometry={handles.geometry}
+							yaw={handles.yaw}
 							snap={design.grid.snap}
 							getViewport={() => viewportRef.current}
 							onStart={() => latest.current.onMoveStart()}
