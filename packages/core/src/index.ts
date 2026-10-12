@@ -17,6 +17,7 @@ export * from './ring.ts';
 export * from './rotation.ts';
 export * from './ruler.ts';
 export * from './shapes.ts';
+export * from './surfacePlane.ts';
 export * from './units.ts';
 export * from './validate.ts';
 export * from './visibility.ts';

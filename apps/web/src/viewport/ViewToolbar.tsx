@@ -1,6 +1,7 @@
 import type { ViewPresetName } from '@holecraft/core';
 import type { RefObject } from 'react';
 import type { Projection } from './CameraRig.ts';
+import type { SurfaceTool } from './surfaceTool.ts';
 import type { Viewport } from './Viewport.ts';
 
 const VIEW_OPTIONS: ReadonlyArray<{ value: ViewPresetName; label: string }> = [
@@ -17,11 +18,14 @@ const VIEW_OPTIONS: ReadonlyArray<{ value: ViewPresetName; label: string }> = [
 interface Props {
 	viewport: RefObject<Viewport | null>;
 	projection: Projection;
-	rulerOn: boolean;
-	onToggleRuler: () => void;
+	tool: SurfaceTool | null;
+	onToggleTool: (tool: SurfaceTool) => void;
+	/** True while a Workplane-tool plane is in use, which adds a way back to the floor. */
+	planeActive: boolean;
+	onResetPlane: () => void;
 }
 
-export function ViewToolbar({ viewport, projection, rulerOn, onToggleRuler }: Props) {
+export function ViewToolbar({ viewport, projection, tool, onToggleTool, planeActive, onResetPlane }: Props) {
 	return (
 		<div className="viewport-toolbar" role="toolbar" aria-label="View controls">
 			<button type="button" onClick={() => viewport.current?.home()} aria-label="Home view" title="Home view (Home)">
@@ -39,9 +43,29 @@ export function ViewToolbar({ viewport, projection, rulerOn, onToggleRuler }: Pr
 			>
 				Ortho
 			</button>
-			<button type="button" aria-pressed={rulerOn} aria-label="Ruler" title="Measure between two points (R)" onClick={onToggleRuler}>
+			<button
+				type="button"
+				aria-pressed={tool === 'ruler'}
+				aria-label="Ruler"
+				title="Measure between two points (R)"
+				onClick={() => onToggleTool('ruler')}
+			>
 				Ruler
 			</button>
+			<button
+				type="button"
+				aria-pressed={tool === 'workplane'}
+				aria-label="Workplane"
+				title="Build on a face: click a face to put new shapes on it (W)"
+				onClick={() => onToggleTool('workplane')}
+			>
+				Workplane
+			</button>
+			{planeActive && (
+				<button type="button" aria-label="Back to the floor" title="Put new shapes on the floor again" onClick={onResetPlane}>
+					Floor
+				</button>
+			)}
 			<select
 				aria-label="Standard views"
 				value=""
