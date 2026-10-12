@@ -1,5 +1,6 @@
 import type { Vec3 } from './camera.ts';
-import { type Design, type DesignNode, MAX_NAME_LENGTH, type NodeId, type SolidMode } from './design.ts';
+import { type Design, type DesignNode, MAX_NAME_LENGTH, type NodeId, type ShapeNode, type SolidMode } from './design.ts';
+import { stretchTreatments } from './edgeEdits.ts';
 import { clampToWorkplane, snapToGrid } from './grid.ts';
 import { descendantIds } from './groups.ts';
 import { setGroupGeometry, setGroupRotation } from './groupTransform.ts';
@@ -121,6 +122,16 @@ export function setNodeEuler(design: Design, id: NodeId, degrees: readonly [numb
 }
 
 /** Sets a shape's position, height above the workplane and size in one edit (a handle drag). */
+/**
+ * `node` with its edge treatments stretched by the change in size from `before` to `after`, so a resized shape keeps its chamfers and rounds
+ * on its edges (they are stored in the shape's own frame, base centre at the origin).
+ */
+function withStretchedEdges(node: ShapeNode, before: ShapeNode['params'], after: ShapeNode['params']): ShapeNode {
+	if (!node.edges) return node;
+	const ratio = (['width', 'depth', 'height'] as const).map((k) => Number(after[k]) / Number(before[k])) as Vec3;
+	return { ...node, edges: stretchTreatments(node.edges, ratio, null)! };
+}
+
 export function setShapeGeometry(design: Design, id: NodeId, g: ShapeGeometry, now?: Date): Design {
 	const node = design.nodes[id];
 	if (node?.kind === 'group') return setGroupGeometry(design, id, g, now);
@@ -143,7 +154,7 @@ export function setShapeGeometry(design: Design, id: NodeId, g: ShapeGeometry, n
 	transform[13] = g.y;
 	transform[14] = g.z;
 	const params = { ...node.params, width: g.width, depth: g.depth, height: g.height };
-	return withNodes(design, { ...design.nodes, [id]: { ...node, transform, params } }, now);
+	return withNodes(design, { ...design.nodes, [id]: withStretchedEdges({ ...node, transform, params }, node.params, params) }, now);
 }
 
 export function setShapeSize(design: Design, id: NodeId, size: Partial<Record<'width' | 'depth' | 'height', number>>, now?: Date): Design {
@@ -157,7 +168,7 @@ export function setShapeSize(design: Design, id: NodeId, size: Partial<Record<'w
 		params[key] = v;
 		changed = true;
 	}
-	return changed ? withNodes(design, { ...design.nodes, [id]: { ...node, params } }, now) : design;
+	return changed ? withNodes(design, { ...design.nodes, [id]: withStretchedEdges({ ...node, params }, node.params, params) }, now) : design;
 }
 
 export function renameNode(design: Design, id: NodeId, name: string, now?: Date): Design {

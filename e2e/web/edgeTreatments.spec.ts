@@ -1,5 +1,5 @@
 import { type APIRequestContext, expect, type Page, test } from '@playwright/test';
-import { cameraSettled, center, createDesignViaApi, pixelAt, selectView, viewport } from './helpers.ts';
+import { cameraSettled, center, createDesignViaApi, pixelAt, properties, selectView, viewport } from './helpers.ts';
 
 /*
  * Edge treatments (chamfers and rounds on chosen edges). Until the Edge tool exists these tests write the treatment into a
@@ -66,6 +66,26 @@ test.describe('edge treatments', () => {
 		await selectView(page, 'Top');
 		await cameraSettled(page);
 		await expect.poll(() => blueAtCorner(page)).toBeLessThan(150);
+	});
+
+	test('resizing the box keeps its chamfer on its edge: the corner moves out with it and nothing is reported as lost', async ({
+		page,
+		request,
+	}) => {
+		await openWith(page, request, [{ id: 'e1', kind: 'chamfer', size: 6, ...FRONT_RIGHT }]);
+		await page.getByTestId('object-list').locator('li').first().locator('button').first().click();
+		const width = properties(page).getByLabel('Width', { exact: true });
+		await width.fill('40');
+		await width.press('Enter');
+		await expect(width).toHaveValue('40');
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		await page.keyboard.press('Escape');
+		await selectView(page, 'Top');
+		await cameraSettled(page);
+		// the box now reaches x = 20, so its front right corner is 1 mm in from there: x 19, y -9 (about 2.7 px per mm)
+		const { x, y } = await center(viewport(page));
+		await expect.poll(async () => (await pixelAt(page, x + 19 * 2.7, y + 24))[2], { timeout: 15_000 }).toBeGreaterThan(150); // cut away: floor shows through
+		await expect(page.getByTestId('skipped-edges')).toHaveCount(0);
 	});
 
 	test('a treatment whose edge is gone is reported, not cut, and can be removed (Undo brings it back)', async ({ page, request }) => {

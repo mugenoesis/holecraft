@@ -1,6 +1,7 @@
 import type { Vec3 } from './camera.ts';
 import type { Design, DesignNode, Mat4, NodeId } from './design.ts';
 import { IDENTITY } from './design.ts';
+import { stretchTreatments } from './edgeEdits.ts';
 import { MAX_SHAPE_SIZE } from './limits.ts';
 import { rigidInverse, transformPoint } from './mat4.ts';
 import { nodeBoundsIn } from './ops.ts';
@@ -155,8 +156,10 @@ function stretched(
 		if (!node) return;
 		const own = axisMap(rotationOfTransform(node.transform)).map((p) => factors[p]!) as Vec3;
 		const transform = place(node.transform, factors, offset);
+		// chamfers and rounds are stored in the node's own frame, which is stretched by `own`: they move with their edges
+		const edges = stretchTreatments(node.edges, own, null);
 		if (node.kind === 'group') {
-			nodes[nodeId] = { ...node, transform };
+			nodes[nodeId] = { ...node, transform, ...(edges && { edges }) };
 			for (const c of node.children) visit(c, own, null);
 			return;
 		}
@@ -167,12 +170,15 @@ function stretched(
 			if (!(size >= MIN_PART && size <= MAX_SHAPE_SIZE)) ok = false;
 			params[name] = size;
 		});
-		nodes[nodeId] = { ...node, transform, params };
+		nodes[nodeId] = { ...node, transform, params, ...(edges && { edges }) };
 	};
 
 	const group = design.nodes[id];
 	if (group?.kind !== 'group') return null;
 	for (const c of group.children) visit(c, f, shift);
+	// the group's own treatments are in the frame its children are placed in, which is stretched by f and moved by shift
+	const own = stretchTreatments(group.edges, f, shift);
+	if (own) nodes[id] = { ...group, edges: own };
 	return ok ? nodes : null;
 }
 
