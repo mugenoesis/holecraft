@@ -1,5 +1,6 @@
 import {
 	type Design,
+	type EdgeTreatment,
 	HOME_VIEW,
 	type MeshData,
 	type NodeId,
@@ -9,12 +10,13 @@ import {
 	type Vec3,
 	type WorkPlane,
 } from '@holecraft/core';
-import { meshRefsIn } from '@holecraft/geometry';
-import { useEffect, useRef, useState } from 'react';
+import { meshRefsIn, type Subtree } from '@holecraft/geometry';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { GeometryService } from '../geometry/GeometryService.ts';
-import { createWorkerEvaluator } from '../geometry/workerEvaluator.ts';
+import { createWorkerEvaluator, type WorkerEvaluator } from '../geometry/workerEvaluator.ts';
 import { ThumbnailScheduler } from '../thumbnailScheduler.ts';
 import type { Projection } from './CameraRig.ts';
+import { EdgeTool } from './EdgeTool.tsx';
 import { HandlesOverlay } from './HandlesOverlay.tsx';
 import { RotationRings } from './RotationRings.tsx';
 import { RulerOverlay } from './RulerOverlay.tsx';
@@ -55,6 +57,9 @@ interface Props {
 	onRotation: (id: NodeId, rotation: number[]) => void;
 	/** Removes chamfers or rounds whose edges an edit has removed (from the notice about them). */
 	onRemoveEdges: (id: NodeId, ids: string[]) => void;
+	/** The Edge tool previews a node's treatments between onMoveStart and onMoveEnd (Apply), or onCancelDrag (Cancel). */
+	onPreviewEdges: (id: NodeId, edges: EdgeTreatment[]) => void;
+	onCancelDrag: () => void;
 }
 
 /** React host for the imperative three.js viewport, plus its overlay controls. */
@@ -67,6 +72,7 @@ export function ViewportCanvas(props: Props) {
 	latest.current = props;
 
 	const serviceRef = useRef<GeometryService | null>(null);
+	const evaluatorRef = useRef<WorkerEvaluator | null>(null);
 	// Bumped whenever a group's computed shape arrives, so the scene is brought up to date.
 	const [resultVersion, setResultVersion] = useState(0);
 	const [failed, setFailed] = useState(false);
@@ -117,11 +123,13 @@ export function ViewportCanvas(props: Props) {
 	// The worker (and its WebAssembly) only starts once a group actually needs working out.
 	useEffect(() => {
 		const evaluator = createWorkerEvaluator();
+		evaluatorRef.current = evaluator;
 		const service = new GeometryService(evaluator.evaluate, () => setResultVersion((v) => v + 1));
 		serviceRef.current = service;
 		service.update(latest.current.design, latest.current.meshes);
 		return () => {
 			serviceRef.current = null;
+			evaluatorRef.current = null;
 			service.dispose();
 			evaluator.dispose();
 		};
@@ -163,6 +171,13 @@ export function ViewportCanvas(props: Props) {
 	useEffect(() => {
 		viewportRef.current?.setPlaneMarker(props.plane);
 	}, [props.plane, width, depth]);
+
+	const getViewport = useCallback(() => viewportRef.current, []);
+	const findEdges = useCallback(
+		(subtree: Subtree, models: ReadonlyMap<string, MeshData>) =>
+			evaluatorRef.current?.edges(subtree, models) ?? Promise.reject(new Error('The geometry worker is not running')),
+		[],
+	);
 
 	useViewKeys({ viewport: viewportRef, camera: cameraRef, latest, onToggleTool: toggleTool });
 
@@ -246,6 +261,20 @@ export function ViewportCanvas(props: Props) {
 					)}
 					{tool === 'workplane' && (
 						<WorkplaneTool getViewport={() => viewportRef.current} onPlane={props.onPlane} onClose={() => setTool(null)} />
+					)}
+					{tool === 'edges' && (
+						<EdgeTool
+							getViewport={getViewport}
+							design={design}
+							meshes={meshes}
+							selection={selection}
+							findEdges={findEdges}
+							onStart={() => latest.current.onMoveStart()}
+							onPreview={(id, edges) => latest.current.onPreviewEdges(id, edges)}
+							onApply={() => latest.current.onMoveEnd()}
+							onCancel={() => latest.current.onCancelDrag()}
+							onClose={() => setTool(null)}
+						/>
 					)}
 					{tool === 'ruler' && (
 						<RulerOverlay

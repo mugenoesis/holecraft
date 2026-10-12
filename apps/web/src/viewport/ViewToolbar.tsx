@@ -61,6 +61,15 @@ export function ViewToolbar({ viewport, projection, tool, onToggleTool, planeAct
 			>
 				Workplane
 			</button>
+			<button
+				type="button"
+				aria-pressed={tool === 'edges'}
+				aria-label="Edges"
+				title="Chamfer or round edges of the selected shape (E)"
+				onClick={() => onToggleTool('edges')}
+			>
+				Edges
+			</button>
 			{planeActive && (
 				<button type="button" aria-label="Back to the floor" title="Put new shapes on the floor again" onClick={onResetPlane}>
 					Floor

@@ -1,6 +1,6 @@
-// Drives the ruler and the Workplane tool in a real browser and saves screenshots, so they can be looked at.
+// Drives the ruler, the Workplane tool and the Edge tool in a real browser and saves screenshots, so they can be looked at.
 // Usage: node scripts/lib/tool-shots.mjs <url> <out-dir> [width] [height]
-// Writes ruler.png, plane-top.png, plane-wall.png and plane-wall-iso.png into <out-dir>.
+// Writes ruler.png, plane-top.png, plane-wall.png, plane-wall-iso.png, edges-*.png into <out-dir>.
 import { mkdirSync } from 'node:fs';
 import { chromium } from '@playwright/test';
 
@@ -80,6 +80,47 @@ const click = async (page, dx, dy) => {
 	await page.screenshot({ path: `${outDir}/plane-wall-iso.png` });
 	await view(page, 'right');
 	await page.screenshot({ path: `${outDir}/plane-wall.png` });
+	await page.close();
+}
+
+// 4. the Edge tool on a box: edges drawn, one hovered, two chosen with a chamfer previewed, then applied and shown as treated
+{
+	const page = await freshEditor();
+	await page.getByRole('button', { name: 'Box', exact: true }).click();
+	await page.getByTestId('object-list').locator('li').first().locator('button').first().click();
+	await view(page, 'iso');
+	await page.keyboard.press('f');
+	await page.waitForTimeout(700);
+	await page.getByRole('button', { name: 'Edges', exact: true }).click();
+	await page.getByTestId('edge-line').first().waitFor({ state: 'attached' });
+	const canvas = await page.getByTestId('viewport').locator('canvas').boundingBox();
+	const middleOf = async (selector) => {
+		const line = page.locator(`${selector} line`).first();
+		const at = async (a) => Number(await line.getAttribute(a));
+		return { x: canvas.x + ((await at('x1')) + (await at('x2'))) / 2, y: canvas.y + ((await at('y1')) + (await at('y2'))) / 2 };
+	};
+	const frontRight = '[data-testid="edge-line"][data-from="10,-10,0"][data-to="10,-10,20"]';
+	const topFront = '[data-testid="edge-line"][data-from="-10,-10,20"][data-to="10,-10,20"]';
+	const a = await middleOf(frontRight);
+	await page.mouse.move(a.x, a.y);
+	await page.waitForTimeout(200);
+	await page.screenshot({ path: `${outDir}/edges-hover.png` });
+	await page.mouse.click(a.x, a.y);
+	const b = await middleOf(topFront);
+	await page.keyboard.down('Shift');
+	await page.mouse.click(b.x, b.y);
+	await page.keyboard.up('Shift');
+	await page.getByTestId('edge-tool').getByLabel('Size', { exact: true }).fill('4');
+	await page.waitForTimeout(1500);
+	await page.screenshot({ path: `${outDir}/edges-preview.png` });
+	await page.getByTestId('edge-tool').getByLabel('Round').check();
+	await page.waitForTimeout(1500);
+	await page.screenshot({ path: `${outDir}/edges-preview-round.png` });
+	await page.getByRole('button', { name: 'Apply' }).click();
+	await page.mouse.move(canvas.x + 20, canvas.y + canvas.height - 20);
+	await page.waitForTimeout(1000);
+	await page.screenshot({ path: `${outDir}/edges-applied.png` });
+	console.log('edge tool bar:', await page.getByTestId('edge-tool').innerText());
 	await page.close();
 }
 

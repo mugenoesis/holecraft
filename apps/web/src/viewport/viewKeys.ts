@@ -30,7 +30,7 @@ interface Targets {
 	camera: RefObject<{ state: OrbitState }>;
 	/** The latest design and nudge handler (read at the time of the key press). */
 	latest: RefObject<{ design: Design; onNudge: (delta: [number, number]) => void }>;
-	/** R and W: turn the ruler or the Workplane tool on or off. */
+	/** R, W and E: turn the ruler, the Workplane tool or the Edge tool on or off. */
 	onToggleTool: (tool: SurfaceTool) => void;
 }
 
@@ -41,11 +41,12 @@ function viewCommand(key: string, viewport: Viewport | null, onToggleTool: (tool
 		f: () => viewport?.fitAll(),
 		r: () => onToggleTool('ruler'),
 		w: () => onToggleTool('workplane'),
+		e: () => onToggleTool('edges'),
 	};
 	return Object.hasOwn(commands, key.toLowerCase()) ? commands[key.toLowerCase()] : undefined;
 }
 
-/** Arrow keys nudge the selection; Home resets the view, F frames everything and R is the ruler. Ignored while typing. */
+/** Arrow keys nudge the selection; Home resets the view, F frames everything, R/W/E are the ruler, Workplane and Edge tools. Ignored while typing. */
 export function useViewKeys({ viewport, camera, latest, onToggleTool }: Targets): void {
 	useEffect(() => {
 		const onKeyDown = (e: KeyboardEvent) => {

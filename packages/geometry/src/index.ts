@@ -8,4 +8,5 @@ export * from './formats/zip.ts';
 export * from './import/index.ts';
 export * from './load.ts';
 export * from './subtree.ts';
+export * from './toolEdges.ts';
 export * from './types.ts';

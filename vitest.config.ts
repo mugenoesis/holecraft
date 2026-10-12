@@ -21,7 +21,7 @@ export default defineConfig({
 				'packages/core/src/**': { statements: 97, branches: 94, functions: 98, lines: 98 },
 				'packages/geometry/src/**': { statements: 95, branches: 82, functions: 97, lines: 98 },
 				'apps/server/src/**': { statements: 90, branches: 86, functions: 90, lines: 93 },
-				'apps/web/src/**': { statements: 41, branches: 40, functions: 33, lines: 41 },
+				'apps/web/src/**': { statements: 43, branches: 43, functions: 34, lines: 43 },
 			},
 		},
 	},

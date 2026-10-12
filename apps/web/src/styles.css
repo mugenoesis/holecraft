@@ -475,6 +475,9 @@ button.primary:disabled {
 	top: 12px;
 	left: 12px;
 	display: flex;
+	/* wraps onto more rows rather than running under the view cube on narrow screens */
+	flex-wrap: wrap;
+	max-width: calc(100% - 130px);
 	gap: 6px;
 	padding: 4px;
 	background: var(--surface);
@@ -1227,4 +1230,86 @@ button.primary:disabled {
 	flex: none;
 	font: inherit;
 	cursor: pointer;
+}
+
+/* Edge tool: the selected part's sharp edges over the view, and the bar of choices below them. Blue, not orange, so chosen
+   edges stand out on the default orange shapes; a thin white halo keeps them readable on any colour. */
+.edge-lines {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+.edge-lines g {
+	stroke-linecap: round;
+	filter: drop-shadow(0 0 1px #fff);
+}
+.edge-lines g.plain {
+	stroke: rgb(20 30 36 / 70%);
+	stroke-width: 2;
+}
+.edge-lines g.treated {
+	stroke: #0f766e;
+	stroke-width: 3;
+	stroke-dasharray: 6 4;
+}
+.edge-lines g.hover {
+	stroke: #3b82f6;
+	stroke-width: 4;
+}
+.edge-lines g.chosen {
+	stroke: #1d4ed8;
+	stroke-width: 5;
+}
+.edge-tool {
+	position: absolute;
+	bottom: 16px;
+	left: 50%;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: max-content;
+	max-width: calc(100% - 24px);
+	padding: 8px 12px;
+	color: #fff;
+	background: rgb(20 30 36 / 88%);
+	border-radius: 6px;
+	transform: translateX(-50%);
+}
+.edge-tool-status {
+	margin: 0;
+	font-variant-numeric: tabular-nums;
+}
+.edge-tool-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 12px;
+}
+.edge-tool-spacer {
+	flex: 1;
+}
+.edge-kind {
+	display: flex;
+	gap: 10px;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+.edge-kind label,
+.edge-size,
+.edge-size label {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+.edge-size {
+	gap: 8px;
+}
+.edge-size input[type="number"] {
+	width: 5em;
+}
+.edge-size input[type="range"] {
+	width: 120px;
 }

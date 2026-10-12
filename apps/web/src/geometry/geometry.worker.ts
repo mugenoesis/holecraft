@@ -1,16 +1,21 @@
 // Runs in a Web Worker: loads manifold's WebAssembly once, then does the heavy geometry work off the
-// main thread: turning a group into a single mesh, or working out everything to export.
+// main thread: turning a group into a single mesh, finding the edges the Edge tool offers, or working out everything to export.
 
-import type { Design, MeshData } from '@holecraft/core';
-import { collectBodies, type ExportBody, evaluateGroup, type GroupMesh, loadManifold, type Subtree } from '@holecraft/geometry';
+import type { Design, MeshData, MeshEdge } from '@holecraft/core';
+import { collectBodies, type ExportBody, evaluateGroup, type GroupMesh, loadManifold, type Subtree, toolEdges } from '@holecraft/geometry';
 import type { ManifoldToplevel } from 'manifold-3d';
 import wasmUrl from 'manifold-3d/manifold.wasm?url';
 
 export type WorkerRequest =
 	| { kind: 'group'; id: number; subtree: Subtree; meshes: ReadonlyMap<string, MeshData> }
+	| { kind: 'edges'; id: number; subtree: Subtree; meshes: ReadonlyMap<string, MeshData> }
 	| { kind: 'export'; id: number; design: Pick<Design, 'nodes' | 'roots'>; meshes: ReadonlyMap<string, MeshData> };
 
-export type WorkerResponse = { id: number; mesh: GroupMesh | null } | { id: number; bodies: ExportBody[] } | { id: number; error: string };
+export type WorkerResponse =
+	| { id: number; mesh: GroupMesh | null }
+	| { id: number; edges: MeshEdge[] }
+	| { id: number; bodies: ExportBody[] }
+	| { id: number; error: string };
 
 const scope = self as unknown as {
 	onmessage: ((event: MessageEvent<WorkerRequest>) => void) | null;
@@ -31,6 +36,11 @@ scope.onmessage = async ({ data }) => {
 				{ id: data.id, bodies },
 				bodies.flatMap((b) => [b.mesh.positions.buffer, b.mesh.indices.buffer]),
 			);
+			return;
+		}
+
+		if (data.kind === 'edges') {
+			scope.postMessage({ id: data.id, edges: toolEdges(manifold, data.subtree, data.subtree.rootId, data.meshes) });
 			return;
 		}
 
