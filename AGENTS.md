@@ -169,6 +169,15 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   and reports hover and click on `pickSurface`. `ViewportCanvas` holds the one active `SurfaceTool` and hides the resize/rotate handles meanwhile,
   because they sit over the canvas and would swallow the clicks. Not done: moving existing shapes on a tilted plane.
 
+## Turning groups
+- `setGroupRotation` (core/groupTransform.ts; `setNodeRotation`/`setNodeEuler` delegate to it for groups, so the `setRotation` and `setEuler`
+  actions work unchanged) sets the group's orientation about a **stable pivot**: `groupLocalCentre`, the middle of the contents in the group's own
+  frame, mapped through the group's transform. Turning never touches the children, and the pivot doesn't drift between turns (using the world
+  bounds' middle would). `groupRings` gives the rings' centre, radius and orientation. The group's own transform is not part of `subtreeHash`,
+  so turning a group never recomputes its CSG; export applies it via `evaluateNode` (covered by a test).
+- Groups still have no resize or lift handles: a group has no scale of its own, so resizing means rescaling every child (only sound while they are
+  turned in 90 degree steps in the group's frame). That is the next piece.
+
 ## Rotation
 - Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre
   position). Sizes stay as local params, so a mesh is just position, quaternion and scale.

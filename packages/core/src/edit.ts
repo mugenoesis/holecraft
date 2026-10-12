@@ -2,6 +2,7 @@ import type { Vec3 } from './camera.ts';
 import { type Design, type DesignNode, MAX_NAME_LENGTH, type NodeId, type SolidMode } from './design.ts';
 import { clampToWorkplane, snapToGrid } from './grid.ts';
 import { descendantIds } from './groups.ts';
+import { setGroupRotation } from './groupTransform.ts';
 import { newId } from './ids.ts';
 import { MESH_SHAPE_TYPE } from './meshShape.ts';
 import { nodeBoundsIn, shapeBounds, translationOf } from './ops.ts';
@@ -98,10 +99,11 @@ export function dropToWorkplane(design: Design, ids: readonly NodeId[], now?: Da
 
 /**
  * Sets a shape's orientation (a row-major 3x3 rotation), turning it about its own centre so
- * it stays where it is. Size is untouched.
+ * it stays where it is. Size is untouched. A group is turned about the middle of its contents instead.
  */
 export function setNodeRotation(design: Design, id: NodeId, rotation: readonly number[], now?: Date): Design {
 	const node = design.nodes[id];
+	if (node?.kind === 'group') return setGroupRotation(design, id, rotation, now);
 	if (!isEditable(node) || node.kind !== 'shape' || rotation.length !== 9 || !rotation.every(Number.isFinite)) return design;
 	const height = node.params.height as number;
 	const centre = shapeCenter(node.transform, height);

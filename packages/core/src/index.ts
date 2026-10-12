@@ -4,6 +4,7 @@ export * from './design.ts';
 export * from './edit.ts';
 export * from './grid.ts';
 export * from './groups.ts';
+export * from './groupTransform.ts';
 export * from './history.ts';
 export * from './ids.ts';
 export * from './mat4.ts';

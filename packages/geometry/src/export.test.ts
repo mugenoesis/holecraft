@@ -80,6 +80,24 @@ describe('evaluateNode', () => {
 		close(b.max, [5, 20, 10]);
 	});
 
+	it('exports a turned group turned, with the same volume and about the same middle', () => {
+		let d = createEmptyDesign('d');
+		d = addShape(d, 'box', [0, 0], { id: 'a' }).design;
+		d = setShapeSize(d, 'a', { width: 60, depth: 10, height: 10 });
+		d = addShape(d, 'cylinder', [0, 0], { id: 'h' }).design;
+		d = setShapeSize(d, 'h', { width: 6, depth: 6, height: 40 });
+		d = setNodeMode(d, ['h'], 'hole');
+		d = groupNodes(d, ['a', 'h'], { id: 'g' }).design;
+		const before = evaluateNode(M, d, 'g')!;
+		const turned = evaluateNode(M, setNodeEuler(d, 'g', [0, 0, 90]), 'g')!;
+		near(volume(turned), volume(before), 1e-6);
+		const [a, b] = [bounds(before), bounds(turned)];
+		close(b.min, [-5, -30, 0]); // 60 long along x became 60 long along y
+		close(b.max, [5, 30, 10]);
+		expect((b.min[0]! + b.max[0]!) / 2).toBeCloseTo((a.min[0]! + a.max[0]!) / 2, 4);
+		expect((b.min[1]! + b.max[1]!) / 2).toBeCloseTo((a.min[1]! + a.max[1]!) / 2, 4);
+	});
+
 	it('builds a group with its holes cut and its own transform applied', () => {
 		let d = createEmptyDesign('d');
 		d = addShape(d, 'box', [0, 0], { id: 'a' }).design;

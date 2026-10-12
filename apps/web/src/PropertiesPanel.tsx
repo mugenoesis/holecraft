@@ -85,11 +85,22 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 
 	if (only.kind === 'group') {
 		const shapes = descendantIds(design, only.id).filter((id) => design.nodes[id]?.kind === 'shape').length;
+		const groupEuler = eulerOfTransform(only.transform);
 		return (
 			<section aria-label="Properties">
 				<h2>Properties</h2>
 				<div key={only.id} className="fields">
 					<TextField label="Name" value={only.name} onCommit={(name) => dispatch({ type: 'rename', id: only.id, name })} />
+					{(['X', 'Y', 'Z'] as const).map((axis, i) => (
+						<NumberField
+							key={axis}
+							label={`Rotate ${axis}`}
+							value={groupEuler[i]!}
+							onCommit={(v) =>
+								dispatch({ type: 'setEuler', id: only.id, euler: groupEuler.map((e, k) => (k === i ? v : e)) as [number, number, number] })
+							}
+						/>
+					))}
 				</div>
 				<p>Contains {shapes} shapes</p>
 				{typeToggle}
