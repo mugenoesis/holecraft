@@ -50,6 +50,26 @@ test.describe('workplane tool', () => {
 		await expect(page.getByText('Objects: 2')).toBeVisible();
 	});
 
+	test('clicking the front wall of a box makes new shapes stick out of it', async ({ page }) => {
+		await dropShape(page, 'Box');
+		await selectView(page, 'Front');
+		await cameraSettled(page);
+		await toolButton(page).click();
+		await clickAt(page, 0, -27); // the middle of the front face: 10 mm up, about 2.7 px per mm
+		await expect(floorButton(page)).toBeVisible();
+
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+		await expect(page.getByText('Objects: 2')).toBeVisible();
+		await row(page, 1).click();
+		// the cylinder's base is on the front face (y = -10, 10 mm up) and it is turned to point out of it (towards -y)
+		await expect(field(page, 'X')).toHaveValue('0');
+		await expect(field(page, 'Y')).toHaveValue('-10');
+		await expect(field(page, 'Z')).toHaveValue('10');
+		await expect(field(page, 'Rotate X')).toHaveValue('90');
+		await expect(field(page, 'Rotate Y')).toHaveValue('0');
+		await expect(field(page, 'Rotate Z')).toHaveValue('0');
+	});
+
 	test('the Floor button, or clicking the floor with the tool, goes back to building on the floor', async ({ page }) => {
 		await boxFromAbove(page);
 		await toolButton(page).click();
