@@ -756,6 +756,11 @@ button.primary:disabled {
 	border-left: 1px solid var(--border);
 }
 
+/* Three short choices in a narrow panel (the chamfer edges). */
+.segmented.compact button {
+	padding: 4px 9px;
+}
+
 .segmented button[aria-pressed="true"] {
 	color: #fff;
 	background: var(--accent);

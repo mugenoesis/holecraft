@@ -182,6 +182,16 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   when every inner node is turned in quarter turns and the group is upright, which `canResizeGroup` checks (otherwise no handles); a result
   outside 0.1..1000 mm for any shape is refused. `MAX_SHAPE_SIZE` now lives in `limits.ts` to avoid an import cycle with edit.ts.
 
+## Chamfers (Stage A)
+- `params.chamfer` (mm, as typed) and `params.chamferEdges` (`all` | `top` | `bottom`) on boxes and cylinders; no format change (validate
+  already keeps extra numeric/string params). `chamferOf(node)` gives the **effective** chamfer, limited to 49% of the narrowest side (and of the
+  height, or of twice it for one end) so faces never vanish; the typed value is kept, so shrinking and regrowing a shape loses nothing.
+- `chamferedMesh` (core/chamfer.ts) builds the solid at its **real size** as a loft of horizontal rings (exact: every face planar, slices change
+  linearly); coinciding outline points share an index so there are no degenerate triangles. The same mesh is drawn (`DesignScene` keeps one
+  real-size geometry per chamfered shape, mesh scale 1, outline scaled instead) and fed to manifold as `Manifold.hull` (both shapes are convex).
+- Tests derive volumes independently (cross-section integrals, polygon frustums), check watertightness, and read pixels from the front view.
+- Stage B (an Edge tool for any edge, fillets) and the hole Countersink are not done yet; see PLAN section 11.
+
 ## Rotation
 - Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre
   position). Sizes stay as local params, so a mesh is just position, quaternion and scale.
