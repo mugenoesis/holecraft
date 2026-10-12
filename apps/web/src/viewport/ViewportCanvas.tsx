@@ -1,16 +1,11 @@
 import {
 	type Design,
-	eulerOfTransform,
 	HOME_VIEW,
-	isUpright,
 	type MeshData,
 	type NodeId,
 	type OrbitState,
-	rotationOfTransform,
 	type ShapeGeometry,
 	type ShapeType,
-	shapeCenter,
-	translationOf,
 	type Vec3,
 	type WorkPlane,
 } from '@holecraft/core';
@@ -23,6 +18,7 @@ import type { Projection } from './CameraRig.ts';
 import { HandlesOverlay } from './HandlesOverlay.tsx';
 import { RotationRings } from './RotationRings.tsx';
 import { RulerOverlay } from './RulerOverlay.tsx';
+import { selectedRings, selectedShape } from './selectedShape.ts';
 import { shapeDropHandlers } from './shapeDrop.ts';
 import type { SurfaceTool } from './surfaceTool.ts';
 import { ViewCube } from './ViewCube.tsx';
@@ -55,39 +51,6 @@ interface Props {
 	onGeometry: (id: NodeId, geometry: ShapeGeometry) => void;
 	/** A rotation ring is turning the selected shape into this orientation (row-major 3x3). */
 	onRotation: (id: NodeId, rotation: number[]) => void;
-}
-
-interface SelectedShape {
-	id: NodeId;
-	geometry: ShapeGeometry;
-	/** Orientation as a row-major 3x3. */
-	rotation: number[];
-	/** Turn about the vertical axis in degrees; only meaningful when `upright`. */
-	yaw: number;
-	/** False once tipped over, when resizing and lifting are not offered. */
-	upright: boolean;
-	/** Middle of the shape in world space, and the radius of its rotation rings. */
-	center: Vec3;
-	ringRadius: number;
-}
-
-/** The single selected shape with everything the handles need, or null when none should show. */
-function selectedShape(design: Design, selection: readonly NodeId[]): SelectedShape | null {
-	const id = selection.length === 1 ? selection[0]! : undefined;
-	const node = id !== undefined ? design.nodes[id] : undefined;
-	if (!id || !node || node.kind !== 'shape' || node.locked || node.hidden) return null;
-	const [x, y, z] = translationOf(node.transform);
-	const { width, depth, height } = node.params as { width: number; depth: number; height: number };
-	const rotation = rotationOfTransform(node.transform);
-	return {
-		id,
-		geometry: { x, y, z, width, depth, height },
-		rotation,
-		yaw: eulerOfTransform(node.transform)[2],
-		upright: isUpright(rotation),
-		center: shapeCenter(node.transform, height),
-		ringRadius: Math.hypot(width, depth, height) / 2 + 6,
-	};
 }
 
 /** React host for the imperative three.js viewport, plus its overlay controls. */
@@ -208,6 +171,7 @@ export function ViewportCanvas(props: Props) {
 
 	const { state, projection } = camera;
 	const selected = selectedShape(design, selection);
+	const rings = selectedRings(design, selection);
 
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: a drop target for shapes dragged from the Shapes panel (which can also add them by keyboard)
@@ -262,13 +226,13 @@ export function ViewportCanvas(props: Props) {
 							onLabel={setDimensionLabel}
 						/>
 					)}
-					{!tool && selected && (
+					{!tool && rings && (
 						<RotationRings
-							key={`rings-${selected.id}`}
-							nodeId={selected.id}
-							center={selected.center}
-							radius={selected.ringRadius}
-							rotation={selected.rotation}
+							key={`rings-${rings.id}`}
+							nodeId={rings.id}
+							center={rings.center}
+							radius={rings.radius}
+							rotation={rings.rotation}
 							getViewport={() => viewportRef.current}
 							onStart={() => latest.current.onMoveStart()}
 							onRotation={(id, r) => latest.current.onRotation(id, r)}

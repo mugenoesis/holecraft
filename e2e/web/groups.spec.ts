@@ -52,14 +52,68 @@ test.describe('grouping', () => {
 		await expect(groupButton(page)).toBeDisabled();
 	});
 
-	test('a group has no size or rotation fields, and no handles', async ({ page }) => {
+	test('a group has rotation fields and rings, but no size fields and no resize handles', async ({ page }) => {
 		await twoSelected(page);
 		await groupButton(page).click();
 		await expect(field(page, 'Name')).toHaveValue('Group 1');
 		await expect(properties(page).getByLabel('Width', { exact: true })).toHaveCount(0);
-		await expect(properties(page).getByLabel('Rotate Z', { exact: true })).toHaveCount(0);
+		await expect(properties(page).getByLabel('Rotate Z', { exact: true })).toBeVisible();
 		await expect(page.getByTestId(/^handle-/)).toHaveCount(0);
-		await expect(page.getByTestId(/^rotate-/)).toHaveCount(0);
+		await expect(page.getByTestId(/^rotate-/)).toHaveCount(3);
+	});
+
+	test('typing a rotation turns the whole group about its middle, and undo brings it back', async ({ page }) => {
+		await twoSelected(page);
+		const spots = async () =>
+			(await page.getByTestId('object-list').locator('li').allInnerTexts()).map((t) =>
+				t
+					.match(/\((-?[\d.]+), (-?[\d.]+)\)/)!
+					.slice(1)
+					.map(Number),
+			);
+		const [[ax, ay], [bx, by]] = (await spots()) as [[number, number], [number, number]];
+		expect(Math.hypot(ax - bx, ay - by)).toBeGreaterThan(20);
+
+		await groupButton(page).click();
+		await field(page, 'Rotate Z').fill('90');
+		await field(page, 'Rotate Z').press('Enter');
+		await expect(field(page, 'Rotate Z')).toHaveValue('90');
+		await ungroupButton(page).click(); // the shapes keep where the turn put them
+		await expect(page.getByText('Objects: 2')).toBeVisible();
+		const [[cx, cy], [dx, dy]] = (await spots()) as [[number, number], [number, number]];
+		// the offset between the two has turned a quarter (x, y) -> (-y, x), and its length is unchanged
+		expect(cx - dx).toBeCloseTo(-(ay - by), 0);
+		expect(cy - dy).toBeCloseTo(ax - bx, 0);
+		expect((ax + bx) / 2).toBeCloseTo((cx + dx) / 2, 0); // about the same middle
+		expect((ay + by) / 2).toBeCloseTo((cy + dy) / 2, 0);
+	});
+
+	test('dragging a ring handle turns the group in snapped steps, as one undo step', async ({ page }) => {
+		await twoSelected(page);
+		await groupButton(page).click();
+		const handle = page.getByTestId('rotate-z');
+		const from = await center(handle);
+		await drag(page, from, { x: from.x + 70, y: from.y + 50 }, { steps: 12 });
+		const angle = Number(await field(page, 'Rotate Z').inputValue());
+		expect(angle).not.toBe(0);
+		expect(((angle % 22.5) + 22.5) % 22.5).toBeLessThan(0.01); // snapped to 22.5 degree steps
+		await page.keyboard.press('Control+z');
+		await expect(field(page, 'Rotate Z')).toHaveValue('0');
+	});
+
+	test('undoing a group turn puts the angle back', async ({ page }) => {
+		await twoSelected(page);
+		await groupButton(page).click();
+		await field(page, 'Rotate Z').fill('90');
+		await field(page, 'Rotate Z').press('Enter');
+		await expect(field(page, 'Rotate Z')).toHaveValue('90');
+		await page.keyboard.press('Escape');
+		await page
+			.getByTestId('object-list')
+			.getByRole('button', { name: /Group 1/ })
+			.click();
+		await page.keyboard.press('Control+z');
+		await expect(field(page, 'Rotate Z')).toHaveValue('0');
 	});
 
 	test('Ctrl+G groups and Ctrl+Shift+G ungroups', async ({ page }) => {
