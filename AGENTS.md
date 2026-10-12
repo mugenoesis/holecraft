@@ -229,6 +229,12 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - **Loose shapes with treatments** are drawn from a computed mesh too: `rootComputedNodes` (was `rootSolidGroups`) lists top-level groups
   *and* top-level solid shapes with `edges`; `evaluateGroup` on a shape returns its treated primitive in its own frame (its hash ignores its
   transform); `DesignScene` hides the plain shape and shows the result beside it under the shape's transform.
+- **Resizing keeps treatments on their edges**: they are stored in the node's own frame, so any resize must stretch them too, or they are left behind and skipped
+  (this happened: a chamfered group was dragged bigger and 19 of 28 chamfers were reported as lost). `stretchTreatments(edges, factors, shift)` (core/edgeEdits.ts)
+  maps the points by `factor * p + shift`, turns each face direction by the inverse stretch (then back to length 1) and leaves `size` alone. It is called by
+  `setShapeSize`, `setShapeGeometry` (`withStretchedEdges`, from the ratio of the new to the old width/depth/height) and group resize (`stretched`: the group's own
+  list by the group's stretch and shift, each child's list by its `own` factors, no shift). **Any new edit that changes a shape's size or the layout of a group's
+  contents must do the same.** Tests compare against chamfering the already-resized shape directly (same material removed, none skipped).
 - Edits: `setEdgeTreatments` / `removeEdgeTreatments` (core/edgeEdits.ts). Reducer: `previewEdges` runs between `moveStart` and `moveEnd` like a
   drag (one undo step on Apply), `cancelDrag` restores the design the drag began from, `removeEdges` is an ordinary edit.
 - Skipped treatments: `skippedEdgeNotices` (pure) turns results' `skippedEdges` into notices; `SkippedEdgesNotice` shows them over the view with
