@@ -24,6 +24,7 @@ import {
 	removePaletteColor,
 	renameDesign,
 	renameNode,
+	repeatDuplicate,
 	replacePresent,
 	type ShapeGeometry,
 	type ShapeType,
@@ -51,6 +52,8 @@ export interface EditorState {
 	selection: NodeId[];
 	/** Set while a drag-move is in flight: the design it began from and the shapes being moved. */
 	drag: { base: Design; ids: NodeId[] } | null;
+	/** The last duplicate: what was copied and the copies made. Duplicating those copies again repeats whatever was done to them. */
+	lastDuplicate: { sources: NodeId[]; copies: NodeId[] } | null;
 }
 
 export type EditorAction =
@@ -100,7 +103,7 @@ export type EditorAction =
 export const canUndoState = (state: EditorState): boolean => canUndo(state.history);
 
 export function createEditorState(design: Design): EditorState {
-	return { history: createHistory(design), selection: [], drag: null };
+	return { history: createHistory(design), selection: [], drag: null, lastDuplicate: null };
 }
 
 /** Records `next` as a new undoable step; returns `state` itself when nothing changed. */
@@ -182,6 +185,20 @@ function reduceHistory(state: EditorState, action: HistoryAction): EditorState {
 	return { ...state, history, selection: pruneSelection(history.present, state.selection) };
 }
 
+/** Ctrl+D: a copy offset from the original, or, on the copies of the last duplicate, one more step of whatever was done to them. */
+function duplicate(state: EditorState): EditorState {
+	const design = state.history.present;
+	const last = state.lastDuplicate;
+	const again = last && sameIds(last.copies, state.selection) ? repeatDuplicate(design, last.sources, last.copies) : null;
+	const copy = again?.ids.length ? again : duplicateNodes(design, state.selection, DUPLICATE_OFFSET);
+	if (!copy.ids.length) return state;
+	const sources = again?.ids.length ? last!.copies : state.selection;
+	const next = commit(state, copy.design, copy.ids);
+	return { ...next, lastDuplicate: { sources: [...sources], copies: copy.ids } };
+}
+
+const sameIds = (a: readonly NodeId[], b: readonly NodeId[]) => a.length === b.length && a.every((id, i) => id === b[i]);
+
 /** Edits to the document: each is one undoable step, or nothing at all when it changes nothing. */
 function reduceEdit(state: EditorState, action: EditAction): EditorState {
 	const design = state.history.present;
@@ -226,10 +243,8 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 		case 'delete':
 			return commit(state, deleteNodes(design, state.selection), []);
 
-		case 'duplicate': {
-			const copy = duplicateNodes(design, state.selection, DUPLICATE_OFFSET);
-			return copy.ids.length ? commit(state, copy.design, copy.ids) : state;
-		}
+		case 'duplicate':
+			return duplicate(state);
 
 		case 'nudge':
 			return commit(state, moveNodes(design, state.selection, [action.delta[0], action.delta[1], 0]));
