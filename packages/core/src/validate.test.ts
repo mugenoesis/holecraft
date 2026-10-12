@@ -197,6 +197,91 @@ describe('parseDesign: nodes', () => {
 	});
 });
 
+describe('parseDesign: edge treatments (chamfers and rounds on chosen edges)', () => {
+	/** The top front edge of a 20 mm box at the origin: from the top (+z) and the front (-y). */
+	const treatment = () => ({
+		id: 'e1',
+		kind: 'chamfer',
+		size: 2,
+		points: [
+			[-10, -10, 20],
+			[10, -10, 20],
+		],
+		normals: [
+			[
+				[0, 0, 1],
+				[0, -1, 0],
+			],
+		],
+	});
+	const withEdges = (edges: unknown) => {
+		const d = wire();
+		d.nodes.g.edges = edges;
+		return d;
+	};
+
+	it('keeps a valid list on a group, and on a shape', () => {
+		expect(parseDesign(withEdges([treatment(), { ...treatment(), id: 'e2', kind: 'round' }])).nodes.g!.edges).toHaveLength(2);
+		const d = wire();
+		d.nodes.c.edges = [treatment()];
+		expect(parseDesign(d).nodes.c!.edges).toEqual([treatment()]);
+	});
+
+	it('leaves the field out when there are none', () => {
+		expect('edges' in parseDesign(withEdges([])).nodes.g!).toBe(false);
+		expect('edges' in parseDesign(wire()).nodes.g!).toBe(false);
+	});
+
+	it('refuses broken treatments', () => {
+		const bad: [string, (t: Wire) => void][] = [
+			['kind', (t) => (t.kind = 'sand')],
+			['size', (t) => (t.size = 0)],
+			['size', (t) => (t.size = 5000)],
+			['size', (t) => (t.size = 'big')],
+			['id', (t) => (t.id = 7)],
+			['id', (t) => (t.id = 'x'.repeat(200))],
+			['points', (t) => (t.points = [[0, 0, 0]])],
+			[
+				'points',
+				(t) =>
+					(t.points = [
+						[0, 0],
+						[1, 1, 1],
+					]),
+			],
+			['points', (t) => (t.points[1][2] = Number.NaN)],
+			['points', (t) => (t.points[1][2] = 1e9)],
+			['normals', (t) => (t.normals = [])],
+			['normals', (t) => (t.normals[0][0] = [0, 0, 5])],
+			['normals', (t) => (t.normals[0] = [[0, 0, 1]])],
+		];
+		for (const [field, mutate] of bad) {
+			const t = treatment() as Wire;
+			mutate(t);
+			expect(() => parseDesign(withEdges([t])), field).toThrow(DesignValidationError);
+		}
+		expect(() => parseDesign(withEdges('all'))).toThrow(/edges/);
+		expect(() => parseDesign(withEdges(Array.from({ length: 1001 }, (_, i) => ({ ...treatment(), id: `e${i}` }))))).toThrow(/edges/);
+	});
+
+	it('refuses two treatments with the same id on one node', () => {
+		expect(() => parseDesign(withEdges([treatment(), treatment()]))).toThrow(/id/);
+	});
+
+	it('drops unknown properties inside a treatment', () => {
+		const loaded = parseDesign(withEdges([{ ...treatment(), colour: 'red' }]));
+		expect(loaded.nodes.g!.edges![0]).toEqual(treatment());
+	});
+
+	it('loads designs saved before edges existed (format 2)', () => {
+		const old = wire();
+		old.formatVersion = 2;
+		const loaded = parseDesign(old);
+		expect(loaded.formatVersion).toBe(DESIGN_FORMAT_VERSION);
+		expect(DESIGN_FORMAT_VERSION).toBe(3);
+	});
+});
+
 describe('parseDesign: structure', () => {
 	it('rejects roots that do not exist', () => {
 		rejects((d) => d.roots.push('ghost'), /ghost/);

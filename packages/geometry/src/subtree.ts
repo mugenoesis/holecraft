@@ -2,7 +2,7 @@ import { type Design, type DesignNode, descendantIds, MESH_SHAPE_TYPE, type Node
 import type { Subtree } from './types.ts';
 
 /** Bump when evaluation changes what a given subtree produces, so cached results are not reused. */
-const FORMAT = 'v1';
+const FORMAT = 'v2'; // v2: edge treatments
 
 /** Top-level solid groups: the ones drawn as one merged mesh. Inner groups are evaluated as part of their parent. */
 export function rootSolidGroups(design: Design): NodeId[] {
@@ -27,11 +27,18 @@ function describe(nodes: Record<NodeId, DesignNode>, id: NodeId, isRoot: boolean
 	const node = nodes[id];
 	if (!node || node.kind === 'mesh') return null;
 	if (node.kind === 'shape') {
-		return ['s', node.shapeType, node.mode, node.transform, Object.entries(node.params).sort(([a], [b]) => a.localeCompare(b))];
+		return [
+			's',
+			node.shapeType,
+			node.mode,
+			node.transform,
+			Object.entries(node.params).sort(([a], [b]) => a.localeCompare(b)),
+			node.edges ?? null,
+		];
 	}
 	const children = node.children.map((c) => describe(nodes, c, false));
 	// The root group's own transform and mode only matter to whoever places it, not to its shape.
-	return isRoot ? ['g', node.op, children] : ['g', node.mode, node.transform, node.op, children];
+	return isRoot ? ['g', node.op, children, node.edges ?? null] : ['g', node.mode, node.transform, node.op, children, node.edges ?? null];
 }
 
 /** cyrb53: a fast, well-spread 53-bit string hash. Collisions are not a practical concern here. */

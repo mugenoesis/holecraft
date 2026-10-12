@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { addShape, createEmptyDesign, DEFAULT_PALETTE } from '@holecraft/core';
+import { addShape, createEmptyDesign, DEFAULT_PALETTE, DESIGN_FORMAT_VERSION } from '@holecraft/core';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createServer } from './server.ts';
@@ -35,7 +35,7 @@ describe('designs saved before palettes existed', () => {
 		expect(res.statusCode).toBe(200);
 		const design = res.json();
 		expect(design.palette).toEqual([...DEFAULT_PALETTE]);
-		expect(design.formatVersion).toBe(2);
+		expect(design.formatVersion).toBe(DESIGN_FORMAT_VERSION);
 		expect(Object.keys(design.nodes)).toEqual(['a']);
 	});
 
@@ -51,7 +51,7 @@ describe('designs saved before palettes existed', () => {
 		const saved = await app.inject({ method: 'PUT', url: `/api/designs/${ID}`, payload: design });
 		expect(saved.statusCode).toBe(200);
 		const onDisk = JSON.parse(await readFile(path.join(dir, 'designs', `${ID}.json`), 'utf8'));
-		expect(onDisk.formatVersion).toBe(2);
+		expect(onDisk.formatVersion).toBe(DESIGN_FORMAT_VERSION);
 		expect(onDisk.palette).toEqual([...DEFAULT_PALETTE]);
 	});
 

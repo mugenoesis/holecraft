@@ -190,7 +190,22 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   linearly); coinciding outline points share an index so there are no degenerate triangles. The same mesh is drawn (`DesignScene` keeps one
   real-size geometry per chamfered shape, mesh scale 1, outline scaled instead) and fed to manifold as `Manifold.hull` (both shapes are convex).
 - Tests derive volumes independently (cross-section integrals, polygon frustums), check watertightness, and read pixels from the front view.
-- Stage B (an Edge tool for any edge, fillets) and the hole Countersink are not done yet; see PLAN section 11.
+
+## Edge treatments (chamfers and rounds on chosen edges, Stage B)
+- Data: `node.edges?: EdgeTreatment[]` (`{ id, kind: 'chamfer' | 'round', size, points, normals }`) on groups and shapes, **in the node's own frame**
+  (a group's contents frame, a shape's primitive frame: base centre at the origin, mm). Format version 3 (`MIGRATIONS[2]` is a no-op); validated in
+  `parseTreatments` (unit normals, finite bounded points, unique ids, at most 1000 per node). The field is left out when empty.
+- Finding edges: `sharpEdges(mesh)` (core/edges.ts) welds the mesh, keeps sides where two faces meet at more than 30 degrees **and** the solid is
+  convex there, re-joins straight edges the mesh split (same two faces, collinear), and chains gently turning runs into one polyline (a cylinder's
+  rim, closed). Concave edges are not offered (yet).
+- Cutting: `treatmentCuts` (geometry/edgeCut.ts) gives, per segment, a triangular prism to subtract (chamfer: set back `size` along both faces;
+  round: set back `r / tan(inside/2)`, minus a cylinder of radius `r` along the edge). The prism pokes 1 µm past the faces along the cut line so it
+  never lands exactly on a face, without moving the chamfer plane. Polyline segments overlap by `size` at the joints.
+- Applied in `Evaluation.treated` after a group's holes are cut (and to a shape's primitive before it is placed). **Before cutting, each treatment's
+  edge must still be one of the solid's sharp edges** (`edgeIsPresent`: every segment within 0.01 mm of an edge between faces facing the same ways
+  within 3 degrees); otherwise it is skipped and its id reported in `GroupMesh.skippedEdges`, never cut blindly.
+- Edges are part of `subtreeHash` (FORMAT v2), so a treated group is never shown with an old result.
+- Not done yet: the Edge tool itself (UI), showing skipped treatments, and loose shapes with treatments in the view (they export correctly).
 
 ## Rotation
 - Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre

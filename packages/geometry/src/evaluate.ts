@@ -1,5 +1,18 @@
-import { chamferedMesh, chamferOf, type DesignNode, MESH_SHAPE_TYPE, type MeshData, type NodeId, type ShapeNode } from '@holecraft/core';
+import {
+	chamferedMesh,
+	chamferOf,
+	type DesignNode,
+	type EdgeTreatment,
+	edgeIsPresent,
+	MESH_SHAPE_TYPE,
+	type MeshData,
+	type NodeId,
+	type ShapeNode,
+	sharpEdges,
+	type Vec3,
+} from '@holecraft/core';
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
+import { treatmentCuts } from './edgeCut.ts';
 import type { GroupMesh } from './types.ts';
 
 /** manifold wants a 16-number tuple; a node's transform is the same column-major matrix as a plain array. */
@@ -51,6 +64,8 @@ function build(M: ManifoldToplevel, design: Nodes, rootId: NodeId, placeRoot: bo
  */
 class Evaluation {
 	private readonly owned: Manifold[] = [];
+	/** Edge treatments left out because their edge is gone. */
+	private readonly skipped: string[] = [];
 
 	constructor(
 		private readonly M: ManifoldToplevel,
@@ -63,7 +78,8 @@ class Evaluation {
 		let result: Manifold | null = null;
 		if (root?.kind === 'group') result = placeRoot ? this.placed(rootId) : this.contents(rootId);
 		else if (root?.kind === 'shape' && placeRoot) result = this.shape(root);
-		return result && !result.isEmpty() ? toGroupMesh(result) : null;
+		const mesh = result && !result.isEmpty() ? toGroupMesh(result) : null;
+		return mesh && this.skipped.length ? { ...mesh, skippedEdges: [...this.skipped] } : mesh;
 	}
 
 	free(): void {
@@ -126,9 +142,46 @@ class Evaluation {
 		}
 	}
 
-	/** A shape as a manifold: its geometry, then placed by its own transform. */
+	/** A shape as a manifold: its geometry with any edge treatments, then placed by its own transform. */
 	private shape(node: ShapeNode): Manifold {
-		return this.track(this.primitive(node).transform(asMat4(node.transform)));
+		return this.track(this.treated(this.primitive(node), node.edges).transform(asMat4(node.transform)));
+	}
+
+	/**
+	 * `base` with its edge treatments cut (chamfers, rounds), in the frame they were stored in. A treatment whose edge is no longer
+	 * one of `base`'s sharp edges is skipped and reported, never cut blindly.
+	 */
+	private treated(base: Manifold, edges: readonly EdgeTreatment[] | undefined): Manifold {
+		if (!edges?.length) return base;
+		const mesh = toGroupMesh(base);
+		const found = mesh ? sharpEdges(mesh) : [];
+		const pieces: Manifold[] = [];
+		for (const treatment of edges) {
+			if (!edgeIsPresent(found, treatment)) {
+				this.skipped.push(treatment.id);
+				continue;
+			}
+			for (const cut of treatmentCuts(treatment)) {
+				const prism = this.track(this.M.Manifold.hull(cut.prism));
+				pieces.push(cut.keep ? this.track(prism.subtract(this.cylinder(cut.keep.from, cut.keep.to, cut.keep.radius))) : prism);
+			}
+		}
+		return pieces.length ? this.track(base.subtract(this.track(this.M.Manifold.union(pieces)))) : base;
+	}
+
+	/** A round cylinder from one point to another. */
+	private cylinder(from: Vec3, to: Vec3, radius: number): Manifold {
+		const axis: Vec3 = [to[0] - from[0], to[1] - from[1], to[2] - from[2]];
+		const length = Math.hypot(...axis);
+		const w = axis.map((v) => v / length) as Vec3;
+		// any direction square to the axis, then a third square to both
+		const pick: Vec3 = Math.abs(w[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
+		const u0: Vec3 = [w[1] * pick[2] - w[2] * pick[1], w[2] * pick[0] - w[0] * pick[2], w[0] * pick[1] - w[1] * pick[0]];
+		const u = u0.map((v) => v / Math.hypot(...u0)) as Vec3;
+		const v: Vec3 = [w[1] * u[2] - w[2] * u[1], w[2] * u[0] - w[0] * u[2], w[0] * u[1] - w[1] * u[0]];
+		const placed = [u[0], u[1], u[2], 0, v[0], v[1], v[2], 0, w[0], w[1], w[2], 0, from[0], from[1], from[2], 1];
+		const unitCylinder = this.track(this.M.Manifold.cylinder(length, radius, radius, CYLINDER_SEGMENTS, false));
+		return this.track(unitCylinder.transform(asMat4(placed)));
 	}
 
 	/** What a child of a group contributes (null for anything that makes no solid), and whether it cuts. */
@@ -154,7 +207,8 @@ class Evaluation {
 
 		const { Manifold } = this.M;
 		const joined = this.track(group.op === 'intersect' ? Manifold.intersection(solids) : Manifold.union(solids));
-		return holes.length === 0 ? joined : this.track(joined.subtract(this.track(Manifold.union(holes))));
+		const cut = holes.length === 0 ? joined : this.track(joined.subtract(this.track(Manifold.union(holes))));
+		return this.treated(cut, group.edges);
 	}
 
 	/** A nested group as seen from its parent: its contents, moved by its own transform. */

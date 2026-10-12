@@ -3,6 +3,7 @@ import {
 	DESIGN_FORMAT_VERSION,
 	type Design,
 	type DesignNode,
+	type EdgeTreatment,
 	type GroupNode,
 	MAX_NAME_LENGTH,
 	type NodeId,
@@ -73,6 +74,56 @@ function parseTransform(v: unknown, path: string): number[] {
 
 type Raw = Record<string, unknown>;
 
+export const MAX_EDGE_TREATMENTS = 1000;
+const MAX_EDGE_POINTS = 4097;
+const MAX_TREATMENT_ID = 64;
+
+function parsePoint(v: unknown, path: string): [number, number, number] {
+	if (!Array.isArray(v) || v.length !== 3 || !v.every((n) => isFiniteNumber(n) && Math.abs(n) <= MAX_COORDINATE)) {
+		fail(path, `must be a point: three finite numbers, none beyond ±${MAX_COORDINATE}`);
+	}
+	return [v[0] as number, v[1] as number, v[2] as number];
+}
+
+function parseDirection(v: unknown, path: string): [number, number, number] {
+	const p = parsePoint(v, path);
+	if (Math.abs(Math.hypot(...p) - 1) > 1e-3) fail(path, 'must be a direction (a vector of length 1)');
+	return p;
+}
+
+function parseTreatment(raw: unknown, path: string): EdgeTreatment {
+	if (!isRecord(raw)) fail(path, 'must be an object');
+	const id = str(raw.id, `${path}.id`, MAX_TREATMENT_ID);
+	if (raw.kind !== 'chamfer' && raw.kind !== 'round') fail(`${path}.kind`, 'must be "chamfer" or "round"');
+	if (!isFiniteNumber(raw.size) || raw.size <= 0 || raw.size > MAX_SHAPE_SIZE)
+		fail(`${path}.size`, `must be a number above 0 and up to ${MAX_SHAPE_SIZE}`);
+	if (!Array.isArray(raw.points) || raw.points.length < 2 || raw.points.length > MAX_EDGE_POINTS) {
+		fail(`${path}.points`, `must be a list of 2 to ${MAX_EDGE_POINTS} points`);
+	}
+	const points = raw.points.map((p, i) => parsePoint(p, `${path}.points.${i}`));
+	if (!Array.isArray(raw.normals) || raw.normals.length !== points.length - 1)
+		fail(`${path}.normals`, 'must give two face directions per segment');
+	const normals = raw.normals.map((pair, i) => {
+		if (!Array.isArray(pair) || pair.length !== 2) fail(`${path}.normals.${i}`, 'must be two face directions');
+		return [parseDirection(pair[0], `${path}.normals.${i}.0`), parseDirection(pair[1], `${path}.normals.${i}.1`)] as [
+			[number, number, number],
+			[number, number, number],
+		];
+	});
+	return { id, kind: raw.kind, size: raw.size, points, normals };
+}
+
+/** A node's edge treatments, or undefined for none (the field is then left out). */
+function parseTreatments(raw: unknown, path: string): EdgeTreatment[] | undefined {
+	if (raw === undefined) return undefined;
+	if (!Array.isArray(raw) || raw.length > MAX_EDGE_TREATMENTS)
+		fail(`${path}.edges`, `must be a list of up to ${MAX_EDGE_TREATMENTS} edge treatments`);
+	const list = raw.map((t, i) => parseTreatment(t, `${path}.edges.${i}`));
+	const ids = new Set(list.map((t) => t.id));
+	if (ids.size !== list.length) fail(`${path}.edges`, 'each treatment needs its own id');
+	return list.length ? list : undefined;
+}
+
 /** The fields every node has, whatever its kind. */
 function parseBase(key: string, raw: Raw, path: string): BaseNode {
 	if (raw.id !== key) fail(`${path}.id`, `must match the key "${key}"`);
@@ -80,6 +131,7 @@ function parseBase(key: string, raw: Raw, path: string): BaseNode {
 	if (mode !== 'solid' && mode !== 'hole') fail(`${path}.mode`, 'must be "solid" or "hole"');
 	if (typeof raw.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(raw.color)) fail(`${path}.color`, 'must be a #rrggbb colour');
 
+	const edges = parseTreatments(raw.edges, path);
 	return {
 		id: key,
 		name: str(raw.name, `${path}.name`, MAX_STORED_NAME),
@@ -88,6 +140,7 @@ function parseBase(key: string, raw: Raw, path: string): BaseNode {
 		color: raw.color.toLowerCase(),
 		hidden: bool(raw.hidden, `${path}.hidden`),
 		locked: bool(raw.locked, `${path}.locked`),
+		...(edges && { edges }),
 	};
 }
 
@@ -153,6 +206,8 @@ function parseNode(key: string, raw: unknown): DesignNode {
 const MIGRATIONS: Record<number, (design: Record<string, unknown>) => Record<string, unknown>> = {
 	// 1 -> 2: designs gain a palette of filament colours.
 	1: (design) => ({ ...design, palette: [...DEFAULT_PALETTE] }),
+	// 2 -> 3: nodes may carry edge treatments (chamfers and rounds on chosen edges). Nothing to change in older files.
+	2: (design) => design,
 };
 
 function migrate(raw: Record<string, unknown>): Record<string, unknown> {
