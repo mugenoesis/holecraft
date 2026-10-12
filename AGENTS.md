@@ -280,6 +280,13 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - `e2e/web/phone.spec.ts` measures real positions at 412x915 with touch (`isMobile`); add a check there when
   adding anything to the top bar. Look at a screenshot too (`scripts/screenshot.sh <url> out.png 412 915`).
 
+## Squarer screens (4:3, tablets)
+- `homeViewFor(aspect)` (core/camera.ts) backs the home camera off by 1.6 / aspect on windows squarer than 1.6 so the whole workplane
+  shows; `CameraRig` uses it for the opening view (until anyone moves the camera) and for `goHome()`. Don't use `HOME_VIEW` directly for
+  a live camera.
+- The top bar wraps (`flex-wrap`) instead of overflowing; the side panel order is Shapes, Properties, Arrange, Colours, Objects so Properties
+  is on screen without scrolling at 1024x768. `e2e/web/fourThree.spec.ts` measures this at 1024x768 and 800x600.
+
 ## Touch
 - `Viewport` treats `pointerType === 'touch'` separately: one finger = the left-button behaviour, except
   that dragging empty space orbits (no marquee); a second finger abandons the one-finger action

@@ -1,4 +1,4 @@
-import { cameraPosition, HOME_VIEW, type OrbitState } from '@holecraft/core';
+import { cameraPosition, HOME_VIEW, homeViewFor, type OrbitState } from '@holecraft/core';
 import * as THREE from 'three';
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 import { CameraRig, FOV_DEG, type Projection } from './CameraRig.ts';
@@ -9,7 +9,7 @@ let rig: CameraRig;
 beforeEach(() => {
 	onChange = vi.fn<(state: OrbitState, projection: Projection) => void>();
 	rig = new CameraRig(onChange);
-	rig.resize(1000, 800);
+	rig.resize(1600, 1000);
 	onChange.mockClear();
 });
 
@@ -84,7 +84,7 @@ describe('CameraRig projection', () => {
 		expect(cam).toBeInstanceOf(THREE.OrthographicCamera);
 		const halfHeight = HOME_VIEW.distance * Math.tan((FOV_DEG * Math.PI) / 360);
 		expect(cam.top).toBeCloseTo(halfHeight);
-		expect(cam.right).toBeCloseTo(halfHeight * (1000 / 800));
+		expect(cam.right).toBeCloseTo(halfHeight * (1600 / 1000));
 		expectCameraAt(HOME_VIEW);
 	});
 
@@ -147,5 +147,33 @@ describe('CameraRig.goTo', () => {
 		rig.goTo(d, { animate: false });
 		d.target[0] = 99;
 		expect(rig.state.target[0]).toBe(1);
+	});
+});
+
+describe('CameraRig on squarer windows', () => {
+	it('opens further back, so a 4:3 screen shows the whole workplane', () => {
+		const r = new CameraRig(() => {});
+		r.resize(1024, 768);
+		expect(r.state.distance).toBeCloseTo(homeViewFor(1024 / 768).distance);
+		expect(r.state.distance).toBeGreaterThan(HOME_VIEW.distance);
+	});
+
+	it('follows the window until the user moves the camera', () => {
+		const r = new CameraRig(() => {});
+		r.resize(1024, 768);
+		r.resize(800, 800);
+		expect(r.state.distance).toBeCloseTo(homeViewFor(1).distance);
+		r.zoomBy(0.5);
+		const kept = r.state.distance;
+		r.resize(1200, 600);
+		expect(r.state.distance).toBe(kept);
+	});
+
+	it('goHome uses the current window shape', () => {
+		const r = new CameraRig(() => {});
+		r.resize(800, 800);
+		r.zoomBy(0.3);
+		r.goHome({ animate: false });
+		expect(r.state.distance).toBeCloseTo(homeViewFor(1).distance);
 	});
 });

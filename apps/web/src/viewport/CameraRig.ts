@@ -1,4 +1,4 @@
-import { cameraPosition, HOME_VIEW, type OrbitState, orbit, pan, zoom } from '@holecraft/core';
+import { cameraPosition, HOME_VIEW, homeViewFor, type OrbitState, orbit, pan, zoom } from '@holecraft/core';
 import * as THREE from 'three';
 
 export type Projection = 'perspective' | 'orthographic';
@@ -34,6 +34,8 @@ export class CameraRig {
 	private width = 1;
 	private height = 1;
 	private animation: Animation | null = null;
+	/** True until the camera is moved by anyone: then the opening view still follows the window shape. */
+	private untouched = true;
 
 	constructor(private readonly onChange: (state: OrbitState, projection: Projection) => void) {
 		this.perspective.up.set(0, 0, 1);
@@ -66,6 +68,7 @@ export class CameraRig {
 		this.width = Math.max(1, width);
 		this.height = Math.max(1, height);
 		this.perspective.aspect = this.width / this.height;
+		if (this.untouched) this._state = homeViewFor(this.width / this.height);
 		this.updateCameras();
 		this.notify();
 	}
@@ -88,8 +91,14 @@ export class CameraRig {
 		this.notify();
 	}
 
+	/** Back to the home view for the current window shape. */
+	goHome(opts?: { animate?: boolean }): void {
+		this.goTo(homeViewFor(this.width / this.height), opts);
+	}
+
 	/** Moves to `state`, easing there unless told otherwise. */
 	goTo(state: OrbitState, { animate = true }: { animate?: boolean } = {}): void {
+		this.untouched = false;
 		if (!animate) {
 			this.set(copy(state));
 			return;
@@ -121,6 +130,7 @@ export class CameraRig {
 
 	/** User input wins over any animation in flight. */
 	private set(state: OrbitState): void {
+		this.untouched = false;
 		this.animation = null;
 		this.commit(state);
 	}

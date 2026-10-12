@@ -34,6 +34,19 @@ export const HOME_VIEW: Readonly<OrbitState> = Object.freeze({
 	distance: 330,
 });
 
+/** The window shape HOME_VIEW was tuned for (width / height); anything squarer needs to back away. */
+const HOME_ASPECT = 1.6;
+
+/**
+ * The home view for a window of the given width / height. The workplane is wider than the screen is
+ * tall on a squarer window (4:3, a tablet, a narrow browser), so the camera backs off in proportion
+ * and the whole workplane stays in view. Wide windows get HOME_VIEW itself.
+ */
+export function homeViewFor(aspect: number): OrbitState {
+	const factor = Number.isFinite(aspect) && aspect > 0 ? Math.max(1, HOME_ASPECT / aspect) : 1;
+	return { ...HOME_VIEW, target: [...HOME_VIEW.target], distance: Math.min(HOME_VIEW.distance * factor, MAX_DISTANCE) };
+}
+
 export type ViewPresetName = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'iso';
 
 export const VIEW_PRESETS: Readonly<Record<ViewPresetName, { azimuth: number; polar: number }>> = {
