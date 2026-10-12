@@ -5,13 +5,14 @@ import type { Subtree } from './types.ts';
 const FORMAT = 'v3'; // v2: edge treatments; v3: single shapes as roots
 
 /**
- * The top-level nodes drawn as one computed mesh: solid groups (their holes cut), and solid shapes with treated edges (their
- * chamfers and rounds cut). Inner groups are evaluated as part of their parent; hidden nodes and holes are left alone.
+ * The top-level nodes drawn as one computed mesh: groups (their holes cut), and shapes with treated edges (their chamfers and
+ * rounds cut). A hole is included: its ghost shows the finished shape, as the cut will use it, not every shape it is made from.
+ * Inner groups are evaluated as part of their parent; hidden nodes are left alone.
  */
 export function rootComputedNodes(design: Design): NodeId[] {
 	return design.roots.filter((id) => {
 		const node = design.nodes[id];
-		if (node?.mode !== 'solid' || node.hidden) return false;
+		if (!node || node.hidden) return false;
 		return node.kind === 'group' || (node.kind === 'shape' && (node.edges?.length ?? 0) > 0);
 	});
 }

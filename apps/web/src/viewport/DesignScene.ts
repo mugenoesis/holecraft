@@ -272,12 +272,12 @@ export class DesignScene {
 		obj.visible = !node.hidden;
 		if (obj.parent !== parent) parent.add(obj);
 
-		// Only a top-level solid group is drawn as a computed mesh; anything nested inside is part of it.
-		const result = node.id === rootId && node.mode === 'solid' && !ctx.failed.has(node.id) ? ctx.results.get(node.id) : undefined;
+		// Only a top-level group is drawn as a computed mesh (a hole's as a ghost of it); anything nested inside is part of it.
+		const result = node.id === rootId && !ctx.failed.has(node.id) ? ctx.results.get(node.id) : undefined;
 		for (const childId of node.children) this.place(design, childId, obj, rootId, isHole, covered || result !== undefined, ctx);
 		if (result) {
 			ctx.liveResults.add(node.id);
-			this.showResult(node.id, obj, node.color, result);
+			this.showResult(node.id, obj, node.color, result, undefined, isHole);
 		}
 	}
 
@@ -298,23 +298,29 @@ export class DesignScene {
 		if (!chamfered) mesh.scale.set(width, depth, height);
 		mesh.getObjectByName('selection-outline')?.scale.set(chamfered ? width : 1, chamfered ? depth : 1, chamfered ? height : 1);
 		// A top-level solid shape with treated edges is drawn from its computed mesh (see rootComputedNodes), placed where the shape is.
-		const result =
-			node.id === rootId && node.mode === 'solid' && !node.hidden && !ctx.failed.has(node.id) ? ctx.results.get(node.id) : undefined;
+		const result = node.id === rootId && !node.hidden && !ctx.failed.has(node.id) ? ctx.results.get(node.id) : undefined;
 		mesh.visible = !node.hidden && !covered && !result;
 		this.applyLook(mesh.material as THREE.MeshStandardMaterial, node.color, isHole);
 		if (mesh.parent !== parent) parent.add(mesh);
 		this.applySelection(mesh);
 		if (result) {
 			ctx.liveResults.add(node.id);
-			this.showResult(node.id, parent, node.color, result, node.transform);
+			this.showResult(node.id, parent, node.color, result, node.transform, isHole);
 		}
 	}
 
 	/**
 	 * Draws a computed mesh: a group's inside its group object (so it moves with the group), or a single shape's beside it, under
-	 * `placement` (the shape's transform).
+	 * `placement` (the shape's transform). `hole` draws it as a see-through ghost.
 	 */
-	private showResult(id: NodeId, groupObject: THREE.Object3D, color: string, result: GroupResult, placement?: readonly number[]): void {
+	private showResult(
+		id: NodeId,
+		groupObject: THREE.Object3D,
+		color: string,
+		result: GroupResult,
+		placement: readonly number[] | undefined,
+		hole: boolean,
+	): void {
 		const existing = this.resultMeshes.get(id);
 
 		if (!result.mesh) {
@@ -355,7 +361,7 @@ export class DesignScene {
 			entry.mesh.quaternion.identity();
 			entry.mesh.scale.set(1, 1, 1);
 		}
-		(entry.mesh.material as THREE.MeshStandardMaterial).color.set(color);
+		this.applyLook(entry.mesh.material as THREE.MeshStandardMaterial, color, hole); // a hole is a pale ghost, whatever its colour
 		entry.mesh.visible = true;
 		if (entry.mesh.parent !== groupObject) groupObject.add(entry.mesh);
 		this.applySelection(entry.mesh);

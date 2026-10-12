@@ -104,15 +104,17 @@ describe('GeometryService.update', () => {
 		expect(service.results().get('g')).toMatchObject({ mesh: null });
 	});
 
-	it('only evaluates top-level solid groups, not groups nested in them or hole groups', () => {
+	it('only evaluates top-level groups, not groups nested in them', () => {
 		let d = scene();
 		d = groupNodes(d, ['g', 's'], { id: 'outer' }).design;
 		service.update(d);
 		expect(jobs.map((j) => j.subtree.rootId)).toEqual(['outer']);
+	});
 
-		make();
+	it('evaluates a top-level hole group too, so its ghost is its finished shape', () => {
+		const d = groupNodes(scene(), ['g', 's'], { id: 'outer' }).design;
 		service.update(setNodeMode(d, ['outer'], 'hole'));
-		expect(jobs).toHaveLength(0);
+		expect(jobs.map((j) => j.subtree.rootId)).toEqual(['outer']);
 	});
 
 	it('works through several groups one at a time', async () => {

@@ -119,7 +119,8 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   shapes. It takes an injected `Evaluator`, so it is unit-tested with a fake one.
 - The real evaluator is `geometry.worker.ts` via `workerEvaluator.ts`. The worker and the
   ~540 kB wasm (`manifold-3d/manifold.wasm?url`, served as `application/wasm`) load lazily, on the
-  first group. Only **top-level solid groups** are evaluated (`rootSolidGroups`).
+  first group. Only **top-level groups** are evaluated (`rootComputedNodes`), **hole groups too**: a group turned into a hole is drawn as one ghost of its finished
+  shape (the same shape the cut uses), not as a ghost of every shape inside it; `showResult` applies the hole look (`applyLook`) to the computed mesh.
 - `DesignScene.sync(design, results, failed)` swaps a covered group's shapes for its result mesh
   (creased normals: boxes stay crisp, curves smooth). Picking and marquee use the result mesh.
 - Playwright tests prove cuts by **reading real pixels** from a top-down view (`pixelAt`): a cut
@@ -219,7 +220,7 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   edge must still be one of the solid's sharp edges** (`edgeIsPresent`: every segment within 0.01 mm of an edge between faces facing the same ways
   within 3 degrees); otherwise it is skipped and its id reported in `GroupMesh.skippedEdges`, never cut blindly.
 - Edges are part of `subtreeHash` (FORMAT v2), so a treated group is never shown with an old result.
-- **Loose shapes with treatments** are drawn from a computed mesh too: `rootComputedNodes` (was `rootSolidGroups`) lists top-level solid groups
+- **Loose shapes with treatments** are drawn from a computed mesh too: `rootComputedNodes` (was `rootSolidGroups`) lists top-level groups
   *and* top-level solid shapes with `edges`; `evaluateGroup` on a shape returns its treated primitive in its own frame (its hash ignores its
   transform); `DesignScene` hides the plain shape and shows the result beside it under the shape's transform.
 - Edits: `setEdgeTreatments` / `removeEdgeTreatments` (core/edgeEdits.ts). Reducer: `previewEdges` runs between `moveStart` and `moveEnd` like a

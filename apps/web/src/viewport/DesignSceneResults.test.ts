@@ -38,6 +38,50 @@ const resultMeshes = () => meshes().filter((m) => m.userData.isResult);
 const shape = (id: string) => meshes().find((m) => m.userData.nodeId === id)!;
 const ray = (x: number, y: number) => new THREE.Raycaster(new THREE.Vector3(x, y, 100), new THREE.Vector3(0, 0, -1));
 
+describe('DesignScene with a computed hole group', () => {
+	const asHole = () => setNodeMode(design, ['g'], 'hole');
+	const material = (m: THREE.Mesh) => m.material as THREE.MeshStandardMaterial;
+
+	it('draws the finished shape as one ghost, not every shape it was made from', () => {
+		scene.sync(asHole(), results('g', result(boxMesh(30, 20, 10))));
+		expect(resultMeshes()).toHaveLength(1);
+		expect(resultMeshes()[0]!.visible).toBe(true);
+		expect(shape('a').visible).toBe(false);
+		expect(shape('b').visible).toBe(false);
+	});
+
+	it('looks like any hole: pale, see-through and not hiding what is behind it', () => {
+		scene.sync(setNodeColor(asHole(), ['g'], '#336699'), results('g', result(boxMesh(30, 20, 10))));
+		const m = material(resultMeshes()[0]!);
+		expect(m.transparent).toBe(true);
+		expect(m.opacity).toBeCloseTo(0.35, 2);
+		expect(m.depthWrite).toBe(false);
+		expect(m.color.getHexString()).not.toBe('336699');
+	});
+
+	it('goes solid again, in its colour, when it is turned back to a solid', () => {
+		scene.sync(asHole(), results('g', result(boxMesh(30, 20, 10))));
+		scene.sync(design, results('g', result(boxMesh(30, 20, 10))));
+		const m = material(resultMeshes()[0]!);
+		expect(m.transparent).toBe(false);
+		expect(m.opacity).toBe(1);
+		expect(m.depthWrite).toBe(true);
+	});
+
+	it('can still be picked where the finished shape is, and not where it has been cut away', () => {
+		scene.sync(asHole(), results('g', result(boxMesh(30, 20, 10))));
+		expect(scene.pick(ray(15, 10))).toBe('g');
+		expect(scene.pick(ray(45, 10))).toBeNull();
+	});
+
+	it('falls back to the ghosts of its shapes while the finished shape is being worked out', () => {
+		scene.sync(asHole());
+		expect(resultMeshes()).toHaveLength(0);
+		expect(shape('a').visible).toBe(true);
+		expect(material(shape('a')).transparent).toBe(true);
+	});
+});
+
 describe('DesignScene with computed group shapes', () => {
 	it('draws the group as its computed mesh and hides the shapes it was made from', () => {
 		scene.sync(design, results('g', result(boxMesh(30, 20, 10))));
@@ -82,13 +126,6 @@ describe('DesignScene with computed group shapes', () => {
 		expect(shape('a').visible).toBe(false);
 		expect(shape('b').visible).toBe(false);
 		expect(scene.pick(ray(0, 0))).toBeNull();
-	});
-
-	it('ignores a result for a group that is a hole itself, which stays a ghost', () => {
-		scene.sync(setNodeMode(design, ['g'], 'hole'), results('g', result(boxMesh(30, 20, 10))));
-		expect(resultMeshes()).toHaveLength(0);
-		expect(shape('a').visible).toBe(true);
-		expect((shape('a').material as THREE.MeshStandardMaterial).transparent).toBe(true);
 	});
 
 	it("puts the result in the group's own frame, so moving the group moves it", () => {

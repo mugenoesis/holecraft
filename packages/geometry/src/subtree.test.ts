@@ -122,15 +122,18 @@ describe('subtreeOf', () => {
 });
 
 describe('rootComputedNodes', () => {
-	it('lists top-level solid groups only', () => {
+	it('lists top-level groups', () => {
 		let d = scene();
 		expect(rootComputedNodes(d)).toEqual(['g']);
 		d = groupNodes(d, ['g', 's'], { id: 'outer' }).design;
 		expect(rootComputedNodes(d)).toEqual(['outer']); // the inner group is evaluated as part of it
 	});
 
-	it('skips hole groups, which are drawn as ghosts, and hidden groups', () => {
-		expect(rootComputedNodes(setNodeMode(scene(), ['g'], 'hole'))).toEqual([]);
+	it('lists a top-level hole group too: its ghost is its finished shape, not all of its ingredients', () => {
+		expect(rootComputedNodes(setNodeMode(scene(), ['g'], 'hole'))).toEqual(['g']);
+	});
+
+	it('skips hidden groups', () => {
 		const hidden = scene();
 		hidden.nodes.g!.hidden = true;
 		expect(rootComputedNodes(hidden)).toEqual([]);
@@ -140,7 +143,8 @@ describe('rootComputedNodes', () => {
 		const d = scene();
 		const treated = { ...d, nodes: { ...d.nodes, s: { ...d.nodes.s!, edges: [TREATMENT] } } };
 		expect(rootComputedNodes(treated)).toEqual(['g', 's']);
-		expect(rootComputedNodes({ ...treated, nodes: { ...treated.nodes, s: { ...treated.nodes.s!, mode: 'hole' } } })).toEqual(['g']);
+		// a loose hole with treated edges is drawn treated as well
+		expect(rootComputedNodes({ ...treated, nodes: { ...treated.nodes, s: { ...treated.nodes.s!, mode: 'hole' } } })).toEqual(['g', 's']);
 		expect(rootComputedNodes({ ...treated, nodes: { ...treated.nodes, s: { ...treated.nodes.s!, hidden: true } } })).toEqual(['g']);
 	});
 
