@@ -31,8 +31,8 @@ export type MeshTable = ReadonlyMap<string, MeshData>;
 /**
  * Works out the single mesh a group makes: its solids joined together, minus its holes. The
  * result is in the group's own frame (the group's own transform is not applied, so moving a
- * group never means recomputing it). Returns null when nothing is left, or for anything that
- * is not a group.
+ * group never means recomputing it). A single shape (one with treated edges, drawn on its own) is
+ * likewise worked out in its own frame. Returns null when nothing is left, or for a missing node.
  *
  * manifold objects live in WASM memory and must be freed by hand, so every one created here is
  * tracked and deleted before returning, however it returns.
@@ -77,7 +77,7 @@ class Evaluation {
 		const root = this.design.nodes[rootId];
 		let result: Manifold | null = null;
 		if (root?.kind === 'group') result = placeRoot ? this.placed(rootId) : this.contents(rootId);
-		else if (root?.kind === 'shape' && placeRoot) result = this.shape(root);
+		else if (root?.kind === 'shape') result = placeRoot ? this.shape(root) : this.treated(this.primitive(root), root.edges);
 		const mesh = result && !result.isEmpty() ? toGroupMesh(result) : null;
 		return mesh && this.skipped.length ? { ...mesh, skippedEdges: [...this.skipped] } : mesh;
 	}

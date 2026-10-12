@@ -213,3 +213,42 @@ describe('DesignScene result bookkeeping', () => {
 		expect(freed).toBe(true);
 	});
 });
+
+describe('a single shape drawn from its computed mesh (it has treated edges)', () => {
+	/** Shape c (a cylinder at (0, 80)) stood in for by a 10 mm cube from its base centre up, in its own frame. */
+	const own = () => {
+		const m = boxMesh(10, 10, 10);
+		for (let i = 0; i < m.positions.length; i += 3) {
+			m.positions[i] = m.positions[i]! - 5;
+			m.positions[i + 1] = m.positions[i + 1]! - 5;
+		}
+		return m;
+	};
+
+	it('hides the plain shape and draws the result where the shape is', () => {
+		scene.sync(design, results('c', result(own())));
+		expect(shape('c').visible).toBe(false);
+		const drawn = resultMeshes().find((m) => m.userData.nodeId === 'c')!;
+		expect(drawn.visible).toBe(true);
+		expect(scene.pick(ray(0, 80))).toBe('c');
+		expect(scene.pick(ray(8, 80))).toBeNull(); // the plain 20 mm cylinder would reach here; the 10 mm result does not
+	});
+
+	it('follows the shape when it moves, without needing a new result', () => {
+		scene.sync(moveNodes(design, ['c'], [30, 0, 0]), results('c', result(own())));
+		expect(scene.pick(ray(30, 80))).toBe('c');
+		expect(scene.pick(ray(0, 80))).toBeNull();
+	});
+
+	it('goes back to the plain shape when the result goes away', () => {
+		scene.sync(design, results('c', result(own())));
+		scene.sync(design);
+		expect(shape('c').visible).toBe(true);
+		expect(resultMeshes().filter((m) => m.userData.nodeId === 'c')).toHaveLength(0);
+	});
+
+	it('ignores a result for a shape inside a group (only top-level ones are drawn on their own)', () => {
+		scene.sync(design, results('a', result(own())));
+		expect(resultMeshes().filter((m) => m.userData.nodeId === 'a')).toHaveLength(0);
+	});
+});

@@ -1,5 +1,5 @@
 import type { Design, MeshData, NodeId } from '@holecraft/core';
-import { type GroupMesh, meshRefsIn, rootSolidGroups, type Subtree, subtreeHash, subtreeOf } from '@holecraft/geometry';
+import { type GroupMesh, meshRefsIn, rootComputedNodes, type Subtree, subtreeHash, subtreeOf } from '@holecraft/geometry';
 
 /** Works out a group's shape. `meshes` holds the stored models of the imported shapes inside it. */
 export type Evaluator = (subtree: Subtree, meshes: ReadonlyMap<string, MeshData>) => Promise<GroupMesh | null>;
@@ -70,7 +70,7 @@ export class GeometryService {
 	 */
 	update(design: Design, meshes: ReadonlyMap<string, MeshData> = NO_MESHES): void {
 		if (this.disposed) return;
-		const ids = rootSolidGroups(design);
+		const ids = rootComputedNodes(design);
 		this.forgetGroupsNotIn(ids);
 		for (const id of ids) this.requestShape(design, id, meshes);
 		this.pump();

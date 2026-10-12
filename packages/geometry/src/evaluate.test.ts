@@ -94,11 +94,11 @@ describe('evaluateGroup', () => {
 		expect(evaluateGroup(M, d, 'g')).toBeNull();
 	});
 
-	it('returns null for a group with no solids, or for something that is not a group', () => {
+	it('returns null for a group with no solids, or a missing node; a single shape comes out in its own frame', () => {
 		const allHoles = setNodeMode(boxWithCylinder('hole'), ['a'], 'hole');
 		expect(evaluateGroup(M, allHoles, 'g')).toBeNull();
-		expect(evaluateGroup(M, boxWithCylinder('hole'), 'a')).toBeNull();
 		expect(evaluateGroup(M, boxWithCylinder('hole'), 'nope')).toBeNull();
+		expect(volume(evaluateGroup(M, boxWithCylinder('hole'), 'a')!)).toBeCloseTo(8000, 3);
 	});
 
 	it('honours positions, sizes and rotations of the shapes inside', () => {

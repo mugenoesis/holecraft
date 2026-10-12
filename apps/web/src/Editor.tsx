@@ -118,6 +118,7 @@ function EditorView({ initial }: { initial: Design }) {
 					onNudge={(delta) => dispatch({ type: 'nudge', delta })}
 					onGeometry={(id, geometry) => dispatch({ type: 'setGeometry', id, geometry })}
 					onRotation={(id, rotation) => dispatch({ type: 'setRotation', id, rotation })}
+					onRemoveEdges={(id, ids) => dispatch({ type: 'removeEdges', id, ids })}
 				/>
 				<aside className="panel">
 					<ShapesPanel onAddShape={(shape) => (plane ? addOnPlane(shape, plane, plane.origin) : addAt(shape, [0, 0]))} />
