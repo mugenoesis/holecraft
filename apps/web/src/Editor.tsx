@@ -1,5 +1,6 @@
 import type { Design, NodeId, ShapeType } from '@holecraft/core';
 import { useCallback, useEffect, useReducer, useState } from 'react';
+import { ArrangePanel } from './ArrangePanel.tsx';
 import { ApiError, getDesign, uploadThumbnail } from './designsApi.ts';
 import { useEditorShortcuts } from './editorShortcuts.ts';
 import { createEditorState, editorReducer } from './editorState.ts';
@@ -112,6 +113,7 @@ function EditorView({ initial }: { initial: Design }) {
 				<aside className="panel">
 					<ShapesPanel onAddShape={(shape) => addAt(shape, [0, 0])} />
 					<PalettePanel design={design} selection={state.selection} dispatch={dispatch} />
+					<ArrangePanel design={design} selection={state.selection} dispatch={dispatch} />
 					<PropertiesPanel design={design} selection={state.selection} dispatch={dispatch} />
 					<ObjectList design={design} selection={state.selection} onSelect={select} />
 				</aside>

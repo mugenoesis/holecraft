@@ -1,3 +1,4 @@
+export * from './arrange.ts';
 export * from './camera.ts';
 export * from './design.ts';
 export * from './edit.ts';

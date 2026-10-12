@@ -1091,3 +1091,27 @@ button.primary:disabled {
 		height: 28px;
 	}
 }
+
+/* Arrange panel: align grid and flip row */
+.arrange-grid {
+	display: grid;
+	grid-template-columns: auto repeat(3, 1fr);
+	gap: 4px;
+	align-items: center;
+	margin-bottom: 8px;
+}
+.arrange-grid .axis-label {
+	font-size: 12px;
+	color: var(--muted);
+}
+.arrange-grid button,
+.arrange-flip button {
+	padding: 4px 6px;
+}
+.arrange-flip {
+	display: flex;
+	gap: 4px;
+}
+.arrange-flip button {
+	flex: 1;
+}

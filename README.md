@@ -107,6 +107,8 @@ easy to back up or copy.
 | Solid / hole | Choose **Solid** or **Hole** under Type in the Properties panel (it applies to everything selected). A hole on its own is drawn as a pale see-through ghost, and keeps its colour for when you turn it back into a solid |
 | Cut a hole | Make a shape a **Hole**, position it where it overlaps a solid, then select both and **Group** them: the group becomes one solid with the hole cut out of it. Several solids in a group are joined together, and several holes all cut. Ungroup to get the separate shapes back, ghosts and all |
 | Group | Select two or more shapes and press **Group** or `Ctrl+G`. A group moves, nudges, duplicates, deletes, recolours and drops as one. A group is drawn as a single merged shape in the group's colour. Clicking any shape in it selects the whole group. Groups can be nested. Resize, lift and rotate handles are not available for groups yet |
+| Align | Select two or more objects and use the **Arrange** panel: for X, Y or Z, line up their low edges, centres or high edges at wherever the whole selection reaches. Locked objects stay put. One undo step |
+| Flip | **Flip X / Y / Z** in the Arrange panel mirrors the selection across a plane through the middle of everything selected (one object flips in place, several swap sides). Groups flip with their contents. Imported models cannot be flipped yet (the buttons are off) |
 | Ungroup | **Ungroup** or `Ctrl+Shift+G` opens a group one level, leaving every shape exactly where it was. Ungrouping a hole group turns its contents into holes |
 | Duplicate / delete | `Ctrl+D` / `Delete`, or the buttons in the Properties panel |
 | Undo / redo | `Ctrl+Z` / `Ctrl+Shift+Z` (or `Ctrl+Y`), or the Undo and Redo buttons. A whole drag is one step |
