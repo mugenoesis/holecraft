@@ -46,6 +46,7 @@ async function boxWithTool(page: Page) {
 	await expect(toolButton(page)).toHaveAttribute('aria-pressed', 'true');
 	await expect(edgeLines(page)).toHaveCount(12, { timeout: 15_000 });
 	await expect(frontRight(page).locator('line')).not.toHaveCount(0); // facing the camera, so drawn
+	await expect(page.locator('[data-testid="edge-line"][data-from="-10,10,0"][data-to="10,10,0"] line')).toHaveCount(0); // behind the box
 }
 
 test.describe('edge tool', () => {
@@ -86,6 +87,36 @@ test.describe('edge tool', () => {
 		await expect(page.locator('[data-testid="edge-line"].treated')).toHaveCount(0);
 		await page.keyboard.press('Control+z'); // the only step to undo is adding the box
 		await expect(page.getByText('Objects: 0')).toBeVisible();
+	});
+
+	test('closing the tool mid-preview drops the preview, with nothing to undo', async ({ page }) => {
+		await boxWithTool(page);
+		await clickEdge(page, frontRight(page));
+		await bar(page).getByLabel('Size', { exact: true }).fill('6');
+		await fromAbove(page);
+		await expect.poll(() => blueAtCorner(page), { timeout: 15_000 }).toBeGreaterThan(150); // previewed
+		await toolButton(page).click(); // close the tool (the Size box has focus, so E would type into it)
+		await expect(toolButton(page)).toHaveAttribute('aria-pressed', 'false');
+		await page.keyboard.press('Escape'); // deselect: the box's resize handles are back and one sits on the corner
+		await expect.poll(() => blueAtCorner(page), { timeout: 15_000 }).toBeLessThan(150);
+		await page.keyboard.press('Control+z'); // nothing was recorded: the only step is adding the box
+		await expect(page.getByText('Objects: 0')).toBeVisible();
+	});
+
+	test('Escape drops the chosen edges and their preview but keeps the part selected; a second Escape closes the tool', async ({ page }) => {
+		await boxWithTool(page);
+		await clickEdge(page, frontRight(page));
+		await bar(page).getByLabel('Size', { exact: true }).fill('6');
+		await fromAbove(page);
+		await expect.poll(() => blueAtCorner(page), { timeout: 15_000 }).toBeGreaterThan(150); // previewed
+		await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur()); // as after choosing with the mouse: not typing
+		await page.keyboard.press('Escape');
+		await expect(bar(page)).toContainText('Click an edge to choose it');
+		await expect(page.getByText('Selected: 1')).toBeVisible();
+		await expect.poll(() => blueAtCorner(page), { timeout: 15_000 }).toBeLessThan(150);
+		await page.keyboard.press('Escape');
+		await expect(toolButton(page)).toHaveAttribute('aria-pressed', 'false');
+		await expect(page.getByText('Selected: 1')).toBeVisible();
 	});
 
 	test('Shift adds edges, All outer edges takes every one, and a treated edge can be removed again', async ({ page }) => {

@@ -52,6 +52,7 @@ describe('the Edge tool preview', () => {
 		const { preview, calls } = recorder();
 		preview.show([EDGE], [0], 'chamfer', 2);
 		preview.show([EDGE], [], 'chamfer', 2);
+		expect(calls).toEqual(['start', 'preview a', 'cancel']); // dropping the choice alone cancels
 		preview.cancel();
 		preview.show(null, [0], 'chamfer', 2); // edges not found yet
 		preview.commit();

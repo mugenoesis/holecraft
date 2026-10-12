@@ -222,6 +222,9 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Drawing: `EdgeTool` projects each segment and keeps it only if `Viewport.canSee` its middle (a raycast: nothing shown is in front of it), as
   `<g data-testid="edge-line" data-from data-to class="plain|hover|chosen|treated">` in an SVG over the canvas; tests find an edge by its world ends.
   Clicks come through `useSurfaceTool`'s `onHoverAt` / `onClickAt` (view pixels; `add` is Shift or any touch). Hover clears on `pointerleave`.
+- **Escape belongs to the active tool**: `useSurfaceTool` listens in the capture phase and stops the event, so the editor's Escape (deselect)
+  doesn't run. Otherwise it deselects first and React re-renders between the two window listeners, unmounting the Edge tool before it hears the
+  key (a browser test caught this only with focus outside a text field: shortcuts skip typing targets).
 - The preview is a drag: the first choice dispatches `moveStart`, every change `previewEdges` built from the treatments as they were before the
   preview (`base`), Apply `moveEnd`, Cancel / clearing the choice / closing the tool `cancelDrag`. Remove is `moveStart` + `previewEdges` + `moveEnd`.
   With nothing usable selected the tool only shows a hint and does **not** take over the left button, so the view still selects.

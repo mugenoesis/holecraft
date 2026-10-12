@@ -1,4 +1,4 @@
-import { addShape, createEmptyDesign, type MeshEdge, moveNodes, type Vec3 } from '@holecraft/core';
+import { addShape, createEmptyDesign, type MeshEdge, moveNodes, setShapeSize, type Vec3 } from '@holecraft/core';
 import { describe, expect, it } from 'vitest';
 import { drawEdges, initialEdgeSize, sliderMax, statusText } from './edgeDrawing.ts';
 
@@ -73,6 +73,12 @@ describe('the bar', () => {
 		expect(sliderMax(design, 'a', 1)).toBe(10);
 		expect(sliderMax(design, 'a', 14)).toBe(14); // a bigger typed size stays reachable
 		expect(initialEdgeSize(design, 'missing')).toBe(1);
+	});
+
+	it('measures from the smallest side, not the largest', () => {
+		const flat = setShapeSize(design, 'a', { width: 60, height: 8 });
+		expect(sliderMax(flat, 'a', 0.4)).toBe(4);
+		expect(initialEdgeSize(flat, 'a')).toBe(0.4);
 	});
 
 	it('says what is going on', () => {

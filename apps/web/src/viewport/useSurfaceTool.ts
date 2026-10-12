@@ -70,20 +70,25 @@ export function useSurfaceTool(getViewport: () => Viewport | null, handlers: Han
 			const hit = viewport.pickSurface(e.clientX, e.clientY);
 			if (hit) onClick(hit);
 		};
+		// Escape belongs to the tool: heard before the editor's own shortcuts (capture) and kept from them, which would otherwise
+		// deselect first and, for the Edge tool, unmount it before it could hear the key.
 		const onKey = (e: KeyboardEvent) => {
-			if (e.key === 'Escape') latest.current.onEscape?.();
+			const { onEscape } = latest.current;
+			if (e.key !== 'Escape' || !onEscape) return;
+			e.stopImmediatePropagation();
+			onEscape();
 		};
 		el.addEventListener('pointermove', onMove);
 		el.addEventListener('pointerleave', onLeave);
 		el.addEventListener('pointerdown', onDown);
 		el.addEventListener('pointerup', onUp);
-		window.addEventListener('keydown', onKey);
+		window.addEventListener('keydown', onKey, true);
 		return () => {
 			el.removeEventListener('pointermove', onMove);
 			el.removeEventListener('pointerleave', onLeave);
 			el.removeEventListener('pointerdown', onDown);
 			el.removeEventListener('pointerup', onUp);
-			window.removeEventListener('keydown', onKey);
+			window.removeEventListener('keydown', onKey, true);
 			viewport.setSurfaceTool(false);
 		};
 	}, [getViewport]);
