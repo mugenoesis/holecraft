@@ -11,16 +11,22 @@ export type ShapeType =
 	| 'tube'
 	| 'torus';
 
-/** One setting a shape has besides its size, in mm (the Properties panel makes a field for each). */
+/**
+ * One setting a shape has besides its size (the Properties panel makes a field for each). It is kept as a share of the shape (0.3 is 30% of
+ * the radius), so the whole shape, setting included, stretches evenly when it is resized and nothing about it breaks; the field shows and takes mm.
+ */
 export interface ParamDef {
 	/** Where it is kept in the node's params. */
 	key: string;
 	label: string;
+	/** The share it starts at. */
 	default: number;
-	/** The least it may be. */
+	/** The least share it may be. */
 	min: number;
-	/** The most it may be for a shape of this width, depth and height: a wall can never fill the whole tube. */
-	limit: (size: readonly [number, number, number]) => number;
+	/** The most share it may be: a wall can never fill the whole tube. */
+	max: number;
+	/** How many mm a share of 1 is for a shape of this width, depth and height: what the Properties field shows and takes. */
+	mmPerUnit: (size: readonly [number, number, number]) => number;
 }
 
 export interface ShapeDef {
@@ -52,14 +58,16 @@ export const SHAPE_DEFS: readonly ShapeDef[] = [
 		name: 'Tube',
 		defaultSize: [20, 20, 20],
 		color: '#2a9d8f',
-		params: [{ key: 'wall', label: 'Wall thickness', default: 3, min: 0.2, limit: ([w, d]) => 0.95 * (Math.min(w, d) / 2) }],
+		// the wall is a share of the narrower radius: 0.3 of 10 mm is the 3 mm a 20 mm tube starts with
+		params: [{ key: 'wall', label: 'Wall thickness', default: 0.3, min: 0.02, max: 0.95, mmPerUnit: ([w, d]) => Math.min(w, d) / 2 }],
 	},
 	{
 		id: 'torus',
 		name: 'Torus',
 		defaultSize: [30, 30, 10],
 		color: '#e76f51',
-		params: [{ key: 'thickness', label: 'Ring thickness', default: 10, min: 0.5, limit: ([w, d]) => 0.9 * (Math.min(w, d) / 2) }],
+		// the ring's tube is a share of the narrower side: a third of 30 mm is the 10 mm a 30 mm torus starts with (at most 0.45, so a hole is left)
+		params: [{ key: 'thickness', label: 'Ring thickness', default: 1 / 3, min: 0.02, max: 0.45, mmPerUnit: ([w, d]) => Math.min(w, d) }],
 	},
 ];
 

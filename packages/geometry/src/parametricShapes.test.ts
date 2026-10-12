@@ -5,10 +5,12 @@ import {
 	groupGeometry,
 	groupNodes,
 	type ShapeNode,
+	setEdgeTreatments,
 	setGroupGeometry,
 	setNodeMode,
 	setShapeParam,
 	setShapeSize,
+	treatEdges,
 } from '@holecraft/core';
 import type { ManifoldToplevel } from 'manifold-3d';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -48,16 +50,18 @@ function one(type: 'tube' | 'torus', size: [number, number, number], settings: R
 }
 
 describe('the tube in the CSG engine', () => {
-	it('has the volume of the outer ellipse minus the inner, over its height', () => {
+	it('has the volume of the outer ellipse minus the same ellipse shrunk by the wall (3 mm of the 10 mm narrower radius is 30%)', () => {
 		const mesh = evaluateNode(M, one('tube', [20, 30, 12], { wall: 3 }), 'a')!;
-		expect(volume(mesh)).toBeCloseTo((area(10, 15) - area(7, 12)) * 12, 2);
+		expect(volume(mesh)).toBeCloseTo((area(10, 15) - area(7, 10.5)) * 12, 2);
 	});
 
-	it('keeps its wall at the thickness asked for when it is made bigger (the wall is in mm, not stretched)', () => {
-		const small = volume(evaluateNode(M, one('tube', [20, 20, 20], { wall: 2 }), 'a')!);
-		const big = volume(evaluateNode(M, one('tube', [40, 40, 20], { wall: 2 }), 'a')!);
-		expect(small).toBeCloseTo((area(10, 10) - area(8, 8)) * 20, 2);
-		expect(big).toBeCloseTo((area(20, 20) - area(18, 18)) * 20, 2);
+	it('stretches evenly when it is made bigger: the wall and the hole grow with it (the way Tinkercad scales a shape)', () => {
+		const small = one('tube', [20, 20, 20], { wall: 2 }); // 2 mm of the 10 mm radius: 20%
+		expect(volume(evaluateNode(M, small, 'a')!)).toBeCloseTo((area(10, 10) - area(8, 8)) * 20, 2);
+		const big = setShapeSize(small, 'a', { width: 40, depth: 40 });
+		expect(volume(evaluateNode(M, big, 'a')!)).toBeCloseTo((area(20, 20) - area(16, 16)) * 20, 2); // the wall is 4 mm now
+		const stretched = setShapeSize(small, 'a', { width: 40 });
+		expect(volume(evaluateNode(M, stretched, 'a')!)).toBeCloseTo((area(20, 10) - area(16, 8)) * 20, 2); // an oval tube with an oval hole
 	});
 
 	it('is limited rather than refused when the wall is too thick for the shape', () => {
@@ -94,7 +98,7 @@ describe('the tube in the CSG engine', () => {
 		expect(rims).toHaveLength(4);
 	});
 
-	it('keeps its wall when a group it is in is resized (the group stretches the size, not the wall)', () => {
+	it('stretches evenly with a group it is in: the wall and hole grow with the group', () => {
 		let d = addShape(createEmptyDesign('d'), 'tube', [0, 0], { id: 't' }).design;
 		d = setShapeParam(d, 't', 'wall', 2);
 		d = addShape(d, 'box', [0, 0], { id: 'b' }).design; // the same footprint, so the group is as wide as the tube
@@ -103,8 +107,32 @@ describe('the tube in the CSG engine', () => {
 		const resized = setGroupGeometry(d, 'g', { ...g, width: 40, depth: 40 });
 		const t = resized.nodes.t as ShapeNode;
 		expect(t.params.width).toBeCloseTo(40, 6);
-		expect(t.params.wall).toBe(2);
-		expect(volume(evaluateNode(M, resized, 't')!)).toBeCloseTo((area(20, 20) - area(18, 18)) * 20, 1);
+		expect(t.params.wall).toBeCloseTo(0.2, 9); // still 20% of the radius
+		expect(volume(evaluateNode(M, resized, 't')!)).toBeCloseTo((area(20, 20) - area(16, 16)) * 20, 1);
+	});
+
+	it('keeps its chamfers on their edges when it is resized (nothing breaks once it is made)', () => {
+		const plain = one('tube', [20, 20, 20], { wall: 3 });
+		const rims = toolEdges(M, plain, 'a').filter((e) => e.closed && e.points.every((p) => Math.abs(p[2] - 20) < 1e-6));
+		expect(rims).toHaveLength(2); // the outer and inner rim of the top
+		let n = 0;
+		const treated = setEdgeTreatments(
+			plain,
+			'a',
+			treatEdges([], rims, [0, 1], 'chamfer', 1, () => `t${++n}`),
+		);
+		const resized = setShapeSize(treated, 'a', { width: 40, depth: 30, height: 12 });
+		expect(evaluateNode(M, resized, 'a')!.skippedEdges ?? []).toEqual([]);
+		// the same chamfers made on the already-resized tube remove the same material
+		const direct = setShapeSize(plain, 'a', { width: 40, depth: 30, height: 12 });
+		const rims2 = toolEdges(M, direct, 'a').filter((e) => e.closed && e.points.every((p) => Math.abs(p[2] - 12) < 1e-6));
+		const chamfered = setEdgeTreatments(
+			direct,
+			'a',
+			treatEdges([], rims2, [0, 1], 'chamfer', 1, () => `u${++n}`),
+		);
+		const [got, wanted] = [volume(evaluateNode(M, resized, 'a')!), volume(evaluateNode(M, chamfered, 'a')!)];
+		expect(Math.abs(got - wanted) / wanted).toBeLessThan(0.005);
 	});
 });
 

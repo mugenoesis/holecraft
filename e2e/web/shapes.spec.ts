@@ -139,6 +139,30 @@ test.describe('shapes with settings of their own', () => {
 		expect(stl.max.map((v) => Math.round(v))).toEqual([15, 15, 10]);
 	});
 
+	test('resizing stretches the whole tube evenly: the wall field follows (3 mm at 20 wide, 6 mm at 40), and so does the export', async ({
+		page,
+	}) => {
+		await tile(page, 'Tube').click();
+		await row(page, 0).click();
+		await field(page, 'Width').fill('40');
+		await field(page, 'Width').press('Enter');
+		await field(page, 'Depth').fill('40');
+		await field(page, 'Depth').press('Enter');
+		await expect(field(page, 'Wall thickness')).toHaveValue('6');
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		expect((await exportStl(page)).volume).toBeCloseTo((disc(20) - disc(14)) * 20, 1); // the hole is 70% of the outside, as it was
+	});
+
+	test('a torus’s ring thickens with it when resized (10 mm at 30 wide, 20 mm at 60)', async ({ page }) => {
+		await tile(page, 'Torus').click();
+		await row(page, 0).click();
+		await field(page, 'Width').fill('60');
+		await field(page, 'Width').press('Enter');
+		await field(page, 'Depth').fill('60');
+		await field(page, 'Depth').press('Enter');
+		await expect(field(page, 'Ring thickness')).toHaveValue('20');
+	});
+
 	test('undo puts the wall back', async ({ page }) => {
 		await tile(page, 'Tube').click();
 		await row(page, 0).click();

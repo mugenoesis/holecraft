@@ -53,19 +53,21 @@ describe('DesignScene: the tube', () => {
 		expect(scene.pick(down(5, 0))).toBe('a'); // the wall now runs from 4 to 10 mm out
 	});
 
-	it('keeps its wall in mm when resized, and frees the old geometry', () => {
-		let d = one('tube', [20, 20, 20]);
+	it('stretches evenly when resized: the hole grows with the shape, and the old geometry is freed', () => {
+		let d = one('tube', [20, 20, 20]); // a 3 mm wall: a hole 7 mm out
 		scene.sync(d);
 		const first = meshOf().geometry;
 		let disposed = false;
 		first.addEventListener('dispose', () => {
 			disposed = true;
 		});
+		expect(scene.pick(down(8.5, 0))).toBe('a');
 		d = setShapeSize(d, 'a', { width: 40, depth: 40 });
 		scene.sync(d);
 		expect(disposed).toBe(true);
-		expect(scene.pick(down(15, 0))).toBeNull(); // the hole is 14 mm out, so 15 is in the wall... a 3 mm wall from 17 to 20
-		expect(scene.pick(down(18.5, 0))).toBe('a');
+		// the wall is 6 mm now, from 14 to 20 mm out
+		expect(scene.pick(down(12, 0))).toBeNull();
+		expect(scene.pick(down(15, 0))).toBe('a');
 	});
 });
 

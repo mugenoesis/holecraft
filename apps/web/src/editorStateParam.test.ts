@@ -8,7 +8,7 @@ const wall = (s: ReturnType<typeof start>) => (s.history.present.nodes.a as Shap
 describe('setShapeParam', () => {
 	it('sets a setting as one undo step', () => {
 		let s = editorReducer(start(), { type: 'setShapeParam', id: 'a', key: 'wall', value: 5 });
-		expect(wall(s)).toBe(5);
+		expect(wall(s)).toBeCloseTo(0.5, 9); // kept as a share of the shape: 5 mm of the 10 mm radius
 		expect(canUndo(s.history)).toBe(true);
 		s = editorReducer(s, { type: 'undo' });
 		expect(wall(s)).toBeUndefined();
