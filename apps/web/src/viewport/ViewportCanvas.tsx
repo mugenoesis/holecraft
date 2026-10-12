@@ -12,6 +12,7 @@ import {
 	shapeCenter,
 	translationOf,
 	type Vec3,
+	type WorkPlane,
 } from '@holecraft/core';
 import { meshRefsIn } from '@holecraft/geometry';
 import { useEffect, useRef, useState } from 'react';
@@ -23,10 +24,12 @@ import { HandlesOverlay } from './HandlesOverlay.tsx';
 import { RotationRings } from './RotationRings.tsx';
 import { RulerOverlay } from './RulerOverlay.tsx';
 import { shapeDropHandlers } from './shapeDrop.ts';
+import type { SurfaceTool } from './surfaceTool.ts';
 import { ViewCube } from './ViewCube.tsx';
 import { type PixelRect, Viewport } from './Viewport.ts';
 import { ViewToolbar } from './ViewToolbar.tsx';
 import { useViewKeys } from './viewKeys.ts';
+import { WorkplaneTool } from './WorkplaneTool.tsx';
 
 interface Props {
 	design: Design;
@@ -34,6 +37,10 @@ interface Props {
 	meshes: ReadonlyMap<string, MeshData>;
 	selection: readonly NodeId[];
 	onDropShape: (type: ShapeType, at: [number, number]) => void;
+	/** The Workplane tool's plane, or null for the floor, and what to do when the tool picks one. */
+	plane: WorkPlane | null;
+	onPlane: (plane: WorkPlane | null) => void;
+	onDropOnPlane: (type: ShapeType, plane: WorkPlane, point: Vec3) => void;
 	onPick: (id: NodeId | null, additive: boolean, phase: 'down' | 'click') => void;
 	onMoveStart: () => void;
 	onMove: (delta: [number, number]) => void;
@@ -98,7 +105,8 @@ export function ViewportCanvas(props: Props) {
 	const [failed, setFailed] = useState(false);
 	const [marquee, setMarquee] = useState<PixelRect | null>(null);
 	const [dimensionLabel, setDimensionLabel] = useState<string | null>(null);
-	const [rulerOn, setRulerOn] = useState(false);
+	const [tool, setTool] = useState<SurfaceTool | null>(null);
+	const toggleTool = (t: SurfaceTool) => setTool((now) => (now === t ? null : t));
 	const [camera, setCamera] = useState<{ state: OrbitState; projection: Projection }>({ state: HOME_VIEW, projection: 'perspective' });
 	const cameraRef = useRef(camera);
 	cameraRef.current = camera;
@@ -184,9 +192,19 @@ export function ViewportCanvas(props: Props) {
 		viewportRef.current?.setSelection(selection);
 	}, [selection]);
 
-	useViewKeys({ viewport: viewportRef, camera: cameraRef, latest, onToggleRuler: () => setRulerOn((on) => !on) });
+	// biome-ignore lint/correctness/useExhaustiveDependencies: width and depth rebuild the Viewport, which starts without the marker
+	useEffect(() => {
+		viewportRef.current?.setPlaneMarker(props.plane);
+	}, [props.plane, width, depth]);
 
-	const { onDragOver, onDrop } = shapeDropHandlers(viewportRef, design.grid, onDropShape);
+	useViewKeys({ viewport: viewportRef, camera: cameraRef, latest, onToggleTool: toggleTool });
+
+	const { onDragOver, onDrop } = shapeDropHandlers(
+		viewportRef,
+		design.grid,
+		onDropShape,
+		props.plane && { plane: props.plane, onDrop: props.onDropOnPlane },
+	);
 
 	const { state, projection } = camera;
 	const selected = selectedShape(design, selection);
@@ -221,9 +239,16 @@ export function ViewportCanvas(props: Props) {
 				</div>
 			) : (
 				<>
-					<ViewToolbar viewport={viewportRef} projection={projection} rulerOn={rulerOn} onToggleRuler={() => setRulerOn((on) => !on)} />
+					<ViewToolbar
+						viewport={viewportRef}
+						projection={projection}
+						tool={tool}
+						onToggleTool={toggleTool}
+						planeActive={props.plane !== null}
+						onResetPlane={() => props.onPlane(null)}
+					/>
 					<ViewCube camera={state} onSelect={(view) => viewportRef.current?.setView(view)} />
-					{selected?.upright && (
+					{!tool && selected?.upright && (
 						<HandlesOverlay
 							key={selected.id}
 							nodeId={selected.id}
@@ -237,7 +262,7 @@ export function ViewportCanvas(props: Props) {
 							onLabel={setDimensionLabel}
 						/>
 					)}
-					{selected && (
+					{!tool && selected && (
 						<RotationRings
 							key={`rings-${selected.id}`}
 							nodeId={selected.id}
@@ -251,13 +276,16 @@ export function ViewportCanvas(props: Props) {
 							onLabel={setDimensionLabel}
 						/>
 					)}
-					{rulerOn && (
+					{tool === 'workplane' && (
+						<WorkplaneTool getViewport={() => viewportRef.current} onPlane={props.onPlane} onClose={() => setTool(null)} />
+					)}
+					{tool === 'ruler' && (
 						<RulerOverlay
 							getViewport={() => viewportRef.current}
 							units={design.units}
 							snap={design.grid.snap}
 							camera={camera}
-							onClose={() => setRulerOn(false)}
+							onClose={() => setTool(null)}
 						/>
 					)}
 					{dimensionLabel && (

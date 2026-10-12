@@ -12,11 +12,13 @@ import {
 	translationOf,
 	type Vec3,
 	type ViewPresetName,
+	type WorkPlane,
 } from '@holecraft/core';
 import * as THREE from 'three';
 import type { GroupResult } from '../geometry/GeometryService.ts';
 import { CameraRig, FOV_DEG, type Projection } from './CameraRig.ts';
 import { DesignScene } from './DesignScene.ts';
+import { createPlaneMarker } from './planeMarker.ts';
 import { thumbnailCamera } from './thumbnailCamera.ts';
 import { type Point, twoFingerStep } from './touchGesture.ts';
 import { createWorkplane } from './workplane.ts';
@@ -50,8 +52,8 @@ const WHEEL_RATE = 0.001;
 const DRAG_THRESHOLD = 4;
 
 /** What a press that has started to move becomes. Shift-pressing a shape only toggles it, so it doesn't start a move. */
-function dragModeFor(press: LeftPress, rulerOn: boolean): LeftPress['mode'] {
-	if (press.id === null) return press.touch || rulerOn ? 'orbit' : 'marquee';
+function dragModeFor(press: LeftPress, surfaceToolOn: boolean): LeftPress['mode'] {
+	if (press.id === null) return press.touch || surfaceToolOn ? 'orbit' : 'marquee';
 	return press.additive ? 'none' : 'move';
 }
 
@@ -98,7 +100,8 @@ export class Viewport {
 	private readonly fingers = new Map<number, Point>();
 	private pinch: [Point, Point] | null = null;
 	/** While the ruler is on, the left button no longer selects or moves: clicks belong to the ruler and dragging orbits. */
-	private rulerOn = false;
+	private surfaceToolOn = false;
+	private planeMarker: THREE.Object3D | null = null;
 
 	constructor(
 		private readonly host: HTMLElement,
@@ -191,10 +194,12 @@ export class Viewport {
 			renderer.setPixelRatio(1);
 			renderer.setSize(width, height, false);
 			if (this.workplane) this.workplane.visible = false;
+			if (this.planeMarker) this.planeMarker.visible = false;
 			try {
 				this.designScene.withoutSelection(() => renderer.render(this.scene, camera));
 			} finally {
 				if (this.workplane) this.workplane.visible = true;
+				if (this.planeMarker) this.planeMarker.visible = true;
 			}
 			return await new Promise<Blob | null>((resolve) => renderer.domElement.toBlob(resolve, 'image/png'));
 		} finally {
@@ -247,8 +252,28 @@ export class Viewport {
 		return { x: ((p.x + 1) / 2) * this.host.clientWidth, y: ((1 - p.y) / 2) * this.host.clientHeight };
 	}
 
-	setRuler(on: boolean): void {
-		this.rulerOn = on;
+	/** While a surface tool (ruler, workplane) is on, the left button no longer selects or moves: clicks belong to the tool and dragging orbits. */
+	setSurfaceTool(on: boolean): void {
+		this.surfaceToolOn = on;
+	}
+
+	/** Shows the Workplane tool's plane as a gridded square on the surface, or removes it. */
+	setPlaneMarker(plane: WorkPlane | null): void {
+		if (this.planeMarker) {
+			this.scene.remove(this.planeMarker);
+			this.planeMarker.traverse((o) => {
+				if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
+					o.geometry.dispose();
+					(o.material as THREE.Material).dispose();
+				}
+			});
+			this.planeMarker = null;
+		}
+		if (plane) {
+			this.planeMarker = createPlaneMarker(plane);
+			this.scene.add(this.planeMarker);
+		}
+		this.requestRender();
 	}
 
 	/** The element pointer events arrive on, for overlays that listen alongside the viewport. */
@@ -419,10 +444,10 @@ export class Viewport {
 	}
 
 	private beginLeftPress(e: PointerEvent): void {
-		const id = this.rulerOn ? null : this.pickNode(e.clientX, e.clientY);
+		const id = this.surfaceToolOn ? null : this.pickNode(e.clientX, e.clientY);
 		const additive = e.shiftKey;
 		if (e.pointerType !== 'touch') this.canvas.setPointerCapture(e.pointerId);
-		if (!this.rulerOn) this.opts.onPick(id, additive, 'down');
+		if (!this.surfaceToolOn) this.opts.onPick(id, additive, 'down');
 		const node = id !== null ? this.design?.nodes[id] : undefined;
 		const planeZ = node ? translationOf(node.transform)[2] : 0;
 		this.left = {
@@ -450,7 +475,7 @@ export class Viewport {
 	/** Once the pointer has travelled far enough, decides what the press has become. False while it is still a click. */
 	private beginDrag(press: LeftPress, e: PointerEvent): boolean {
 		if (Math.hypot(e.clientX - press.startX, e.clientY - press.startY) < DRAG_THRESHOLD) return false;
-		press.mode = dragModeFor(press, this.rulerOn);
+		press.mode = dragModeFor(press, this.surfaceToolOn);
 		if (press.mode === 'move') this.opts.onMoveStart();
 		return true;
 	}
@@ -484,7 +509,7 @@ export class Viewport {
 				maxY: toNdcY(r.y),
 			});
 			this.opts.onMarquee(ids, press.additive);
-		} else if (press.mode === null && !this.rulerOn) {
+		} else if (press.mode === null && !this.surfaceToolOn) {
 			this.opts.onPick(press.id, press.additive, 'click');
 		}
 	}

@@ -1,4 +1,4 @@
-import type { Design, NodeId, ShapeType } from '@holecraft/core';
+import type { Design, NodeId, ShapeType, Vec3, WorkPlane } from '@holecraft/core';
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { ArrangePanel } from './ArrangePanel.tsx';
 import { ApiError, getDesign, uploadThumbnail } from './designsApi.ts';
@@ -70,6 +70,12 @@ function EditorView({ initial }: { initial: Design }) {
 	useDocumentTitle(design.name);
 	useEditorShortcuts(dispatch);
 
+	// The Workplane tool's plane (not saved): new shapes stand on it instead of on the floor.
+	const [plane, setPlane] = useState<WorkPlane | null>(null);
+	const addOnPlane = useCallback(
+		(shape: ShapeType, onPlane: WorkPlane, point: Vec3) => dispatch({ type: 'addOnPlane', shape, plane: onPlane, point }),
+		[],
+	);
 	const addAt = useCallback((shape: ShapeType, at: [number, number]) => dispatch({ type: 'add', shape, at }), []);
 	// A list row is a complete click: the press selects (shift toggles), and the release narrows a
 	// multi-selection down to the clicked row, which the viewport only does when nothing was dragged.
@@ -101,6 +107,9 @@ function EditorView({ initial }: { initial: Design }) {
 					onThumbnail={(picture) => uploadThumbnail(design.id, picture)}
 					selection={state.selection}
 					onDropShape={addAt}
+					plane={plane}
+					onPlane={setPlane}
+					onDropOnPlane={addOnPlane}
 					onPick={(id, additive, phase) => dispatch({ type: 'pick', id, additive, phase })}
 					onMoveStart={() => dispatch({ type: 'moveStart' })}
 					onMove={(delta) => dispatch({ type: 'move', delta })}
@@ -111,7 +120,7 @@ function EditorView({ initial }: { initial: Design }) {
 					onRotation={(id, rotation) => dispatch({ type: 'setRotation', id, rotation })}
 				/>
 				<aside className="panel">
-					<ShapesPanel onAddShape={(shape) => addAt(shape, [0, 0])} />
+					<ShapesPanel onAddShape={(shape) => (plane ? addOnPlane(shape, plane, plane.origin) : addAt(shape, [0, 0]))} />
 					<PropertiesPanel design={design} selection={state.selection} dispatch={dispatch} />
 					<ArrangePanel design={design} selection={state.selection} dispatch={dispatch} />
 					<PalettePanel design={design} selection={state.selection} dispatch={dispatch} />

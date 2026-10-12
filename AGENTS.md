@@ -159,6 +159,16 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   the left button selecting/moving and makes empty-space drags orbit. The maths (`measureBetween`, `snapMeasuredPoint`, `nextRuler`,
   `formatLength`) is pure, in core/ruler.ts. Ruler state is React state only: it is never in the design or undo history.
 
+## Workplane tool
+- core/surfacePlane.ts: `WorkPlane = { origin, normal }`, `planeFrame(normal)` (rotation with local z = normal, local x horizontal, so a wall's
+  shape has y up), `planeCoords/planePoint/snapOnPlane` (grid measured from the plane origin), `addShapeOnPlane` (reducer action `addOnPlane`;
+  lifts a shape that would dip below z = 0; undersides refused via `isUsablePlane`). Like `add`, it leaves the selection alone.
+- The plane is editor state in `Editor` (`plane`), never in the design or undo history. `Viewport.setPlaneMarker` draws it (planeMarker.ts, raycast
+  disabled so tools aim through it, hidden in thumbnails). The Shapes panel and drag-drop (`shapeDropHandlers`) place on it when set.
+- Surface tools (ruler, workplane) share `useSurfaceTool`: it calls `Viewport.setSurfaceTool(true)` (left button stops selecting/moving, drags orbit)
+  and reports hover and click on `pickSurface`. `ViewportCanvas` holds the one active `SurfaceTool` and hides the resize/rotate handles meanwhile,
+  because they sit over the canvas and would swallow the clicks. Not done: moving existing shapes on a tilted plane.
+
 ## Rotation
 - Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre
   position). Sizes stay as local params, so a mesh is just position, quaternion and scale.

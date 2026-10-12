@@ -1,6 +1,7 @@
 import { type Design, nudgeDirections, type OrbitState } from '@holecraft/core';
 import { type RefObject, useEffect } from 'react';
 import { isTypingTarget } from '../keyboard.ts';
+import type { SurfaceTool } from './surfaceTool.ts';
 import type { Viewport } from './Viewport.ts';
 
 const ARROWS: Readonly<Record<string, readonly [number, number]>> = {
@@ -29,32 +30,33 @@ interface Targets {
 	camera: RefObject<{ state: OrbitState }>;
 	/** The latest design and nudge handler (read at the time of the key press). */
 	latest: RefObject<{ design: Design; onNudge: (delta: [number, number]) => void }>;
-	/** R: turns the ruler on or off. */
-	onToggleRuler: () => void;
+	/** R and W: turn the ruler or the Workplane tool on or off. */
+	onToggleTool: (tool: SurfaceTool) => void;
 }
 
 /** The view commands on a plain key, by lower-case key name. */
-function viewCommand(key: string, viewport: Viewport | null, onToggleRuler: () => void): (() => void) | undefined {
+function viewCommand(key: string, viewport: Viewport | null, onToggleTool: (tool: SurfaceTool) => void): (() => void) | undefined {
 	const commands: Record<string, () => void> = {
 		home: () => viewport?.home(),
 		f: () => viewport?.fitAll(),
-		r: onToggleRuler,
+		r: () => onToggleTool('ruler'),
+		w: () => onToggleTool('workplane'),
 	};
 	return Object.hasOwn(commands, key.toLowerCase()) ? commands[key.toLowerCase()] : undefined;
 }
 
 /** Arrow keys nudge the selection; Home resets the view, F frames everything and R is the ruler. Ignored while typing. */
-export function useViewKeys({ viewport, camera, latest, onToggleRuler }: Targets): void {
+export function useViewKeys({ viewport, camera, latest, onToggleTool }: Targets): void {
 	useEffect(() => {
 		const onKeyDown = (e: KeyboardEvent) => {
 			if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
 			const nudge = nudgeForKey(e.key, e.shiftKey, latest.current.design.grid.snap, camera.current.state.azimuth);
-			const run = nudge ? () => latest.current.onNudge(nudge) : viewCommand(e.key, viewport.current, onToggleRuler);
+			const run = nudge ? () => latest.current.onNudge(nudge) : viewCommand(e.key, viewport.current, onToggleTool);
 			if (!run) return;
 			run();
 			e.preventDefault();
 		};
 		window.addEventListener('keydown', onKeyDown);
 		return () => window.removeEventListener('keydown', onKeyDown);
-	}, [viewport, camera, latest, onToggleRuler]);
+	}, [viewport, camera, latest, onToggleTool]);
 }

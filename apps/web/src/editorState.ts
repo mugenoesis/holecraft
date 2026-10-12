@@ -4,6 +4,7 @@ import {
 	addMeshShape,
 	addPaletteColor,
 	addShape,
+	addShapeOnPlane,
 	alignNodes,
 	canUndo,
 	createHistory,
@@ -45,6 +46,8 @@ import {
 	toggleSelection,
 	undo,
 	ungroupNodes,
+	type Vec3,
+	type WorkPlane,
 } from '@holecraft/core';
 
 /** Where a duplicate lands relative to the original, in mm. */
@@ -61,6 +64,8 @@ export interface EditorState {
 
 export type EditorAction =
 	| { type: 'add'; shape: ShapeType; at: [number, number] }
+	// A shape standing on the Workplane tool's plane (its base on the surface, going out of it) at a point on that plane.
+	| { type: 'addOnPlane'; shape: ShapeType; plane: WorkPlane; point: Vec3 }
 	/** An imported model, already stored on the server (see importModel). */
 	| { type: 'addMesh'; input: MeshShapeInput; at?: [number, number] }
 	// 'down' is the pointer press; 'click' is the release when nothing was dragged.
@@ -213,6 +218,11 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 	switch (action.type) {
 		case 'add':
 			return commit(state, addShape(design, action.shape, action.at).design);
+
+		case 'addOnPlane': {
+			const added = addShapeOnPlane(design, action.shape, action.plane, action.point);
+			return added.id ? commit(state, added.design) : state; // like adding on the floor, the selection is left alone
+		}
 
 		case 'addMesh': {
 			const added = addMeshShape(design, action.input, { at: action.at });

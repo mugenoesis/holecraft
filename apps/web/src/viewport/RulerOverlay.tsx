@@ -1,5 +1,6 @@
 import { formatLength, measureBetween, nextRuler, type RulerState, snapMeasuredPoint, type Units, type Vec3 } from '@holecraft/core';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
+import { type SurfaceHit, useSurfaceTool } from './useSurfaceTool.ts';
 import type { Viewport } from './Viewport.ts';
 
 interface Props {
@@ -12,9 +13,6 @@ interface Props {
 	onClose: () => void;
 }
 
-/** Pixels the pointer may travel between press and release and still count as a click (not an orbit). */
-const CLICK_SLOP = 4;
-
 /**
  * The ruler: while it is on, clicks on a shape's face or on the workplane drop the start and then the end
  * of a measurement (a third click starts over), and the readout shows the distance and the offset on each
@@ -25,50 +23,13 @@ export function RulerOverlay({ getViewport, units, snap, camera: _camera, onClos
 	const [hover, setHover] = useState<Vec3 | null>(null);
 	const rulerRef = useRef(ruler);
 	rulerRef.current = ruler;
-	const snapRef = useRef(snap);
-	snapRef.current = snap;
-	const closeRef = useRef(onClose);
-	closeRef.current = onClose;
 
-	useEffect(() => {
-		const viewport = getViewport();
-		if (!viewport) return;
-		viewport.setRuler(true);
-		const el = viewport.element;
-		const surface = (e: PointerEvent): Vec3 | null => {
-			const hit = viewport.pickSurface(e.clientX, e.clientY);
-			return hit ? snapMeasuredPoint(hit.point, hit.normal, snapRef.current) : null;
-		};
-		let down: { x: number; y: number } | null = null;
-		const onMove = (e: PointerEvent) => {
-			if (e.buttons === 0) setHover(surface(e));
-		};
-		const onDown = (e: PointerEvent) => {
-			down = e.button === 0 ? { x: e.clientX, y: e.clientY } : null;
-		};
-		const onUp = (e: PointerEvent) => {
-			if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > CLICK_SLOP) return;
-			down = null;
-			const point = surface(e);
-			if (point) setRuler(nextRuler(rulerRef.current, point));
-		};
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key !== 'Escape') return;
-			if (rulerRef.current.a) setRuler({ a: null, b: null });
-			else closeRef.current();
-		};
-		el.addEventListener('pointermove', onMove);
-		el.addEventListener('pointerdown', onDown);
-		el.addEventListener('pointerup', onUp);
-		window.addEventListener('keydown', onKey);
-		return () => {
-			el.removeEventListener('pointermove', onMove);
-			el.removeEventListener('pointerdown', onDown);
-			el.removeEventListener('pointerup', onUp);
-			window.removeEventListener('keydown', onKey);
-			viewport.setRuler(false);
-		};
-	}, [getViewport]);
+	const snapped = (hit: SurfaceHit) => snapMeasuredPoint(hit.point, hit.normal, snap);
+	useSurfaceTool(getViewport, {
+		onHover: (hit) => setHover(hit ? snapped(hit) : null),
+		onClick: (hit) => setRuler(nextRuler(rulerRef.current, snapped(hit))),
+		onEscape: () => (rulerRef.current.a ? setRuler({ a: null, b: null }) : onClose()),
+	});
 
 	const viewport = getViewport();
 	const end = ruler.b ?? hover;
