@@ -3,6 +3,7 @@ import type { Dispatch } from 'react';
 import { ChamferFields } from './ChamferFields.tsx';
 import { CountersinkFields } from './CountersinkFields.tsx';
 import type { EditorAction } from './editorState.ts';
+import { ShapeParamFields } from './ShapeParamFields.tsx';
 import { useDraft } from './useDraft.ts';
 
 const fmt = (n: number) => String(Number(n.toFixed(2)));
@@ -155,6 +156,7 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 				<NumberField label="Rotate Z" value={euler[2]} onCommit={turn(2)} />
 				{only.kind === 'shape' && <ChamferFields node={only} dispatch={dispatch} />}
 				{only.kind === 'shape' && <CountersinkFields node={only} dispatch={dispatch} />}
+				{only.kind === 'shape' && <ShapeParamFields node={only} dispatch={dispatch} />}
 				{typeToggle}
 				{color}
 			</div>

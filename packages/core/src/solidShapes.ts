@@ -19,7 +19,7 @@ const ARCH_SEGMENTS = 32;
 const clean = (v: number) => (Math.abs(v) < 1e-12 ? 0 : v);
 
 /** Turns every triangle round when the surface faces inwards, so the result always faces outwards. */
-function outwards(positions: number[], indices: number[]): MeshData {
+export function outwards(positions: number[], indices: number[]): MeshData {
 	const mesh = { positions: new Float32Array(positions.map(clean)), indices: new Uint32Array(indices) };
 	if (signedVolume(mesh) < 0) {
 		for (let t = 0; t < mesh.indices.length; t += 3) {

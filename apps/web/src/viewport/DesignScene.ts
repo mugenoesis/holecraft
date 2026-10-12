@@ -5,11 +5,15 @@ import {
 	countersunkMesh,
 	type Design,
 	type GroupNode,
+	getShapeDef,
+	isShapeType,
 	MESH_SHAPE_TYPE,
 	type MeshData,
 	type NodeId,
+	parametricShape,
 	type ShapeNode,
 	type ShapeType,
+	shapeParam,
 	unitSolidMesh,
 	type Vec3,
 } from '@holecraft/core';
@@ -34,9 +38,12 @@ function createUnitGeometry(type: ShapeType): THREE.BufferGeometry {
 			return new THREE.CylinderGeometry(0.5, 0.5, 1, 64).rotateX(Math.PI / 2).translate(0, 0, 0.5);
 		case 'sphere':
 			return new THREE.SphereGeometry(0.5, 48, 32).rotateX(Math.PI / 2).translate(0, 0, 0.5);
-		default:
-			// the other basic solids are one mesh each (the one the CSG engine uses too), with crisp edges and smooth curves
-			return buildResultGeometry(unitSolidMesh(type)!);
+		default: {
+			// the other basic solids are one mesh each (the one the CSG engine uses too), with crisp edges and smooth curves; a shape built
+			// from its settings gets a stand-in box here, replaced by its real-size geometry (see realSizeMesh) as soon as it is placed
+			const unit = unitSolidMesh(type);
+			return unit ? buildResultGeometry(unit) : new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5);
+		}
 	}
 }
 
@@ -85,6 +92,32 @@ function buildResultGeometry(mesh: GroupMesh): THREE.BufferGeometry {
 	indexed.dispose();
 	geometry.computeBoundingBox();
 	return geometry;
+}
+
+/**
+ * What a shape needs to be drawn at its real size instead of as a stretched unit mesh, if anything: a key that changes whenever the mesh would,
+ * and how to build it. The same meshes are given to the CSG engine, so what is drawn is what is cut and exported.
+ */
+function realSizeMesh(node: ShapeNode): { key: string; build: () => MeshData } | null {
+	const { width, depth, height } = node.params as { width: number; depth: number; height: number };
+	const sink = countersinkOf(node);
+	if (sink)
+		return {
+			key: ['sink', width, depth, height, sink.size, sink.end].join('|'),
+			build: () => countersunkMesh(width, depth, height, sink.size, sink.end),
+		};
+	const chamfer = chamferOf(node);
+	if (chamfer) {
+		const key = [node.shapeType, width, depth, height, chamfer.size, chamfer.edges].join('|');
+		return { key, build: () => chamferedMesh(node.shapeType as 'box' | 'cylinder', width, depth, height, chamfer.size, chamfer.edges) };
+	}
+	const settings = isShapeType(node.shapeType) ? getShapeDef(node.shapeType).params : undefined;
+	if (settings)
+		return {
+			key: ['settings', node.shapeType, width, depth, height, ...settings.map((p) => shapeParam(node, p.key))].join('|'),
+			build: () => parametricShape(node)!,
+		};
+	return null;
 }
 
 const isShown = (obj: THREE.Object3D): boolean => {
@@ -412,30 +445,22 @@ export class DesignScene {
 	}
 
 	/**
-	 * The real-size geometry of a chamfered box or cylinder, or of a countersunk cylinder hole (rebuilt when its size or the
-	 * chamfer / countersink changes), or null for a shape with neither. A countersink wins over a chamfer on a hole, as in CSG.
+	 * The real-size geometry of a shape that is not just a stretched unit mesh (rebuilt when anything it depends on changes), or null for
+	 * one that is: a chamfered box or cylinder, a countersunk cylinder hole, or a shape built from its settings (tube, torus). A
+	 * countersink wins over a chamfer on a hole, as in CSG.
 	 */
 	private chamferGeometry(node: ShapeNode): THREE.BufferGeometry | null {
-		const sink = countersinkOf(node);
-		const chamfer = sink ? null : chamferOf(node);
+		const spec = realSizeMesh(node);
 		const known = this.chamferGeometries.get(node.id);
-		if (!sink && !chamfer) {
+		if (!spec) {
 			known?.geometry.dispose();
 			this.chamferGeometries.delete(node.id);
 			return null;
 		}
-		const { width, depth, height } = node.params as { width: number; depth: number; height: number };
-		const key = sink
-			? ['sink', width, depth, height, sink.size, sink.end].join('|')
-			: [node.shapeType, width, depth, height, chamfer!.size, chamfer!.edges].join('|');
-		if (known?.key === key) return known.geometry;
+		if (known?.key === spec.key) return known.geometry;
 		known?.geometry.dispose();
-		const geometry = buildResultGeometry(
-			sink
-				? countersunkMesh(width, depth, height, sink.size, sink.end)
-				: chamferedMesh(node.shapeType as 'box' | 'cylinder', width, depth, height, chamfer!.size, chamfer!.edges),
-		);
-		this.chamferGeometries.set(node.id, { key, geometry });
+		const geometry = buildResultGeometry(spec.build());
+		this.chamferGeometries.set(node.id, { key: spec.key, geometry });
 		return geometry;
 	}
 

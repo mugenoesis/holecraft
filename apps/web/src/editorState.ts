@@ -47,6 +47,7 @@ import {
 	setShapeChamfer,
 	setShapeCountersink,
 	setShapeGeometry,
+	setShapeParam,
 	setShapeSize,
 	showAll,
 	suggestPaletteColor,
@@ -119,6 +120,8 @@ export type EditorAction =
 	| { type: 'setChamfer'; id: NodeId; size?: number; edges?: ChamferEdges }
 	// A cylinder hole's countersink in mm (0 removes it) and/or which end it flares.
 	| { type: 'setCountersink'; id: NodeId; size?: number; end?: CountersinkEnd }
+	// One of a shape's own settings in mm (a tube's wall, a ring's thickness).
+	| { type: 'setShapeParam'; id: NodeId; key: string; value: number }
 	| { type: 'rename'; id: NodeId; name: string }
 	| { type: 'setColor'; ids: NodeId[]; color: string }
 	/** Adds a filament colour to the palette (a suggested one when none is given). */
@@ -322,6 +325,9 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 					...(action.edges && { edges: action.edges }),
 				}),
 			);
+
+		case 'setShapeParam':
+			return commit(state, setShapeParam(design, action.id, action.key, action.value));
 
 		case 'setCountersink':
 			return commit(

@@ -135,6 +135,15 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   (`createUnitGeometry`, creased normals) and CSG builds it with `Manifold.ofMesh(...).scale(size)`. Box, cylinder and sphere keep their own builders, and
   the shapes panel test checks every other type has a mesh. **Every one is the same seen left to right (x-symmetric), which `flipNodes` depends on**: keep that when
   adding shapes, or give the shape its own flip rule. Tests derive volumes from the shapes' dimensions, not the code, and exports are checked in the browser.
+- **Shapes with settings of their own (the parametric system)**: a `ShapeDef` may declare `params: ParamDef[]` (`key`, `label`, `default`, `min`, and a `limit(size)` function: the
+  most it can be for that width/depth/height). Tube (`wall`) and Torus (`thickness`) are the first. Values live in `node.params` **in mm, as typed** (validate already keeps extra
+  numeric params; no format change) and are limited only when read (`shapeParam(node, key)`), so shrinking a shape and growing it back loses nothing; `setShapeParam` refuses locked
+  shapes, unknown settings and values not above 0. Such a shape is built **at its real size** by `parametricShape(node)` (core/parametricShapes.ts: `tube` and `torus` builders,
+  `PARAMETRIC_TYPES`), not stretched from a unit mesh, because a wall in mm must not stretch: CSG uses `Manifold.ofMesh` with no scale, and `DesignScene.realSizeMesh` keys its
+  geometry on the size and the effective settings (the same path as chamfer/countersink). `ShapeParamFields` makes a Properties field per declared setting (with a
+  `param-limited` hint) and the `setShapeParam` action is one undo step. **To add a shape with settings**: add the def (with `params`), a builder in `BUILDERS`, a tile icon in styles.css;
+  keep it x-symmetric for Flip. Group resize stretches width/depth/height only, so settings in mm stay put (edge treatments on such a shape are not stretched correctly by a resize and
+  may be skipped with the usual notice).
 - Raycasts in scene tests must use `intersectObject(mesh, false)`: the selection outline is a child made of lines, and a recursive ray hits it.
 - Parametric shapes (torus, tube, polygon, star...) need a declared parameter schema first (see PLAN.md 6b); these six are plain stretched solids.
 

@@ -15,6 +15,8 @@ describe('shape definitions', () => {
 			'roof',
 			'round-roof',
 			'half-sphere',
+			'tube',
+			'torus',
 		]);
 		for (const def of SHAPE_DEFS) {
 			expect(def.name.length).toBeGreaterThan(0);

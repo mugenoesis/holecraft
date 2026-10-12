@@ -1,4 +1,27 @@
-export type ShapeType = 'box' | 'cylinder' | 'sphere' | 'cone' | 'pyramid' | 'wedge' | 'roof' | 'round-roof' | 'half-sphere';
+export type ShapeType =
+	| 'box'
+	| 'cylinder'
+	| 'sphere'
+	| 'cone'
+	| 'pyramid'
+	| 'wedge'
+	| 'roof'
+	| 'round-roof'
+	| 'half-sphere'
+	| 'tube'
+	| 'torus';
+
+/** One setting a shape has besides its size, in mm (the Properties panel makes a field for each). */
+export interface ParamDef {
+	/** Where it is kept in the node's params. */
+	key: string;
+	label: string;
+	default: number;
+	/** The least it may be. */
+	min: number;
+	/** The most it may be for a shape of this width, depth and height: a wall can never fill the whole tube. */
+	limit: (size: readonly [number, number, number]) => number;
+}
 
 export interface ShapeDef {
 	id: ShapeType;
@@ -6,6 +29,8 @@ export interface ShapeDef {
 	/** Width (X), depth (Y), height (Z) in mm. */
 	defaultSize: [number, number, number];
 	color: string;
+	/** Settings besides the size. A shape with some is built at its real size from them (see parametricMesh), not stretched from a unit mesh. */
+	params?: readonly ParamDef[];
 }
 
 /**
@@ -22,6 +47,20 @@ export const SHAPE_DEFS: readonly ShapeDef[] = [
 	{ id: 'roof', name: 'Roof', defaultSize: [20, 20, 20], color: '#e76f51' },
 	{ id: 'round-roof', name: 'Round Roof', defaultSize: [20, 20, 20], color: '#8d99ae' },
 	{ id: 'half-sphere', name: 'Half Sphere', defaultSize: [20, 20, 20], color: '#f28c28' },
+	{
+		id: 'tube',
+		name: 'Tube',
+		defaultSize: [20, 20, 20],
+		color: '#2a9d8f',
+		params: [{ key: 'wall', label: 'Wall thickness', default: 3, min: 0.2, limit: ([w, d]) => 0.95 * (Math.min(w, d) / 2) }],
+	},
+	{
+		id: 'torus',
+		name: 'Torus',
+		defaultSize: [30, 30, 10],
+		color: '#e76f51',
+		params: [{ key: 'thickness', label: 'Ring thickness', default: 10, min: 0.5, limit: ([w, d]) => 0.9 * (Math.min(w, d) / 2) }],
+	},
 ];
 
 export function isShapeType(value: string): value is ShapeType {

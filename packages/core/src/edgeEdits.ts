@@ -43,7 +43,7 @@ export function stretchTreatments(
 	shift: Vec3 | null,
 ): EdgeTreatment[] | undefined {
 	if (!edges) return undefined;
-	const moves = shift !== null && shift.some((v) => v !== 0);
+	const moves = shift?.some((v) => v !== 0) ?? false;
 	if (!moves && factors.every((f) => f === 1)) return edges as EdgeTreatment[];
 	const point = (p: Vec3): Vec3 => [0, 1, 2].map((k) => factors[k]! * p[k]! + (shift ? shift[k]! : 0)) as Vec3;
 	const direction = (n: Vec3): Vec3 => {
