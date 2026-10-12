@@ -18,3 +18,4 @@ export * from './rotation.ts';
 export * from './shapes.ts';
 export * from './units.ts';
 export * from './validate.ts';
+export * from './visibility.ts';

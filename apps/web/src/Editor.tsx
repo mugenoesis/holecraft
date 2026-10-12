@@ -115,7 +115,7 @@ function EditorView({ initial }: { initial: Design }) {
 					<PropertiesPanel design={design} selection={state.selection} dispatch={dispatch} />
 					<ArrangePanel design={design} selection={state.selection} dispatch={dispatch} />
 					<PalettePanel design={design} selection={state.selection} dispatch={dispatch} />
-					<ObjectList design={design} selection={state.selection} onSelect={select} />
+					<ObjectList design={design} selection={state.selection} onSelect={select} dispatch={dispatch} />
 				</aside>
 			</main>
 
