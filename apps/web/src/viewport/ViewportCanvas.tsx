@@ -57,6 +57,9 @@ interface Props {
 	onRotation: (id: NodeId, rotation: number[]) => void;
 	/** Removes chamfers or rounds whose edges an edit has removed (from the notice about them). */
 	onRemoveEdges: (id: NodeId, ids: string[]) => void;
+	/** The Select toggle (kept by the editor, which the Objects list needs it too). */
+	multiSelect: boolean;
+	onToggleMultiSelect: () => void;
 	/** The Edge tool previews a node's treatments between onMoveStart and onMoveEnd (Apply), or onCancelDrag (Cancel). */
 	onPreviewEdges: (id: NodeId, edges: EdgeTreatment[]) => void;
 	onCancelDrag: () => void;
@@ -172,6 +175,11 @@ export function ViewportCanvas(props: Props) {
 		viewportRef.current?.setPlaneMarker(props.plane);
 	}, [props.plane, width, depth]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: width and depth rebuild the Viewport, which starts with the toggle off
+	useEffect(() => {
+		viewportRef.current?.setMultiSelect(props.multiSelect);
+	}, [props.multiSelect, width, depth]);
+
 	const getViewport = useCallback(() => viewportRef.current, []);
 	const findEdges = useCallback(
 		(subtree: Subtree, models: ReadonlyMap<string, MeshData>) =>
@@ -226,6 +234,8 @@ export function ViewportCanvas(props: Props) {
 						viewport={viewportRef}
 						projection={projection}
 						tool={tool}
+						multiSelect={props.multiSelect}
+						onToggleMultiSelect={props.onToggleMultiSelect}
 						onToggleTool={toggleTool}
 						planeActive={props.plane !== null}
 						onResetPlane={() => props.onPlane(null)}

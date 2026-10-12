@@ -96,7 +96,7 @@ easy to back up or copy.
 | Action | How |
 |---|---|
 | Add a shape | Drag it from the Shapes panel onto the workplane, or click it (or press Enter) to add at the centre. Drops snap to the grid |
-| Select | Click a shape (or its row in the Objects list). Shift-click adds or removes. Drag a box around shapes to select several. `Ctrl+A` selects all, `Esc` clears |
+| Select | Click a shape (or its row in the Objects list). Shift-click adds or removes. Drag a box around shapes to select several. `Ctrl+A` selects all, `Esc` clears. **On a touch screen** (no Shift key): turn on **Select** in the view toolbar, then every tap on a shape or an Objects row adds it to the selection (or takes it out again), and a finger dragging on empty space draws the selection box instead of orbiting; shapes don't move while it is on. Turn it off to go back to normal. **Select all** in the Objects list does what `Ctrl+A` does |
 | Move | Drag a shape. It snaps to the grid and stays on the workplane. Dragging one of several selected shapes moves them all |
 | Resize | Select one shape and drag a handle. Corner handles resize width and depth, side handles one dimension, the top round handle the height. The opposite corner or side stays fixed, and the edge you drag snaps to the grid. Hold `Shift` to scale all three dimensions together, `Alt` to resize about the centre. The size shows live while you drag |
 | Rotate | Select one shape and drag a coloured ring handle: red turns it about the X axis, green about Y, blue about Z. It turns about the shape's centre and snaps to 22.5° (hold `Shift` for 1° steps). The angle shows live while you drag. You can also type **Rotate X / Y / Z** in degrees in the Properties panel |

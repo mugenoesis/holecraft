@@ -19,13 +19,25 @@ interface Props {
 	viewport: RefObject<Viewport | null>;
 	projection: Projection;
 	tool: SurfaceTool | null;
+	/** The Select toggle: every tap adds to the selection, and a finger on empty space draws the selection box. */
+	multiSelect: boolean;
+	onToggleMultiSelect: () => void;
 	onToggleTool: (tool: SurfaceTool) => void;
 	/** True while a Workplane-tool plane is in use, which adds a way back to the floor. */
 	planeActive: boolean;
 	onResetPlane: () => void;
 }
 
-export function ViewToolbar({ viewport, projection, tool, onToggleTool, planeActive, onResetPlane }: Props) {
+export function ViewToolbar({
+	viewport,
+	projection,
+	tool,
+	multiSelect,
+	onToggleMultiSelect,
+	onToggleTool,
+	planeActive,
+	onResetPlane,
+}: Props) {
 	return (
 		<div className="viewport-toolbar" role="toolbar" aria-label="View controls">
 			<button type="button" onClick={() => viewport.current?.home()} aria-label="Home view" title="Home view (Home)">
@@ -42,6 +54,15 @@ export function ViewToolbar({ viewport, projection, tool, onToggleTool, planeAct
 				onClick={() => viewport.current?.setProjection(projection === 'orthographic' ? 'perspective' : 'orthographic')}
 			>
 				Ortho
+			</button>
+			<button
+				type="button"
+				aria-pressed={multiSelect}
+				aria-label="Select"
+				title="Select several: while on, every tap adds an object to (or takes it from) the selection, and dragging on empty space draws a selection box. For a touch screen, which has no Shift key"
+				onClick={onToggleMultiSelect}
+			>
+				Select
 			</button>
 			<button
 				type="button"
