@@ -1,10 +1,11 @@
+import type { Vec3 } from './camera.ts';
 import type { GridSettings } from './grid.ts';
 import { DEFAULT_GRID } from './grid.ts';
 import { DEFAULT_PALETTE } from './palette.ts';
 import type { Units } from './units.ts';
 
 /** Bump when the on-disk design format changes, and add a migration. */
-export const DESIGN_FORMAT_VERSION = 2;
+export const DESIGN_FORMAT_VERSION = 3;
 
 /** What the designs list shows about each saved design. */
 export interface DesignSummary {
@@ -30,6 +31,24 @@ export const IDENTITY: Readonly<Mat4> = Object.freeze([1, 0, 0, 0, 0, 1, 0, 0, 0
 
 export type SolidMode = 'solid' | 'hole';
 
+export type EdgeTreatmentKind = 'chamfer' | 'round';
+
+/**
+ * A chamfer or round on one chosen edge of a solid (the Edge tool). The edge is stored as geometry in the node's own frame, never
+ * as triangle numbers, so it survives moving, turning, saving and re-meshing. If an edit removes the edge, the treatment is skipped
+ * (and reported) rather than cutting the wrong place.
+ */
+export interface EdgeTreatment {
+	id: string;
+	kind: EdgeTreatmentKind;
+	/** mm: how far a chamfer cuts back along each face, or a round's radius. */
+	size: number;
+	/** The edge as a polyline (2 or more points; a closed loop repeats its first point). */
+	points: Vec3[];
+	/** Per segment, the outward directions (unit vectors) of the two faces that meet there. */
+	normals: [Vec3, Vec3][];
+}
+
 export interface BaseNode {
 	id: NodeId;
 	name: string;
@@ -38,6 +57,8 @@ export interface BaseNode {
 	color: string;
 	hidden: boolean;
 	locked: boolean;
+	/** Chamfers and rounds on chosen edges, applied after the node is built (and, for a group, after its holes are cut). */
+	edges?: EdgeTreatment[];
 }
 
 /** A parametric primitive (box, cylinder, text, ...) built by the geometry worker. */
