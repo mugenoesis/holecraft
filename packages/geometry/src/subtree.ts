@@ -2,7 +2,7 @@ import { type Design, type DesignNode, descendantIds, MESH_SHAPE_TYPE, type Node
 import type { Subtree } from './types.ts';
 
 /** Bump when evaluation changes what a given subtree produces, so cached results are not reused. */
-const FORMAT = 'v3'; // v2: edge treatments; v3: single shapes as roots
+const FORMAT = 'v4'; // v2: edge treatments; v3: single shapes as roots; v4: smooth cuts along curved edges
 
 /**
  * The top-level nodes drawn as one computed mesh: groups (their holes cut), and shapes with treated edges (their chamfers and

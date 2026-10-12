@@ -215,7 +215,13 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   rim, closed). Concave edges are not offered (yet).
 - Cutting: `treatmentCuts` (geometry/edgeCut.ts) gives, per segment, a triangular prism to subtract (chamfer: set back `size` along both faces;
   round: set back `r / tan(inside/2)`, minus a cylinder of radius `r` along the edge). The prism pokes 1 µm past the faces along the cut line so it
-  never lands exactly on a face, without moving the chamfer plane. Polyline segments overlap by `size` at the joints.
+  never lands exactly on a face, without moving the chamfer plane. **A curved edge (a hole's rim) is cut smoothly**: each polyline point has one cross-section
+  worked out from the two faces' directions averaged over the pieces that meet there (`sections`; stored face pairs come in either order, `alignedFaces`
+  matches them up), and each piece's prism is the hull of its two end sections, so neighbours share a section exactly (no gap, no step, no overlap). The old way, one
+  straight prism per piece reaching `size` past its ends, removed up to twice the material on a small hole and left thousands of tiny steps. A round's tube
+  is a cylinder per piece, widened 0.13% (`TUBE_GROWTH`, so its 64 flats cover the true circle) and reaching `r*tan(turn/2)` past each bend. `evaluate`
+  subtracts **all of one treatment's tubes from all of its wedges together** (subtracting each tube from only its own wedge cuts away what the neighbour keeps,
+  leaving paper-thin walls). `FORMAT` in subtree.ts is v4 for this. Tests derive the removed volume by hand with Pappus's theorem and check the left-over edge count.
 - Applied in `Evaluation.treated` after a group's holes are cut (and to a shape's primitive before it is placed). **Before cutting, each treatment's
   edge must still be one of the solid's sharp edges** (`edgeIsPresent`: every segment within 0.01 mm of an edge between faces facing the same ways
   within 3 degrees); otherwise it is skipped and its id reported in `GroupMesh.skippedEdges`, never cut blindly.
