@@ -5,6 +5,7 @@ import {
 	fitDistance,
 	fitToBounds,
 	HOME_VIEW,
+	homeViewFor,
 	MAX_DISTANCE,
 	MIN_DISTANCE,
 	type OrbitState,
@@ -159,5 +160,25 @@ describe('view presets', () => {
 		const s = applyViewPreset({ ...front, target: [1, 2, 3], distance: 42 }, 'top');
 		expect(s.target).toEqual([1, 2, 3]);
 		expect(s.distance).toBe(42);
+	});
+});
+
+describe('homeViewFor', () => {
+	it('is the plain home view on wide windows', () => {
+		expect(homeViewFor(1.6)).toEqual(HOME_VIEW);
+		expect(homeViewFor(2.4)).toEqual(HOME_VIEW);
+	});
+
+	it('backs away on squarer and tall windows so the workplane still fits across', () => {
+		expect(homeViewFor(1.2).distance).toBeGreaterThan(HOME_VIEW.distance);
+		expect(homeViewFor(0.6).distance).toBeGreaterThan(homeViewFor(1.2).distance);
+		expect(homeViewFor(1.0).distance).toBeCloseTo((HOME_VIEW.distance * 1.6) / 1.0);
+	});
+
+	it('keeps the same angle and target, and copes with nonsense', () => {
+		const v = homeViewFor(1);
+		expect([v.azimuth, v.polar, v.target]).toEqual([HOME_VIEW.azimuth, HOME_VIEW.polar, HOME_VIEW.target]);
+		expect(homeViewFor(0)).toEqual(HOME_VIEW);
+		expect(homeViewFor(Number.NaN)).toEqual(HOME_VIEW);
 	});
 });

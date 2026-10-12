@@ -3,7 +3,6 @@ import {
 	type Design,
 	designBounds,
 	fitToBounds,
-	HOME_VIEW,
 	type MeshData,
 	type NodeId,
 	type OrbitState,
@@ -153,7 +152,7 @@ export class Viewport {
 	}
 
 	home(): void {
-		this.rig.goTo(HOME_VIEW);
+		this.rig.goHome();
 		this.requestRender();
 	}
 
