@@ -2,13 +2,17 @@ import { type Design, type DesignNode, descendantIds, MESH_SHAPE_TYPE, type Node
 import type { Subtree } from './types.ts';
 
 /** Bump when evaluation changes what a given subtree produces, so cached results are not reused. */
-const FORMAT = 'v2'; // v2: edge treatments
+const FORMAT = 'v3'; // v2: edge treatments; v3: single shapes as roots
 
-/** Top-level solid groups: the ones drawn as one merged mesh. Inner groups are evaluated as part of their parent. */
-export function rootSolidGroups(design: Design): NodeId[] {
+/**
+ * The top-level nodes drawn as one computed mesh: solid groups (their holes cut), and solid shapes with treated edges (their
+ * chamfers and rounds cut). Inner groups are evaluated as part of their parent; hidden nodes and holes are left alone.
+ */
+export function rootComputedNodes(design: Design): NodeId[] {
 	return design.roots.filter((id) => {
 		const node = design.nodes[id];
-		return node?.kind === 'group' && node.mode === 'solid' && !node.hidden;
+		if (node?.mode !== 'solid' || node.hidden) return false;
+		return node.kind === 'group' || (node.kind === 'shape' && (node.edges?.length ?? 0) > 0);
 	});
 }
 
@@ -27,6 +31,8 @@ function describe(nodes: Record<NodeId, DesignNode>, id: NodeId, isRoot: boolean
 	const node = nodes[id];
 	if (!node || node.kind === 'mesh') return null;
 	if (node.kind === 'shape') {
+		// A shape worked out on its own is in its own frame, so where it is doesn't matter to its shape.
+		if (isRoot) return ['s', node.shapeType, Object.entries(node.params).sort(([a], [b]) => a.localeCompare(b)), node.edges ?? null];
 		return [
 			's',
 			node.shapeType,

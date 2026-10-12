@@ -18,8 +18,10 @@ import type { Projection } from './CameraRig.ts';
 import { HandlesOverlay } from './HandlesOverlay.tsx';
 import { RotationRings } from './RotationRings.tsx';
 import { RulerOverlay } from './RulerOverlay.tsx';
+import { SkippedEdgesNotice } from './SkippedEdgesNotice.tsx';
 import { selectedHandles, selectedRings } from './selectedShape.ts';
 import { shapeDropHandlers } from './shapeDrop.ts';
+import { skippedEdgeNotices } from './skippedEdges.ts';
 import type { SurfaceTool } from './surfaceTool.ts';
 import { ViewCube } from './ViewCube.tsx';
 import { type PixelRect, Viewport } from './Viewport.ts';
@@ -51,6 +53,8 @@ interface Props {
 	onGeometry: (id: NodeId, geometry: ShapeGeometry) => void;
 	/** A rotation ring is turning the selected shape into this orientation (row-major 3x3). */
 	onRotation: (id: NodeId, rotation: number[]) => void;
+	/** Removes chamfers or rounds whose edges an edit has removed (from the notice about them). */
+	onRemoveEdges: (id: NodeId, ids: string[]) => void;
 }
 
 /** React host for the imperative three.js viewport, plus its overlay controls. */
@@ -252,6 +256,10 @@ export function ViewportCanvas(props: Props) {
 							onClose={() => setTool(null)}
 						/>
 					)}
+					<SkippedEdgesNotice
+						notices={skippedEdgeNotices(design, serviceRef.current?.results() ?? new Map())}
+						onRemove={(id, ids) => latest.current.onRemoveEdges(id, ids)}
+					/>
 					{dimensionLabel && (
 						<div className="dimension-label" data-testid="dimension-label" aria-live="polite">
 							{dimensionLabel}

@@ -136,6 +136,32 @@ describe('edge treatments on a group', () => {
 });
 
 describe('edge treatments on a shape', () => {
+	it('evaluated on its own, a loose shape comes out in its own frame (not placed), with its edges cut', () => {
+		let d = createEmptyDesign('d');
+		d = addShape(d, 'box', [0, 0], { id: 'a' }).design;
+		const plain = volume(evaluateNode(M, d, 'a')!);
+		const edge: EdgeTreatment = {
+			id: 'e1',
+			kind: 'chamfer',
+			size: 2,
+			points: [
+				[-10, -10, 20],
+				[10, -10, 20],
+			],
+			normals: [
+				[
+					[0, 0, 1],
+					[0, -1, 0],
+				],
+			],
+		};
+		const moved = moveNodes(withEdges(d, 'a', [edge]), ['a'], [30, 0, 0]);
+		const own = evaluateGroup(M, moved, 'a')!;
+		expect(plain - volume(own)).toBeCloseTo(40, 1);
+		const xs = Array.from(own.positions).filter((_, i) => i % 3 === 0);
+		expect(Math.min(...xs)).toBeCloseTo(-10); // not moved by the shape's transform
+	});
+
 	it('a loose box can have its own edges treated, in its own frame', () => {
 		let d = createEmptyDesign('d');
 		d = addShape(d, 'box', [0, 0], { id: 'a' }).design;

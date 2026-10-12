@@ -1198,3 +1198,33 @@ button.primary:disabled {
 	transform: translateX(-50%);
 	pointer-events: none;
 }
+
+/* Chamfers or rounds left out because their edges are gone */
+.skipped-edges {
+	position: absolute;
+	top: 64px;
+	left: 50%;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	max-width: min(560px, calc(100% - 24px));
+	transform: translateX(-50%);
+}
+.skipped-edges p {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 0;
+	padding: 8px 12px;
+	color: var(--text);
+	background: var(--surface);
+	border: 1px solid #d9a21b;
+	border-left-width: 4px;
+	border-radius: 6px;
+	box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+}
+.skipped-edges button {
+	flex: none;
+	font: inherit;
+	cursor: pointer;
+}

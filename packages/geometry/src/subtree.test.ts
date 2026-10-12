@@ -2,6 +2,7 @@ import {
 	addShape,
 	createEmptyDesign,
 	type Design,
+	type EdgeTreatment,
 	groupNodes,
 	moveNodes,
 	renameNode,
@@ -11,7 +12,7 @@ import {
 	setShapeSize,
 } from '@holecraft/core';
 import { describe, expect, it } from 'vitest';
-import { rootSolidGroups, subtreeHash, subtreeOf } from './subtree.ts';
+import { rootComputedNodes, subtreeHash, subtreeOf } from './subtree.ts';
 
 function scene(): Design {
 	let d = createEmptyDesign('d');
@@ -23,6 +24,32 @@ function scene(): Design {
 }
 
 const hash = (d: Design, id = 'g') => subtreeHash(d, id);
+
+const TREATMENT: EdgeTreatment = {
+	id: 'e1',
+	kind: 'chamfer',
+	size: 2,
+	points: [
+		[-10, -10, 20],
+		[10, -10, 20],
+	],
+	normals: [
+		[
+			[0, 0, 1],
+			[0, -1, 0],
+		],
+	],
+};
+
+describe('subtreeHash of a single shape', () => {
+	it('ignores where the shape is (it is worked out in its own frame), but not its size or edges', () => {
+		const d = scene();
+		const treated = { ...d, nodes: { ...d.nodes, s: { ...d.nodes.s!, edges: [TREATMENT] } } };
+		expect(hash(moveNodes(treated, ['s'], [5, 5, 0]), 's')).toBe(hash(treated, 's'));
+		expect(hash(setShapeSize(treated, 's', { width: 30 }), 's')).not.toBe(hash(treated, 's'));
+		expect(hash(d, 's')).not.toBe(hash(treated, 's'));
+	});
+});
 
 describe('subtreeHash', () => {
 	it('is stable for the same content', () => {
@@ -94,22 +121,30 @@ describe('subtreeOf', () => {
 	});
 });
 
-describe('rootSolidGroups', () => {
+describe('rootComputedNodes', () => {
 	it('lists top-level solid groups only', () => {
 		let d = scene();
-		expect(rootSolidGroups(d)).toEqual(['g']);
+		expect(rootComputedNodes(d)).toEqual(['g']);
 		d = groupNodes(d, ['g', 's'], { id: 'outer' }).design;
-		expect(rootSolidGroups(d)).toEqual(['outer']); // the inner group is evaluated as part of it
+		expect(rootComputedNodes(d)).toEqual(['outer']); // the inner group is evaluated as part of it
 	});
 
 	it('skips hole groups, which are drawn as ghosts, and hidden groups', () => {
-		expect(rootSolidGroups(setNodeMode(scene(), ['g'], 'hole'))).toEqual([]);
+		expect(rootComputedNodes(setNodeMode(scene(), ['g'], 'hole'))).toEqual([]);
 		const hidden = scene();
 		hidden.nodes.g!.hidden = true;
-		expect(rootSolidGroups(hidden)).toEqual([]);
+		expect(rootComputedNodes(hidden)).toEqual([]);
+	});
+
+	it('also lists a top-level solid shape with treated edges (it needs the CSG engine to be drawn)', () => {
+		const d = scene();
+		const treated = { ...d, nodes: { ...d.nodes, s: { ...d.nodes.s!, edges: [TREATMENT] } } };
+		expect(rootComputedNodes(treated)).toEqual(['g', 's']);
+		expect(rootComputedNodes({ ...treated, nodes: { ...treated.nodes, s: { ...treated.nodes.s!, mode: 'hole' } } })).toEqual(['g']);
+		expect(rootComputedNodes({ ...treated, nodes: { ...treated.nodes, s: { ...treated.nodes.s!, hidden: true } } })).toEqual(['g']);
 	});
 
 	it('is empty when there are no groups', () => {
-		expect(rootSolidGroups(createEmptyDesign('d'))).toEqual([]);
+		expect(rootComputedNodes(createEmptyDesign('d'))).toEqual([]);
 	});
 });

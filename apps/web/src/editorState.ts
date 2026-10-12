@@ -13,6 +13,7 @@ import {
 	deleteNodes,
 	dropToWorkplane,
 	duplicateNodes,
+	type EdgeTreatment,
 	flipNodes,
 	groupNodes,
 	type History,
@@ -23,6 +24,7 @@ import {
 	pruneSelection,
 	pushHistory,
 	redo,
+	removeEdgeTreatments,
 	removePaletteColor,
 	renameDesign,
 	renameNode,
@@ -32,6 +34,7 @@ import {
 	type ShapeType,
 	type SolidMode,
 	selectAll,
+	setEdgeTreatments,
 	setHidden,
 	setLocked,
 	setNodeColor,
@@ -99,6 +102,10 @@ export type EditorAction =
 	| { type: 'setRotation'; id: NodeId; rotation: number[] }
 	// Typed rotation in degrees (X, then Y, then Z).
 	| { type: 'setEuler'; id: NodeId; euler: [number, number, number] }
+	// The Edge tool: previews a node's edge treatments between moveStart and moveEnd (Apply), or cancelDrag (Cancel).
+	| { type: 'previewEdges'; id: NodeId; edges: EdgeTreatment[] }
+	| { type: 'cancelDrag' }
+	| { type: 'removeEdges'; id: NodeId; ids: string[] }
 	| { type: 'undo' }
 	| { type: 'redo' }
 	| { type: 'delete' }
@@ -131,7 +138,7 @@ function commit(state: EditorState, next: Design, selection: NodeId[] = state.se
 
 type ActionOf<T extends EditorAction['type']> = Extract<EditorAction, { type: T }>;
 type SelectionAction = ActionOf<'pick' | 'marquee' | 'selectAll' | 'clearSelection'>;
-type DragAction = ActionOf<'moveStart' | 'move' | 'moveEnd' | 'setGeometry' | 'setRotation'>;
+type DragAction = ActionOf<'moveStart' | 'move' | 'moveEnd' | 'setGeometry' | 'setRotation' | 'previewEdges' | 'cancelDrag'>;
 type HistoryAction = ActionOf<'undo' | 'redo'>;
 /** Everything else: edits to the document itself, each one an undoable step. */
 type EditAction = Exclude<EditorAction, SelectionAction | DragAction | HistoryAction>;
@@ -181,16 +188,24 @@ function reduceDrag(state: EditorState, action: DragAction): EditorState {
 			return { ...state, history: pushHistory(state.history, design, state.drag.base), drag: null };
 		}
 
-		case 'setGeometry': {
-			if (!state.drag?.ids.includes(action.id)) return state;
-			return { ...state, history: replacePresent(state.history, setShapeGeometry(state.drag.base, action.id, action.geometry)) };
-		}
+		case 'setGeometry':
+			return preview(state, action.id, (base) => setShapeGeometry(base, action.id, action.geometry));
 
-		case 'setRotation': {
-			if (!state.drag?.ids.includes(action.id)) return state;
-			return { ...state, history: replacePresent(state.history, setNodeRotation(state.drag.base, action.id, action.rotation)) };
-		}
+		case 'setRotation':
+			return preview(state, action.id, (base) => setNodeRotation(base, action.id, action.rotation));
+
+		case 'previewEdges':
+			return preview(state, action.id, (base) => setEdgeTreatments(base, action.id, action.edges));
+
+		case 'cancelDrag':
+			return state.drag ? { ...state, history: replacePresent(state.history, state.drag.base), drag: null } : state;
 	}
+}
+
+/** Shows `edit` applied to the design the drag began from (handles, rings, the Edge tool), if `id` is part of the drag. */
+function preview(state: EditorState, id: NodeId, edit: (base: Design) => Design): EditorState {
+	if (!state.drag?.ids.includes(id)) return state;
+	return { ...state, history: replacePresent(state.history, edit(state.drag.base)) };
 }
 
 /** Undo and redo (ignored while a drag is in progress). */
@@ -235,6 +250,9 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 
 		case 'setEuler':
 			return commit(state, setNodeEuler(design, action.id, action.euler));
+
+		case 'removeEdges':
+			return commit(state, removeEdgeTreatments(design, action.id, action.ids));
 
 		case 'dropToPlane':
 			return commit(state, dropToWorkplane(design, state.selection));
@@ -331,6 +349,8 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 		case 'moveEnd':
 		case 'setGeometry':
 		case 'setRotation':
+		case 'previewEdges':
+		case 'cancelDrag':
 			return reduceDrag(state, action);
 
 		case 'undo':

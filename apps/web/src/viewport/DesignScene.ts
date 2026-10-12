@@ -291,14 +291,24 @@ export class DesignScene {
 		// A unit shape is stretched to size; a chamfered one already has it, so only its (unit) outline is stretched.
 		if (!chamfered) mesh.scale.set(width, depth, height);
 		mesh.getObjectByName('selection-outline')?.scale.set(chamfered ? width : 1, chamfered ? depth : 1, chamfered ? height : 1);
-		mesh.visible = !node.hidden && !covered;
+		// A top-level solid shape with treated edges is drawn from its computed mesh (see rootComputedNodes), placed where the shape is.
+		const result =
+			node.id === rootId && node.mode === 'solid' && !node.hidden && !ctx.failed.has(node.id) ? ctx.results.get(node.id) : undefined;
+		mesh.visible = !node.hidden && !covered && !result;
 		this.applyLook(mesh.material as THREE.MeshStandardMaterial, node.color, isHole);
 		if (mesh.parent !== parent) parent.add(mesh);
 		this.applySelection(mesh);
+		if (result) {
+			ctx.liveResults.add(node.id);
+			this.showResult(node.id, parent, node.color, result, node.transform);
+		}
 	}
 
-	/** Draws a group's computed mesh inside its group object (so it moves with the group). */
-	private showResult(id: NodeId, groupObject: THREE.Object3D, color: string, result: GroupResult): void {
+	/**
+	 * Draws a computed mesh: a group's inside its group object (so it moves with the group), or a single shape's beside it, under
+	 * `placement` (the shape's transform).
+	 */
+	private showResult(id: NodeId, groupObject: THREE.Object3D, color: string, result: GroupResult, placement?: readonly number[]): void {
 		const existing = this.resultMeshes.get(id);
 
 		if (!result.mesh) {
@@ -333,6 +343,12 @@ export class DesignScene {
 			outline.position.set((box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, box.min.z);
 		}
 
+		if (placement) this.applyTransform(entry.mesh, placement);
+		else {
+			entry.mesh.position.set(0, 0, 0);
+			entry.mesh.quaternion.identity();
+			entry.mesh.scale.set(1, 1, 1);
+		}
 		(entry.mesh.material as THREE.MeshStandardMaterial).color.set(color);
 		entry.mesh.visible = true;
 		if (entry.mesh.parent !== groupObject) groupObject.add(entry.mesh);

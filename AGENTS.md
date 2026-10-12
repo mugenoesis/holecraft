@@ -205,7 +205,14 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   edge must still be one of the solid's sharp edges** (`edgeIsPresent`: every segment within 0.01 mm of an edge between faces facing the same ways
   within 3 degrees); otherwise it is skipped and its id reported in `GroupMesh.skippedEdges`, never cut blindly.
 - Edges are part of `subtreeHash` (FORMAT v2), so a treated group is never shown with an old result.
-- Not done yet: the Edge tool itself (UI), showing skipped treatments, and loose shapes with treatments in the view (they export correctly).
+- **Loose shapes with treatments** are drawn from a computed mesh too: `rootComputedNodes` (was `rootSolidGroups`) lists top-level solid groups
+  *and* top-level solid shapes with `edges`; `evaluateGroup` on a shape returns its treated primitive in its own frame (its hash ignores its
+  transform); `DesignScene` hides the plain shape and shows the result beside it under the shape's transform.
+- Edits: `setEdgeTreatments` / `removeEdgeTreatments` (core/edgeEdits.ts). Reducer: `previewEdges` runs between `moveStart` and `moveEnd` like a
+  drag (one undo step on Apply), `cancelDrag` restores the design the drag began from, `removeEdges` is an ordinary edit.
+- Skipped treatments: `skippedEdgeNotices` (pure) turns results' `skippedEdges` into notices; `SkippedEdgesNotice` shows them over the view with
+  **Remove** (and says Undo brings the edge back). `e2e/web/edgeTreatments.spec.ts` writes treatments through the API and reads pixels.
+- Not done yet: the Edge tool itself (choosing edges in the view).
 
 ## Rotation
 - Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre
