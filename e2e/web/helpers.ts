@@ -81,7 +81,7 @@ export async function drag(
 	page: Page,
 	from: Pt,
 	to: Pt,
-	opts: { button?: 'left' | 'right' | 'middle'; shift?: boolean; steps?: number } = {},
+	opts: { button?: 'left' | 'right' | 'middle' | undefined; shift?: boolean | undefined; steps?: number | undefined } = {},
 ) {
 	const { button = 'left', shift = false, steps = 8 } = opts;
 	if (shift) await page.keyboard.down('Shift');

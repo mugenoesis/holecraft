@@ -129,7 +129,7 @@ export interface MeshShapeInput {
 export function addMeshShape(
 	design: Design,
 	input: MeshShapeInput,
-	opts: { at?: [number, number]; id?: NodeId; now?: Date } = {},
+	opts: { at?: [number, number] | undefined; id?: NodeId | undefined; now?: Date | undefined } = {},
 ): { design: Design; id: NodeId } {
 	const id = opts.id ?? newId();
 	const [width, depth, height] = input.size;

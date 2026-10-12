@@ -40,7 +40,7 @@ import {
 } from '@holecraft/core';
 
 /** Where a duplicate lands relative to the original, in mm. */
-export const DUPLICATE_OFFSET: [number, number] = [10, 10];
+const DUPLICATE_OFFSET: [number, number] = [10, 10];
 
 export interface EditorState {
 	history: History<Design>;

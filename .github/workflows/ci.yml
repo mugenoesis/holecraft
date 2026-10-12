@@ -18,6 +18,27 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: scripts/check.sh
+      - name: Keep the coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          if-no-files-found: ignore
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      # Fails if anything that ships has a known vulnerability; build tools are reported only.
+      - run: scripts/audit.sh
 
   docker:
     runs-on: ubuntu-latest
@@ -25,6 +46,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: scripts/docker-smoke.sh holecraft:ci
+      # hadolint on the Dockerfile; trivy on its configuration and on the built image (HIGH/CRITICAL with a fix)
+      - run: scripts/docker-lint.sh holecraft:ci
 
   desktop:
     runs-on: ubuntu-latest

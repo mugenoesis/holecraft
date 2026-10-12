@@ -5,7 +5,7 @@ import { decodeMesh, isMeshRef } from '@holecraft/core';
 import type { FastifyInstance } from 'fastify';
 
 /** Largest stored mesh accepted: about a million triangles with room to spare. */
-export const MAX_MESH_BYTES = 64 * 1024 * 1024;
+const MAX_MESH_BYTES = 64 * 1024 * 1024;
 
 /**
  * Imported models, stored once each under the SHA-256 of their bytes. The reference is the only
