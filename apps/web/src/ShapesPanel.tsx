@@ -54,6 +54,11 @@ export function ObjectList({ design, selection, onSelect, dispatch }: ObjectList
 	return (
 		<section aria-label="Objects">
 			<h2>Objects</h2>
+			{design.roots.length > 1 && (
+				<button type="button" className="show-all" onClick={() => dispatch({ type: 'selectAll' })} title="Select every object (Ctrl+A)">
+					Select all
+				</button>
+			)}
 			{hasHiddenNodes(design) && (
 				<button type="button" className="show-all" onClick={() => dispatch({ type: 'showAll' })} title="Show every hidden object again">
 					Show all

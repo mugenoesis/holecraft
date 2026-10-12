@@ -19,6 +19,7 @@ import type { GroupResult } from '../geometry/GeometryService.ts';
 import { CameraRig, FOV_DEG, type Projection } from './CameraRig.ts';
 import { DesignScene } from './DesignScene.ts';
 import { createPlaneMarker } from './planeMarker.ts';
+import { dragModeFor } from './pressMode.ts';
 import { thumbnailCamera } from './thumbnailCamera.ts';
 import { type Point, twoFingerStep } from './touchGesture.ts';
 import { createWorkplane } from './workplane.ts';
@@ -50,12 +51,6 @@ export interface ViewportOptions {
 const WHEEL_RATE = 0.001;
 /** Pixels the pointer must travel before a press becomes a drag. */
 const DRAG_THRESHOLD = 4;
-
-/** What a press that has started to move becomes. Shift-pressing a shape only toggles it, so it doesn't start a move. */
-function dragModeFor(press: LeftPress, surfaceToolOn: boolean): LeftPress['mode'] {
-	if (press.id === null) return press.touch || surfaceToolOn ? 'orbit' : 'marquee';
-	return press.additive ? 'none' : 'move';
-}
 
 type CameraDrag = { mode: 'orbit' | 'pan'; x: number; y: number };
 
@@ -101,6 +96,7 @@ export class Viewport {
 	private pinch: [Point, Point] | null = null;
 	/** While the ruler is on, the left button no longer selects or moves: clicks belong to the ruler and dragging orbits. */
 	private surfaceToolOn = false;
+	private multiSelectOn = false;
 	private planeMarker: THREE.Object3D | null = null;
 
 	constructor(
@@ -273,6 +269,11 @@ export class Viewport {
 	/** While a surface tool (ruler, workplane) is on, the left button no longer selects or moves: clicks belong to the tool and dragging orbits. */
 	setSurfaceTool(on: boolean): void {
 		this.surfaceToolOn = on;
+	}
+
+	/** While the Select toggle is on, every press adds to (or takes from) the selection, and a finger on empty space draws the selection box. */
+	setMultiSelect(on: boolean): void {
+		this.multiSelectOn = on;
 	}
 
 	/** Shows the Workplane tool's plane as a gridded square on the surface, or removes it. */
@@ -463,7 +464,7 @@ export class Viewport {
 
 	private beginLeftPress(e: PointerEvent): void {
 		const id = this.surfaceToolOn ? null : this.pickNode(e.clientX, e.clientY);
-		const additive = e.shiftKey;
+		const additive = e.shiftKey || this.multiSelectOn;
 		if (e.pointerType !== 'touch') this.canvas.setPointerCapture(e.pointerId);
 		if (!this.surfaceToolOn) this.opts.onPick(id, additive, 'down');
 		const node = id !== null ? this.design?.nodes[id] : undefined;
@@ -493,7 +494,7 @@ export class Viewport {
 	/** Once the pointer has travelled far enough, decides what the press has become. False while it is still a click. */
 	private beginDrag(press: LeftPress, e: PointerEvent): boolean {
 		if (Math.hypot(e.clientX - press.startX, e.clientY - press.startY) < DRAG_THRESHOLD) return false;
-		press.mode = dragModeFor(press, this.surfaceToolOn);
+		press.mode = dragModeFor(press, this.surfaceToolOn, this.multiSelectOn);
 		if (press.mode === 'move') this.opts.onMoveStart();
 		return true;
 	}

@@ -79,10 +79,15 @@ function EditorView({ initial }: { initial: Design }) {
 	const addAt = useCallback((shape: ShapeType, at: [number, number]) => dispatch({ type: 'add', shape, at }), []);
 	// A list row is a complete click: the press selects (shift toggles), and the release narrows a
 	// multi-selection down to the clicked row, which the viewport only does when nothing was dragged.
-	const select = useCallback((id: NodeId, additive: boolean) => {
-		dispatch({ type: 'pick', id, additive, phase: 'down' });
-		dispatch({ type: 'pick', id, additive, phase: 'click' });
-	}, []);
+	// With the Select toggle on, every row adds to (or takes from) the selection, as Shift does.
+	const [multiSelect, setMultiSelect] = useState(false);
+	const select = useCallback(
+		(id: NodeId, additive: boolean) => {
+			dispatch({ type: 'pick', id, additive: additive || multiSelect, phase: 'down' });
+			dispatch({ type: 'pick', id, additive: additive || multiSelect, phase: 'click' });
+		},
+		[multiSelect],
+	);
 
 	const [width, depth] = design.grid.size;
 
@@ -119,6 +124,8 @@ function EditorView({ initial }: { initial: Design }) {
 					onGeometry={(id, geometry) => dispatch({ type: 'setGeometry', id, geometry })}
 					onRotation={(id, rotation) => dispatch({ type: 'setRotation', id, rotation })}
 					onRemoveEdges={(id, ids) => dispatch({ type: 'removeEdges', id, ids })}
+					multiSelect={multiSelect}
+					onToggleMultiSelect={() => setMultiSelect((on) => !on)}
 					onPreviewEdges={(id, edges) => dispatch({ type: 'previewEdges', id, edges })}
 					onCancelDrag={() => dispatch({ type: 'cancelDrag' })}
 				/>

@@ -477,7 +477,7 @@ button.primary:disabled {
 	display: flex;
 	/* wraps onto more rows rather than running under the view cube on narrow screens */
 	flex-wrap: wrap;
-	max-width: calc(100% - 130px);
+	max-width: calc(100% - 112px);
 	/* tight, so all the controls fit on one line on a 4:3 tablet (fourThree.spec.ts) */
 	gap: 2px;
 	padding: 4px;
@@ -494,7 +494,7 @@ button.primary:disabled {
 	background: transparent;
 	border: 1px solid transparent;
 	border-radius: 6px;
-	padding: 4px 7px;
+	padding: 4px 5px;
 	cursor: pointer;
 }
 

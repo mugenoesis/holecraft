@@ -399,6 +399,11 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Touch e2e (`e2e/web/touch.spec.ts`) needs `test.use({ hasTouch: true })` and sends real touches over
   CDP (`Input.dispatchTouchEvent`); without `hasTouch` Chrome silently drops them and tests pass vacuously.
   A selected shape has rotation handles at its centre that catch touches, so drag unselected shapes.
+- **Select toggle** (view toolbar, state in `EditorView` as `multiSelect`, `Viewport.setMultiSelect`): makes every press additive (`e.shiftKey || multiSelectOn`) so a
+  touch tap toggles, and `dragModeFor` (pressMode.ts, pure) lets a finger on empty space draw the marquee instead of orbiting; an additive press on a shape never
+  moves it. The Objects rows use the same flag through `select` in Editor. A surface tool (ruler, workplane, edges) still wins the left button. `Select all`
+  in the Objects list is the keyboard-free `Ctrl+A`. `e2e/web/fingers.ts` is the shared real-touch helper; taps land where shapes were *dropped* in the default view,
+  and results are read with `expect.poll` (a touch is handled a moment after it is sent).
 - The rest of the UI is not yet laid out for phone-sized screens.
 
 ## Testing the viewport
