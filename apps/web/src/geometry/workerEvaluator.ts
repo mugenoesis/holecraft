@@ -1,14 +1,17 @@
+import type { MeshData, MeshEdge } from '@holecraft/core';
 import type { GroupMesh, Subtree } from '@holecraft/geometry';
 import type { Evaluator } from './GeometryService.ts';
 import type { WorkerRequest, WorkerResponse } from './geometry.worker.ts';
 
 export interface WorkerEvaluator {
 	evaluate: Evaluator;
+	/** The edges the Edge tool offers on the subtree's root (see `toolEdges`). */
+	edges(subtree: Subtree, meshes: ReadonlyMap<string, MeshData>): Promise<MeshEdge[]>;
 	dispose(): void;
 }
 
 interface Pending {
-	resolve: (mesh: GroupMesh | null) => void;
+	resolve: (reply: WorkerResponse) => void;
 	reject: (error: Error) => void;
 }
 
@@ -35,22 +38,33 @@ export function createWorkerEvaluator(): WorkerEvaluator {
 			if (!job) return;
 			pending.delete(data.id);
 			if ('error' in data) job.reject(new Error(data.error));
-			else if ('mesh' in data) job.resolve(data.mesh);
-			else job.reject(new Error('The geometry worker sent an unexpected reply'));
+			else job.resolve(data);
 		};
 		w.onerror = (event) => failAll(new Error(event.message || 'The geometry worker stopped unexpectedly'));
 		return w;
 	};
 
+	/** Sends a request and waits for its reply (an error reply rejects). */
+	const ask = (request: (id: number) => WorkerRequest): Promise<WorkerResponse> =>
+		new Promise((resolve, reject) => {
+			worker ??= start();
+			const id = nextId++;
+			pending.set(id, { resolve, reject });
+			worker.postMessage(request(id));
+		});
+	const unexpected = () => new Error('The geometry worker sent an unexpected reply');
+
 	return {
-		evaluate: (subtree: Subtree, meshes) =>
-			new Promise((resolve, reject) => {
-				worker ??= start();
-				const id = nextId++;
-				pending.set(id, { resolve, reject });
-				const request: WorkerRequest = { kind: 'group', id, subtree, meshes };
-				worker.postMessage(request);
-			}),
+		evaluate: async (subtree: Subtree, meshes) => {
+			const reply = await ask((id) => ({ kind: 'group', id, subtree, meshes }));
+			if (!('mesh' in reply)) throw unexpected();
+			return reply.mesh satisfies GroupMesh | null;
+		},
+		edges: async (subtree, meshes) => {
+			const reply = await ask((id) => ({ kind: 'edges', id, subtree, meshes }));
+			if (!('edges' in reply)) throw unexpected();
+			return reply.edges;
+		},
 		dispose: () => failAll(new Error('The geometry worker was shut down')),
 	};
 }

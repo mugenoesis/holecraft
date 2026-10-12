@@ -119,6 +119,8 @@ function EditorView({ initial }: { initial: Design }) {
 					onGeometry={(id, geometry) => dispatch({ type: 'setGeometry', id, geometry })}
 					onRotation={(id, rotation) => dispatch({ type: 'setRotation', id, rotation })}
 					onRemoveEdges={(id, ids) => dispatch({ type: 'removeEdges', id, ids })}
+					onPreviewEdges={(id, edges) => dispatch({ type: 'previewEdges', id, edges })}
+					onCancelDrag={() => dispatch({ type: 'cancelDrag' })}
 				/>
 				<aside className="panel">
 					<ShapesPanel onAddShape={(shape) => (plane ? addOnPlane(shape, plane, plane.origin) : addAt(shape, [0, 0]))} />

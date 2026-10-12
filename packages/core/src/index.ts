@@ -4,6 +4,7 @@ export * from './chamfer.ts';
 export * from './design.ts';
 export * from './edgeEdits.ts';
 export * from './edges.ts';
+export * from './edgeTool.ts';
 export * from './edit.ts';
 export * from './grid.ts';
 export * from './groups.ts';

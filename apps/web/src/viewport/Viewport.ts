@@ -252,6 +252,24 @@ export class Viewport {
 		return { x: ((p.x + 1) / 2) * this.host.clientWidth, y: ((1 - p.y) / 2) * this.host.clientHeight };
 	}
 
+	/**
+	 * Whether a world point can be seen: in front of the camera and not behind any shown shape. A point on a shape's own surface
+	 * (an edge) counts as seen; a small allowance absorbs rounding where the ray grazes the faces meeting there.
+	 */
+	canSee(point: Vec3): boolean {
+		const camera = this.rig.active;
+		camera.updateMatrixWorld();
+		const p = new THREE.Vector3(...point);
+		if (p.clone().applyMatrix4(camera.matrixWorldInverse).z >= 0) return false;
+		const ndc = p.clone().project(camera);
+		this.raycaster.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), camera);
+		const hit = this.designScene.pickHit(this.raycaster);
+		if (!hit) return true;
+		const origin = this.raycaster.ray.origin;
+		const toPoint = origin.distanceTo(p);
+		return origin.distanceTo(new THREE.Vector3(...hit.point)) >= toPoint - Math.max(0.05, toPoint * 1e-3);
+	}
+
 	/** While a surface tool (ruler, workplane) is on, the left button no longer selects or moves: clicks belong to the tool and dragging orbits. */
 	setSurfaceTool(on: boolean): void {
 		this.surfaceToolOn = on;

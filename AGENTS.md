@@ -212,7 +212,22 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   drag (one undo step on Apply), `cancelDrag` restores the design the drag began from, `removeEdges` is an ordinary edit.
 - Skipped treatments: `skippedEdgeNotices` (pure) turns results' `skippedEdges` into notices; `SkippedEdgesNotice` shows them over the view with
   **Remove** (and says Undo brings the edge back). `e2e/web/edgeTreatments.spec.ts` writes treatments through the API and reads pixels.
-- Not done yet: the Edge tool itself (choosing edges in the view).
+- **The Edge tool** (`EdgeTool.tsx`, `E` / the **Edges** button; a `SurfaceTool` like the ruler). Rules are pure in core/edgeTool.ts: `edgeToolTarget`
+  (one top-level, solid, unlocked shape or group, else a message), `treatEdges` (a chosen edge's old treatment is *replaced*, never doubled; treatments
+  the tool can't see are kept), `clearEdges`, `treatedEdges`, `nextChosen`, `defaultEdgeSize` (5% of the smallest side, on the grid unless it is too
+  coarse), `nearestEdge` (screen-space picking, 10 px reach). Chosen edges are indexes into the offered list, which resets when the shape changes.
+- The offered edges come from the worker (`{ kind: 'edges' }` request, `toolEdges` in geometry): the node's solid **without its own treatments**, so a
+  treated edge is still offered (to change or remove) and previewing doesn't change the list. `toolEdgesKey` (the subtree hash with the root's own
+  edges left out) is the cache key in `useToolEdges`.
+- Drawing: `EdgeTool` projects each segment and keeps it only if `Viewport.canSee` its middle (a raycast: nothing shown is in front of it), as
+  `<g data-testid="edge-line" data-from data-to class="plain|hover|chosen|treated">` in an SVG over the canvas; tests find an edge by its world ends.
+  Clicks come through `useSurfaceTool`'s `onHoverAt` / `onClickAt` (view pixels; `add` is Shift or any touch). Hover clears on `pointerleave`.
+- **Escape belongs to the active tool**: `useSurfaceTool` listens in the capture phase and stops the event, so the editor's Escape (deselect)
+  doesn't run. Otherwise it deselects first and React re-renders between the two window listeners, unmounting the Edge tool before it hears the
+  key (a browser test caught this only with focus outside a text field: shortcuts skip typing targets).
+- The preview is a drag: the first choice dispatches `moveStart`, every change `previewEdges` built from the treatments as they were before the
+  preview (`base`), Apply `moveEnd`, Cancel / clearing the choice / closing the tool `cancelDrag`. Remove is `moveStart` + `previewEdges` + `moveEnd`.
+  With nothing usable selected the tool only shows a hint and does **not** take over the left button, so the view still selects.
 
 ## Rotation
 - Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre

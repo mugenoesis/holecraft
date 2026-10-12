@@ -35,6 +35,19 @@ test.describe('on a phone', () => {
 		}
 	});
 
+	test('every view control is on screen and clear of the view cube', async ({ page }) => {
+		const cube = await box(page.getByRole('group', { name: 'View cube' }));
+		const controls = page.getByRole('toolbar', { name: 'View controls' }).locator('button, select');
+		const count = await controls.count();
+		expect(count).toBeGreaterThanOrEqual(7); // home, fit, ortho, ruler, workplane, edges, views
+		for (let i = 0; i < count; i++) {
+			const b = await box(controls.nth(i));
+			expect(b.x + b.width, `control ${i} ends on screen`).toBeLessThanOrEqual(PHONE.width);
+			const overlaps = b.x < cube.x + cube.width && cube.x < b.x + b.width && b.y < cube.y + cube.height && cube.y < b.y + b.height;
+			expect(overlaps, `control ${i} is not under the view cube`).toBe(false);
+		}
+	});
+
 	test('the save status and design name are visible', async ({ page }) => {
 		for (const locator of [page.getByTestId('save-status'), page.getByRole('textbox', { name: 'Design name' })]) {
 			const b = await box(locator);
