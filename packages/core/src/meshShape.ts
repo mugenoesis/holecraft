@@ -2,6 +2,7 @@ import type { Design, NodeId, ShapeNode } from './design.ts';
 import { MAX_SHAPE_SIZE } from './edit.ts';
 import { newId } from './ids.ts';
 import { translation } from './ops.ts';
+import { faceShellsOutwards } from './shells.ts';
 
 /** The `shapeType` of an imported model: an ordinary shape whose geometry is a stored mesh. */
 export const MESH_SHAPE_TYPE = 'mesh';
@@ -83,7 +84,7 @@ export function signedVolume(mesh: MeshData): number {
 /**
  * Fits a model into the unit box every shape is built in (x and y within ±0.5, z from 0 to 1), and
  * returns its real size in mm. The shape's width, depth and height then scale it, like any other
- * shape. Triangles that face inwards are turned round so cutting works. Throws, with a message fit
+ * shape. Pieces that face inwards are turned round (each separately: see faceShellsOutwards) so cutting works. Throws, with a message fit
  * to show, when the model is flat or bigger than a shape may be.
  */
 export function normalizeMesh(mesh: MeshData): { mesh: MeshData; size: [number, number, number] } {
@@ -106,15 +107,7 @@ export function normalizeMesh(mesh: MeshData): { mesh: MeshData; size: [number, 
 		positions[i + 1] = (mesh.positions[i + 1]! - (min[1]! + max[1]!) / 2) / size[1];
 		positions[i + 2] = (mesh.positions[i + 2]! - min[2]!) / size[2];
 	}
-	const indices = Uint32Array.from(mesh.indices);
-	if (signedVolume(mesh) < 0) {
-		for (let t = 0; t < indices.length; t += 3) {
-			const b = indices[t + 1]!;
-			indices[t + 1] = indices[t + 2]!;
-			indices[t + 2] = b;
-		}
-	}
-	return { mesh: { positions, indices }, size };
+	return { mesh: { positions, indices: faceShellsOutwards(mesh) }, size };
 }
 
 export interface MeshShapeInput {

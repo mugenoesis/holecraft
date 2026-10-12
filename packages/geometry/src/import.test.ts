@@ -272,6 +272,32 @@ describe('importMeshFile', () => {
 			expect(volume(mesh)).toBeCloseTo(volume(tetra) / 1, 3);
 		});
 
+		it('keeps a mirrored part facing outwards (a mirror reverses which way its triangles face)', async () => {
+			// the same part twice: as it is, and mirrored in x (as files build left and right legs from one model)
+			const parts = (inner: string, item: string) =>
+				writeStoredZip([
+					{
+						name: '3D/3dmodel.model',
+						data: text(
+							root(
+								`<object id="2" type="model"><components><component p:path="/3D/Objects/a.model" objectid="1"/><component p:path="/3D/Objects/a.model" objectid="1" transform="${inner}"/></components></object>`,
+								`<item objectid="2" transform="${item}"/>`,
+							),
+						),
+					},
+					{ name: '3D/Objects/a.model', data: text(partFile(1)) },
+				]);
+			const MIRROR_X = '-1 0 0 0 1 0 0 0 1 -50 0 0';
+			const SAME = '1 0 0 0 1 0 0 0 1 0 0 0';
+			const ACROSS = '1 0 0 0 1 0 0 0 1 50 0 0';
+			const MIRROR_Y = '1 0 0 0 -1 0 0 0 1 0 0 0';
+			// every case is two whole tetrahedra facing outwards: an inside-out one would cancel the other
+			expect(volume(await importMeshFile('m.3mf', parts(MIRROR_X, SAME)))).toBeCloseTo(2 * volume(tetra), 3);
+			expect(volume(await importMeshFile('m.3mf', parts(ACROSS, MIRROR_Y)))).toBeCloseTo(2 * volume(tetra), 3); // mirrored on the plate
+			const both = await importMeshFile('m.3mf', parts(MIRROR_X, MIRROR_Y)); // mirrored twice: no mirror
+			expect(volume(both)).toBeCloseTo(2 * volume(tetra), 3);
+		});
+
 		it('applies the transforms on the component and on the build item', async () => {
 			const zip = writeStoredZip([
 				{

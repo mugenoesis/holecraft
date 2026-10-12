@@ -108,6 +108,71 @@ describe('normalizeMesh', () => {
 		expect(signedVolume(normalizeMesh(inside).mesh)).toBeGreaterThan(0);
 	});
 
+	describe('a model made of several separate pieces (shells)', () => {
+		/** A cube from `lo` to `hi` (mm) as its own shell: outward-facing triangles, or inward with `inward`. */
+		const cube = (lo: number, hi: number, inward = false): MeshData => {
+			const c = [0, 1, 2, 3, 4, 5, 6, 7].flatMap((i) => [i & 1 ? hi : lo, i & 2 ? hi : lo, i & 4 ? hi : lo]);
+			// two triangles per face, counter-clockwise seen from outside
+			const faces = [0, 2, 1, 1, 2, 3, 4, 5, 6, 5, 7, 6, 0, 1, 4, 1, 5, 4, 2, 6, 3, 3, 6, 7, 0, 4, 2, 2, 4, 6, 1, 3, 5, 3, 7, 5];
+			const indices = inward ? faces.map((_, i) => faces[i - (i % 3) + [0, 2, 1][i % 3]!]!) : faces;
+			return { positions: new Float32Array(c), indices: new Uint32Array(indices) };
+		};
+		/** Several shells as one mesh, as a file would give them. */
+		const join = (...shells: MeshData[]): MeshData => {
+			const positions: number[] = [];
+			const indices: number[] = [];
+			for (const s of shells) {
+				const base = positions.length / 3;
+				positions.push(...s.positions);
+				indices.push(...[...s.indices].map((i) => i + base));
+			}
+			return { positions: new Float32Array(positions), indices: new Uint32Array(indices) };
+		};
+		/** The signed volume of each shell of a normalised mesh (shells keep their order: 36 indices each). */
+		const shellVolumes = (m: MeshData) =>
+			Array.from({ length: m.indices.length / 36 }, (_, s) =>
+				signedVolume({ positions: m.positions, indices: m.indices.subarray(s * 36, s * 36 + 36) }),
+			);
+
+		it('the cube helper is right: an outward cube has a positive volume, an inward one negative', () => {
+			expect(signedVolume(cube(0, 10))).toBeCloseTo(1000);
+			expect(signedVolume(cube(0, 10, true))).toBeCloseTo(-1000);
+		});
+
+		it('turns round one inside-out piece even when the rest outweighs it', () => {
+			const { mesh } = normalizeMesh(join(cube(0, 10), cube(20, 30), cube(40, 50, true)));
+			expect(shellVolumes(mesh).every((v) => v > 0)).toBe(true);
+		});
+
+		it('leaves a hollow model’s inner wall facing into the hollow', () => {
+			const { mesh } = normalizeMesh(join(cube(0, 30), cube(10, 20, true)));
+			const [outer, inner] = shellVolumes(mesh);
+			expect(outer).toBeGreaterThan(0);
+			expect(inner).toBeLessThan(0);
+		});
+
+		it('turns a whole hollow model round when both its walls face the wrong way', () => {
+			const { mesh } = normalizeMesh(join(cube(0, 30, true), cube(10, 20)));
+			const [outer, inner] = shellVolumes(mesh);
+			expect(outer).toBeGreaterThan(0);
+			expect(inner).toBeLessThan(0);
+		});
+
+		it('a piece within another’s bounding box but outside the piece itself is not a hollow', () => {
+			// a big sloped tetrahedron (0..30, 0..60, 0..90) and a cube in the empty corner of its box, beyond the sloped face
+			const big = tetra();
+			const sloped = { positions: big.positions.map((v) => v * 3), indices: big.indices };
+			const { mesh } = normalizeMesh(join(sloped, cube(20, 25)));
+			expect(signedVolume({ positions: mesh.positions, indices: mesh.indices.subarray(12) })).toBeGreaterThan(0);
+		});
+
+		it('a solid piece inside a hollow faces outwards again (three walls deep)', () => {
+			const { mesh } = normalizeMesh(join(cube(0, 30), cube(5, 25, true), cube(10, 20, true)));
+			const [outer, hollow, core] = shellVolumes(mesh);
+			expect([outer! > 0, hollow! < 0, core! > 0]).toEqual([true, true, true]);
+		});
+	});
+
 	it('leaves correctly wound triangles alone', () => {
 		expect(signedVolume(normalizeMesh(tetra()).mesh)).toBeGreaterThan(0);
 	});
