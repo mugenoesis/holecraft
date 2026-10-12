@@ -279,6 +279,7 @@ export function ViewportCanvas(props: Props) {
 							meshes={meshes}
 							selection={selection}
 							findEdges={findEdges}
+							camera={camera}
 							onStart={() => latest.current.onMoveStart()}
 							onPreview={(id, edges) => latest.current.onPreviewEdges(id, edges)}
 							onApply={() => latest.current.onMoveEnd()}

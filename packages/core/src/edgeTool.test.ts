@@ -2,7 +2,19 @@ import { describe, expect, it } from 'vitest';
 import type { EdgeTreatment } from './design.ts';
 import { createEmptyDesign } from './design.ts';
 import type { MeshEdge } from './edges.ts';
-import { clearEdges, defaultEdgeSize, edgeToolTarget, nearestEdge, nextChosen, treatEdges, treatedEdges } from './edgeTool.ts';
+import {
+	clearEdges,
+	countSegments,
+	defaultEdgeSize,
+	edgeLength,
+	edgeToolTarget,
+	MIN_EDGE_LENGTH,
+	nearestEdge,
+	nextChosen,
+	treatEdges,
+	treatedEdges,
+	usefulEdges,
+} from './edgeTool.ts';
 import { setNodeMode } from './edit.ts';
 import { groupNodes } from './groups.ts';
 import { addShape } from './ops.ts';
@@ -140,5 +152,56 @@ describe('what the tool works on', () => {
 			problem: 'Holes have no edges to treat; select a solid',
 		});
 		expect(edgeToolTarget(setLocked(design(), ['a'], true), ['a'])).toEqual({ problem: 'Box 1 is locked' });
+	});
+});
+
+describe('which edges are worth offering', () => {
+	const line = (length: number): MeshEdge => ({
+		points: [
+			[0, 0, 0],
+			[length, 0, 0],
+		],
+		normals: [
+			[
+				[0, 0, 1],
+				[0, -1, 0],
+			],
+		],
+		closed: false,
+	});
+	const bent = (): MeshEdge => ({
+		points: [
+			[0, 0, 0],
+			[0.3, 0, 0],
+			[0.3, 0.3, 0],
+		],
+		normals: [
+			[
+				[0, 0, 1],
+				[0, -1, 0],
+			],
+			[
+				[0, 0, 1],
+				[1, 0, 0],
+			],
+		],
+		closed: false,
+	});
+
+	it('measures an edge along its whole polyline', () => {
+		expect(edgeLength(line(12))).toBe(12);
+		expect(edgeLength(bent())).toBeCloseTo(0.6, 9);
+	});
+
+	it('drops edges shorter than half a millimetre (too small to pick or to treat) and keeps the rest in order', () => {
+		const kept = usefulEdges([line(0.2), line(3), line(0.49), bent(), line(0.5)]);
+		expect(kept).toHaveLength(3);
+		expect(kept.map(edgeLength)).toEqual([3, expect.closeTo(0.6, 9), 0.5]);
+		expect(MIN_EDGE_LENGTH).toBe(0.5);
+	});
+
+	it('counts the pieces an edge is drawn from', () => {
+		expect(countSegments([line(1), bent()])).toBe(3);
+		expect(countSegments([])).toBe(0);
 	});
 });

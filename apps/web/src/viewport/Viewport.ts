@@ -248,6 +248,16 @@ export class Viewport {
 		return { x: ((p.x + 1) / 2) * this.host.clientWidth, y: ((1 - p.y) / 2) * this.host.clientHeight };
 	}
 
+	/** Whether a face at `point` with this outward `normal` points towards the camera (cheap: no rays). */
+	facesCamera(point: Vec3, normal: Vec3): boolean {
+		const camera = this.rig.active;
+		camera.updateMatrixWorld();
+		const toward = new THREE.Vector3();
+		if (camera instanceof THREE.OrthographicCamera) camera.getWorldDirection(toward).negate();
+		else toward.setFromMatrixPosition(camera.matrixWorld).sub(new THREE.Vector3(...point));
+		return toward.x * normal[0] + toward.y * normal[1] + toward.z * normal[2] > 0;
+	}
+
 	/**
 	 * Whether a world point can be seen: in front of the camera and not behind any shown shape. A point on a shape's own surface
 	 * (an edge) counts as seen; a small allowance absorbs rounding where the ray grazes the faces meeting there.

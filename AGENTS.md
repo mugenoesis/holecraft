@@ -239,6 +239,11 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - **Escape belongs to the active tool**: `useSurfaceTool` listens in the capture phase and stops the event, so the editor's Escape (deselect)
   doesn't run. Otherwise it deselects first and React re-renders between the two window listeners, unmounting the Edge tool before it hears the
   key (a browser test caught this only with focus outside a text field: shortcuts skip typing targets).
+- **Keep it cheap on heavy shapes** (a part already cut up by many treatments has thousands of tiny steps; on one real design the tool once offered 5,434 edges and
+  froze the page for seconds per mouse move). Three guards: the worker offers only `usefulEdges` (at least `MIN_EDGE_LENGTH` = 0.5 mm); `useToolEdges` refuses more
+  than `MAX_OFFERED_SEGMENTS` pieces (`settled`, shown as a message); and drawing is cheap: `projectEdges` projects and skips pieces whose faces point away (no rays)
+  only when the camera or shape changes, never on hover, while the costly "hidden behind the model" ray test runs in chunks after the camera has been still
+  120 ms (`SegmentVisibility`, injectable scheduler; unchecked pieces count as visible). Never put a per-piece ray test in a render.
 - The preview is a drag: the first choice dispatches `moveStart`, every change `previewEdges` built from the treatments as they were before the
   preview (`base`), Apply `moveEnd`, Cancel / clearing the choice / closing the tool `cancelDrag`. Remove is `moveStart` + `previewEdges` + `moveEnd`.
   With nothing usable selected the tool only shows a hint and does **not** take over the left button, so the view still selects.
