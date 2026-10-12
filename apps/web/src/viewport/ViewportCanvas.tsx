@@ -21,6 +21,7 @@ import { ThumbnailScheduler } from '../thumbnailScheduler.ts';
 import type { Projection } from './CameraRig.ts';
 import { HandlesOverlay } from './HandlesOverlay.tsx';
 import { RotationRings } from './RotationRings.tsx';
+import { RulerOverlay } from './RulerOverlay.tsx';
 import { shapeDropHandlers } from './shapeDrop.ts';
 import { ViewCube } from './ViewCube.tsx';
 import { type PixelRect, Viewport } from './Viewport.ts';
@@ -97,6 +98,7 @@ export function ViewportCanvas(props: Props) {
 	const [failed, setFailed] = useState(false);
 	const [marquee, setMarquee] = useState<PixelRect | null>(null);
 	const [dimensionLabel, setDimensionLabel] = useState<string | null>(null);
+	const [rulerOn, setRulerOn] = useState(false);
 	const [camera, setCamera] = useState<{ state: OrbitState; projection: Projection }>({ state: HOME_VIEW, projection: 'perspective' });
 	const cameraRef = useRef(camera);
 	cameraRef.current = camera;
@@ -182,7 +184,7 @@ export function ViewportCanvas(props: Props) {
 		viewportRef.current?.setSelection(selection);
 	}, [selection]);
 
-	useViewKeys({ viewport: viewportRef, camera: cameraRef, latest });
+	useViewKeys({ viewport: viewportRef, camera: cameraRef, latest, onToggleRuler: () => setRulerOn((on) => !on) });
 
 	const { onDragOver, onDrop } = shapeDropHandlers(viewportRef, design.grid, onDropShape);
 
@@ -219,7 +221,7 @@ export function ViewportCanvas(props: Props) {
 				</div>
 			) : (
 				<>
-					<ViewToolbar viewport={viewportRef} projection={projection} />
+					<ViewToolbar viewport={viewportRef} projection={projection} rulerOn={rulerOn} onToggleRuler={() => setRulerOn((on) => !on)} />
 					<ViewCube camera={state} onSelect={(view) => viewportRef.current?.setView(view)} />
 					{selected?.upright && (
 						<HandlesOverlay
@@ -247,6 +249,15 @@ export function ViewportCanvas(props: Props) {
 							onRotation={(id, r) => latest.current.onRotation(id, r)}
 							onEnd={() => latest.current.onMoveEnd()}
 							onLabel={setDimensionLabel}
+						/>
+					)}
+					{rulerOn && (
+						<RulerOverlay
+							getViewport={() => viewportRef.current}
+							units={design.units}
+							snap={design.grid.snap}
+							camera={camera}
+							onClose={() => setRulerOn(false)}
 						/>
 					)}
 					{dimensionLabel && (

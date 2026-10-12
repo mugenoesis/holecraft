@@ -29,21 +29,32 @@ interface Targets {
 	camera: RefObject<{ state: OrbitState }>;
 	/** The latest design and nudge handler (read at the time of the key press). */
 	latest: RefObject<{ design: Design; onNudge: (delta: [number, number]) => void }>;
+	/** R: turns the ruler on or off. */
+	onToggleRuler: () => void;
 }
 
-/** Arrow keys nudge the selection; Home resets the view and F frames everything. Ignored while typing. */
-export function useViewKeys({ viewport, camera, latest }: Targets): void {
+/** The view commands on a plain key, by lower-case key name. */
+function viewCommand(key: string, viewport: Viewport | null, onToggleRuler: () => void): (() => void) | undefined {
+	const commands: Record<string, () => void> = {
+		home: () => viewport?.home(),
+		f: () => viewport?.fitAll(),
+		r: onToggleRuler,
+	};
+	return Object.hasOwn(commands, key.toLowerCase()) ? commands[key.toLowerCase()] : undefined;
+}
+
+/** Arrow keys nudge the selection; Home resets the view, F frames everything and R is the ruler. Ignored while typing. */
+export function useViewKeys({ viewport, camera, latest, onToggleRuler }: Targets): void {
 	useEffect(() => {
 		const onKeyDown = (e: KeyboardEvent) => {
 			if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
 			const nudge = nudgeForKey(e.key, e.shiftKey, latest.current.design.grid.snap, camera.current.state.azimuth);
-			if (nudge) latest.current.onNudge(nudge);
-			else if (e.key === 'Home') viewport.current?.home();
-			else if (e.key === 'f' || e.key === 'F') viewport.current?.fitAll();
-			else return;
+			const run = nudge ? () => latest.current.onNudge(nudge) : viewCommand(e.key, viewport.current, onToggleRuler);
+			if (!run) return;
+			run();
 			e.preventDefault();
 		};
 		window.addEventListener('keydown', onKeyDown);
 		return () => window.removeEventListener('keydown', onKeyDown);
-	}, [viewport, camera, latest]);
+	}, [viewport, camera, latest, onToggleRuler]);
 }

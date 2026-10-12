@@ -14,7 +14,14 @@ const VIEW_OPTIONS: ReadonlyArray<{ value: ViewPresetName; label: string }> = [
 ];
 
 /** Home, fit, orthographic toggle and the standard views, floating in the corner of the 3D view. */
-export function ViewToolbar({ viewport, projection }: { viewport: RefObject<Viewport | null>; projection: Projection }) {
+interface Props {
+	viewport: RefObject<Viewport | null>;
+	projection: Projection;
+	rulerOn: boolean;
+	onToggleRuler: () => void;
+}
+
+export function ViewToolbar({ viewport, projection, rulerOn, onToggleRuler }: Props) {
 	return (
 		<div className="viewport-toolbar" role="toolbar" aria-label="View controls">
 			<button type="button" onClick={() => viewport.current?.home()} aria-label="Home view" title="Home view (Home)">
@@ -31,6 +38,9 @@ export function ViewToolbar({ viewport, projection }: { viewport: RefObject<View
 				onClick={() => viewport.current?.setProjection(projection === 'orthographic' ? 'perspective' : 'orthographic')}
 			>
 				Ortho
+			</button>
+			<button type="button" aria-pressed={rulerOn} aria-label="Ruler" title="Measure between two points (R)" onClick={onToggleRuler}>
+				Ruler
 			</button>
 			<select
 				aria-label="Standard views"

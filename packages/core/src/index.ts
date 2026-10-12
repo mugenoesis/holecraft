@@ -15,6 +15,7 @@ export * from './repeat.ts';
 export * from './resize.ts';
 export * from './ring.ts';
 export * from './rotation.ts';
+export * from './ruler.ts';
 export * from './shapes.ts';
 export * from './units.ts';
 export * from './validate.ts';

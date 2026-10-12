@@ -50,8 +50,8 @@ const WHEEL_RATE = 0.001;
 const DRAG_THRESHOLD = 4;
 
 /** What a press that has started to move becomes. Shift-pressing a shape only toggles it, so it doesn't start a move. */
-function dragModeFor(press: LeftPress): LeftPress['mode'] {
-	if (press.id === null) return press.touch ? 'orbit' : 'marquee';
+function dragModeFor(press: LeftPress, rulerOn: boolean): LeftPress['mode'] {
+	if (press.id === null) return press.touch || rulerOn ? 'orbit' : 'marquee';
 	return press.additive ? 'none' : 'move';
 }
 
@@ -97,6 +97,8 @@ export class Viewport {
 	private left: LeftPress | null = null;
 	private readonly fingers = new Map<number, Point>();
 	private pinch: [Point, Point] | null = null;
+	/** While the ruler is on, the left button no longer selects or moves: clicks belong to the ruler and dragging orbits. */
+	private rulerOn = false;
 
 	constructor(
 		private readonly host: HTMLElement,
@@ -243,6 +245,29 @@ export class Viewport {
 		if (p.clone().applyMatrix4(camera.matrixWorldInverse).z >= 0) return null;
 		p.project(camera);
 		return { x: ((p.x + 1) / 2) * this.host.clientWidth, y: ((1 - p.y) / 2) * this.host.clientHeight };
+	}
+
+	setRuler(on: boolean): void {
+		this.rulerOn = on;
+	}
+
+	/** The element pointer events arrive on, for overlays that listen alongside the viewport. */
+	get element(): HTMLElement {
+		return this.canvas;
+	}
+
+	/**
+	 * The surface under a screen position and which way it faces: a shape's face, else the workplane
+	 * (inside its edges), else null. This is what the ruler measures between.
+	 */
+	pickSurface(clientX: number, clientY: number): { point: Vec3; normal: Vec3 } | null {
+		if (!this.aim(clientX, clientY)) return null;
+		const hit = this.designScene.pickHit(this.raycaster);
+		if (hit) return { point: hit.point, normal: hit.normal };
+		const { origin, direction } = this.raycaster.ray;
+		const ground = rayPlaneIntersection([origin.x, origin.y, origin.z], [direction.x, direction.y, direction.z], 0);
+		const [w, d] = [this.opts.workplaneWidth / 2, this.opts.workplaneDepth / 2];
+		return ground && Math.abs(ground[0]) <= w && Math.abs(ground[1]) <= d ? { point: [ground[0], ground[1], 0], normal: [0, 0, 1] } : null;
 	}
 
 	/** The shape under a screen position, or null. */
@@ -394,10 +419,10 @@ export class Viewport {
 	}
 
 	private beginLeftPress(e: PointerEvent): void {
-		const id = this.pickNode(e.clientX, e.clientY);
+		const id = this.rulerOn ? null : this.pickNode(e.clientX, e.clientY);
 		const additive = e.shiftKey;
 		if (e.pointerType !== 'touch') this.canvas.setPointerCapture(e.pointerId);
-		this.opts.onPick(id, additive, 'down');
+		if (!this.rulerOn) this.opts.onPick(id, additive, 'down');
 		const node = id !== null ? this.design?.nodes[id] : undefined;
 		const planeZ = node ? translationOf(node.transform)[2] : 0;
 		this.left = {
@@ -425,7 +450,7 @@ export class Viewport {
 	/** Once the pointer has travelled far enough, decides what the press has become. False while it is still a click. */
 	private beginDrag(press: LeftPress, e: PointerEvent): boolean {
 		if (Math.hypot(e.clientX - press.startX, e.clientY - press.startY) < DRAG_THRESHOLD) return false;
-		press.mode = dragModeFor(press);
+		press.mode = dragModeFor(press, this.rulerOn);
 		if (press.mode === 'move') this.opts.onMoveStart();
 		return true;
 	}
@@ -459,7 +484,7 @@ export class Viewport {
 				maxY: toNdcY(r.y),
 			});
 			this.opts.onMarquee(ids, press.additive);
-		} else if (press.mode === null) {
+		} else if (press.mode === null && !this.rulerOn) {
 			this.opts.onPick(press.id, press.additive, 'click');
 		}
 	}
