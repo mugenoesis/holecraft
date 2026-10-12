@@ -138,10 +138,13 @@ test.describe('a group that has been cut', () => {
 		await group(page);
 		await expect.poll(() => blue(page, HOLE), { timeout: 15_000 }).toBeGreaterThan(150);
 
+		// A selected group has resize and rotate handles over the view, so deselect before probing with clicks.
+		await page.keyboard.press('Escape');
 		const { x, y } = await center(viewport(page));
 		await page.mouse.click(x + BOX.dx, y + BOX.dy);
 		expect(await selectedNames(page)).toEqual(['Group 1']);
 
+		await page.keyboard.press('Escape');
 		await page.mouse.click(x + HOLE.dx, y + HOLE.dy);
 		expect(await selectedNames(page)).toEqual([]);
 	});

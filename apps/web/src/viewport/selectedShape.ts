@@ -1,6 +1,8 @@
 import {
+	canResizeGroup,
 	type Design,
 	eulerOfTransform,
+	groupGeometry,
 	groupRings,
 	isUpright,
 	type NodeId,
@@ -58,4 +60,21 @@ export function selectedRings(
 	}
 	const shape = selectedShape(design, selection);
 	return shape && { id, center: shape.center, radius: shape.ringRadius, rotation: shape.rotation };
+}
+
+/**
+ * What the resize and lift handles need for the single selected shape or group: the box they work on (a group's is the box
+ * around its contents) and its turn about the vertical. Null when none should show: tipped shapes, and groups that
+ * can't be scaled exactly (see `canResizeGroup`).
+ */
+export function selectedHandles(design: Design, selection: readonly NodeId[]): { id: NodeId; geometry: ShapeGeometry; yaw: number } | null {
+	const id = selection.length === 1 ? selection[0]! : undefined;
+	const node = id !== undefined ? design.nodes[id] : undefined;
+	if (!id || !node || node.locked || node.hidden) return null;
+	if (node.kind === 'group') {
+		const geometry = canResizeGroup(design, id) ? groupGeometry(design, id) : null;
+		return geometry && { id, geometry, yaw: eulerOfTransform(node.transform)[2] };
+	}
+	const shape = selectedShape(design, selection);
+	return shape?.upright ? { id, geometry: shape.geometry, yaw: shape.yaw } : null;
 }

@@ -52,13 +52,14 @@ test.describe('grouping', () => {
 		await expect(groupButton(page)).toBeDisabled();
 	});
 
-	test('a group has rotation fields and rings, but no size fields and no resize handles', async ({ page }) => {
+	test('a group has rotation fields, rings and resize handles, but no size fields', async ({ page }) => {
 		await twoSelected(page);
 		await groupButton(page).click();
 		await expect(field(page, 'Name')).toHaveValue('Group 1');
 		await expect(properties(page).getByLabel('Width', { exact: true })).toHaveCount(0);
 		await expect(properties(page).getByLabel('Rotate Z', { exact: true })).toBeVisible();
-		await expect(page.getByTestId(/^handle-/)).toHaveCount(0);
+		await expect(page.getByTestId('handle-corner-pp')).toBeVisible();
+		await expect(page.getByTestId('handle-height')).toBeVisible();
 		await expect(page.getByTestId(/^rotate-/)).toHaveCount(3);
 	});
 
@@ -99,6 +100,48 @@ test.describe('grouping', () => {
 		expect(((angle % 22.5) + 22.5) % 22.5).toBeLessThan(0.01); // snapped to 22.5 degree steps
 		await page.keyboard.press('Control+z');
 		await expect(field(page, 'Rotate Z')).toHaveValue('0');
+	});
+
+	test('dragging a resize handle stretches the group and what is in it, as one undo step', async ({ page }) => {
+		await twoSelected(page);
+		const widthOfFirst = async () => {
+			await page.getByTestId('object-list').locator('li').first().locator('button').first().click();
+			return Number(await field(page, 'Width').inputValue());
+		};
+		expect(await widthOfFirst()).toBe(20);
+		await page.keyboard.press('Control+a');
+		await groupButton(page).click();
+		const handle = page.getByTestId('handle-side-px');
+		const from = await center(handle);
+		await drag(page, from, { x: from.x + 60, y: from.y }, { steps: 12 });
+		await expect(page.getByText('Objects: 1')).toBeVisible();
+		await ungroupButton(page).click();
+		await expect(page.getByText('Objects: 2')).toBeVisible();
+		expect(await widthOfFirst()).toBeGreaterThan(20.5); // stretched along with the group
+		// ungrouping and the stretch are separate undo steps: undo the ungroup, then the stretch
+		await page.keyboard.press('Escape');
+		await page.keyboard.press('Control+z');
+		await page.keyboard.press('Control+z');
+		await expect(page.getByText('Objects: 1')).toBeVisible();
+		await page
+			.getByTestId('object-list')
+			.getByRole('button', { name: /Group 1/ })
+			.click();
+		await ungroupButton(page).click();
+		expect(await widthOfFirst()).toBe(20);
+	});
+
+	test('a group holding a shape turned some other way than in quarter turns has no resize handles', async ({ page }) => {
+		await twoSelected(page);
+		await page.getByTestId('object-list').locator('li').first().locator('button').first().click();
+		await field(page, 'Rotate Z').fill('45');
+		await field(page, 'Rotate Z').press('Enter');
+		await page.getByText('Objects: 2').click(); // take the focus out of the field so the keys below are shortcuts
+		await page.keyboard.press('Control+a');
+		await groupButton(page).click();
+		await expect(field(page, 'Name')).toHaveValue('Group 1');
+		await expect(page.getByTestId(/^handle-/)).toHaveCount(0);
+		await expect(page.getByTestId(/^rotate-/)).toHaveCount(3); // it can still be turned
 	});
 
 	test('undoing a group turn puts the angle back', async ({ page }) => {
