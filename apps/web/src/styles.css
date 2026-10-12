@@ -577,17 +577,21 @@ button.primary:disabled {
 
 .shape-grid {
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-	gap: 8px;
-	margin-bottom: 20px;
+	/* three to a row in the side panel (nine shapes in three even rows), compact so they do not push Properties off a short screen */
+	grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+	gap: 6px;
+	margin-bottom: 16px;
 }
 
 .shape-tile {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 6px;
-	padding: 8px 4px;
+	gap: 4px;
+	padding: 6px 2px;
+	font-size: 12px;
+	line-height: 1.15;
+	text-align: center;
 	background: var(--bg);
 	border: 1px solid var(--border);
 	border-radius: 8px;
@@ -640,8 +644,8 @@ button.primary:disabled {
 }
 
 .swatch {
-	width: 36px;
-	height: 36px;
+	width: 28px;
+	height: 28px;
 	background: var(--accent);
 }
 
@@ -655,6 +659,33 @@ button.primary:disabled {
 
 .swatch.sphere {
 	border-radius: 50%;
+}
+
+/* The other basic shapes, drawn as a clipped square: the colour is set on the tile, the shading is a darker half laid over it. */
+.swatch.cone {
+	clip-path: polygon(50% 0, 100% 88%, 50% 100%, 0 88%);
+}
+
+.swatch.pyramid {
+	clip-path: polygon(50% 0, 100% 100%, 0 100%);
+	background-image: linear-gradient(90deg, transparent 50%, rgb(0 0 0 / 22%) 50%);
+}
+
+.swatch.wedge {
+	clip-path: polygon(0 100%, 100% 100%, 100% 12%);
+}
+
+.swatch.roof {
+	clip-path: polygon(0 100%, 50% 10%, 100% 100%);
+	background-image: linear-gradient(90deg, transparent 50%, rgb(0 0 0 / 14%) 50%);
+}
+
+.swatch.round-roof {
+	clip-path: ellipse(50% 100% at 50% 100%);
+}
+
+.swatch.half-sphere {
+	clip-path: ellipse(50% 72% at 50% 100%);
 }
 
 .object-list {

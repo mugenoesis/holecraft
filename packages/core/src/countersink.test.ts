@@ -55,10 +55,12 @@ describe('setShapeCountersink', () => {
 	it('returns the same design when nothing changes, and refuses bad input, locked shapes and other shapes', () => {
 		const d = setShapeCountersink(start(), 'a', { size: 3 });
 		expect(setShapeCountersink(d, 'a', { size: 3 })).toBe(d);
-		expect(setShapeCountersink(start(), 'a', { size: 0 })).toBeDefined();
-		expect(setShapeCountersink(start(), 'a', { size: -1 })).toEqual(start());
-		expect(setShapeCountersink(start(), 'a', { size: Number.NaN })).toEqual(start());
-		expect(setShapeCountersink(start(), 'a', { end: 'sideways' as never })).toEqual(start());
+		// the same design object comes back (comparing two designs built separately would differ by their timestamps)
+		const base = start();
+		expect(setShapeCountersink(base, 'a', { size: 0 })).toBe(base);
+		expect(setShapeCountersink(base, 'a', { size: -1 })).toBe(base);
+		expect(setShapeCountersink(base, 'a', { size: Number.NaN })).toBe(base);
+		expect(setShapeCountersink(base, 'a', { end: 'sideways' as never })).toBe(base);
 		const locked = setLocked(start(), ['a'], true);
 		expect(setShapeCountersink(locked, 'a', { size: 3 })).toBe(locked);
 		const box = addShape(createEmptyDesign('d'), 'box', [0, 0], { id: 'b' }).design;

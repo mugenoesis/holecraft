@@ -128,6 +128,15 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Bundle changes that touch the worker must be checked in all three targets: `FULL=1
   scripts/check.sh` runs the web, Docker (wasm served and typed correctly) and desktop tests.
 
+## Basic shapes (cone, pyramid, wedge, roof, round roof, half sphere)
+- `ShapeType` / `SHAPE_DEFS` (core/shapes.ts) list them; `unitSolidMesh(type)` (core/solidShapes.ts) is each one's mesh in the unit box (x, y within
+  ±0.5, z 0..1; closed, facing outwards, built by `revolve` and `extrude` then turned to face outwards if need be). One mesh serves everything: the scene draws it
+  (`createUnitGeometry`, creased normals) and CSG builds it with `Manifold.ofMesh(...).scale(size)`. Box, cylinder and sphere keep their own builders, and
+  the shapes panel test checks every other type has a mesh. **Every one is the same seen left to right (x-symmetric), which `flipNodes` depends on**: keep that when
+  adding shapes, or give the shape its own flip rule. Tests derive volumes from the shapes' dimensions, not the code, and exports are checked in the browser.
+- Raycasts in scene tests must use `intersectObject(mesh, false)`: the selection outline is a child made of lines, and a recursive ray hits it.
+- Parametric shapes (torus, tube, polygon, star...) need a declared parameter schema first (see PLAN.md 6b); these six are plain stretched solids.
+
 ## Arrange (align and flip)
 - `packages/core/src/arrange.ts`: `alignNodes(design, ids, axis, edge)` moves each top-level node along one axis so its low edge / centre /
   high edge meets the selection's (via `nodeBoundsIn`, so groups work); `flipNodes(design, ids, axis)` mirrors through a plane at the

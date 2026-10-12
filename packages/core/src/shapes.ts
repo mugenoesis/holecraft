@@ -1,4 +1,4 @@
-export type ShapeType = 'box' | 'cylinder' | 'sphere';
+export type ShapeType = 'box' | 'cylinder' | 'sphere' | 'cone' | 'pyramid' | 'wedge' | 'roof' | 'round-roof' | 'half-sphere';
 
 export interface ShapeDef {
 	id: ShapeType;
@@ -16,6 +16,12 @@ export const SHAPE_DEFS: readonly ShapeDef[] = [
 	{ id: 'box', name: 'Box', defaultSize: [20, 20, 20], color: '#f28c28' },
 	{ id: 'cylinder', name: 'Cylinder', defaultSize: [20, 20, 20], color: '#2a9d8f' },
 	{ id: 'sphere', name: 'Sphere', defaultSize: [20, 20, 20], color: '#e76f51' },
+	{ id: 'cone', name: 'Cone', defaultSize: [20, 20, 20], color: '#8d99ae' },
+	{ id: 'pyramid', name: 'Pyramid', defaultSize: [20, 20, 20], color: '#f28c28' },
+	{ id: 'wedge', name: 'Wedge', defaultSize: [20, 20, 20], color: '#2a9d8f' },
+	{ id: 'roof', name: 'Roof', defaultSize: [20, 20, 20], color: '#e76f51' },
+	{ id: 'round-roof', name: 'Round Roof', defaultSize: [20, 20, 20], color: '#8d99ae' },
+	{ id: 'half-sphere', name: 'Half Sphere', defaultSize: [20, 20, 20], color: '#f28c28' },
 ];
 
 export function isShapeType(value: string): value is ShapeType {
