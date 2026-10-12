@@ -63,7 +63,7 @@ function boxOutline(r: Ring): [number, number][] {
 	];
 }
 
-function ellipseOutline(r: Ring, segments: number): [number, number][] {
+export function ellipseOutline(r: Ring, segments: number): [number, number][] {
 	return Array.from({ length: segments }, (_, i) => {
 		const a = (2 * Math.PI * i) / segments;
 		return [r.x * Math.cos(a), r.y * Math.sin(a)] as [number, number];
@@ -73,7 +73,7 @@ function ellipseOutline(r: Ring, segments: number): [number, number][] {
 const same = (a: readonly number[], b: readonly number[]) => Math.abs(a[0]! - b[0]!) < 1e-9 && Math.abs(a[1]! - b[1]!) < 1e-9;
 
 /** Builds the loft: points are shared where an outline's neighbours coincide, so degenerate faces are simply left out. */
-function loft(outlines: [number, number][][], heights: number[]): MeshData {
+export function loft(outlines: [number, number][][], heights: number[]): MeshData {
 	const positions: number[] = [];
 	const indices: number[] = [];
 	const ringIndices = outlines.map((outline, k) => {

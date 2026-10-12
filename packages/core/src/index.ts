@@ -1,6 +1,7 @@
 export * from './arrange.ts';
 export * from './camera.ts';
 export * from './chamfer.ts';
+export * from './countersink.ts';
 export * from './design.ts';
 export * from './edgeEdits.ts';
 export * from './edges.ts';

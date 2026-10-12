@@ -1,6 +1,8 @@
 import {
 	chamferedMesh,
 	chamferOf,
+	countersinkOf,
+	countersunkMesh,
 	type Design,
 	type GroupNode,
 	MESH_SHAPE_TYPE,
@@ -399,21 +401,29 @@ export class DesignScene {
 		});
 	}
 
-	/** The real-size geometry of a chamfered box or cylinder (rebuilt when its size or chamfer changes), or null without a chamfer. */
+	/**
+	 * The real-size geometry of a chamfered box or cylinder, or of a countersunk cylinder hole (rebuilt when its size or the
+	 * chamfer / countersink changes), or null for a shape with neither. A countersink wins over a chamfer on a hole, as in CSG.
+	 */
 	private chamferGeometry(node: ShapeNode): THREE.BufferGeometry | null {
-		const chamfer = chamferOf(node);
+		const sink = countersinkOf(node);
+		const chamfer = sink ? null : chamferOf(node);
 		const known = this.chamferGeometries.get(node.id);
-		if (!chamfer) {
+		if (!sink && !chamfer) {
 			known?.geometry.dispose();
 			this.chamferGeometries.delete(node.id);
 			return null;
 		}
 		const { width, depth, height } = node.params as { width: number; depth: number; height: number };
-		const key = [node.shapeType, width, depth, height, chamfer.size, chamfer.edges].join('|');
+		const key = sink
+			? ['sink', width, depth, height, sink.size, sink.end].join('|')
+			: [node.shapeType, width, depth, height, chamfer!.size, chamfer!.edges].join('|');
 		if (known?.key === key) return known.geometry;
 		known?.geometry.dispose();
 		const geometry = buildResultGeometry(
-			chamferedMesh(node.shapeType as 'box' | 'cylinder', width, depth, height, chamfer.size, chamfer.edges),
+			sink
+				? countersunkMesh(width, depth, height, sink.size, sink.end)
+				: chamferedMesh(node.shapeType as 'box' | 'cylinder', width, depth, height, chamfer!.size, chamfer!.edges),
 		);
 		this.chamferGeometries.set(node.id, { key, geometry });
 		return geometry;

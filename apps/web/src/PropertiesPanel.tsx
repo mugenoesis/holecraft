@@ -1,6 +1,7 @@
 import { type Design, descendantIds, eulerOfTransform, isUpright, type NodeId, rotationOfTransform, translationOf } from '@holecraft/core';
 import type { Dispatch } from 'react';
 import { ChamferFields } from './ChamferFields.tsx';
+import { CountersinkFields } from './CountersinkFields.tsx';
 import type { EditorAction } from './editorState.ts';
 import { useDraft } from './useDraft.ts';
 
@@ -153,6 +154,7 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 				<NumberField label="Rotate Y" value={euler[1]} onCommit={turn(1)} />
 				<NumberField label="Rotate Z" value={euler[2]} onCommit={turn(2)} />
 				{only.kind === 'shape' && <ChamferFields node={only} dispatch={dispatch} />}
+				{only.kind === 'shape' && <CountersinkFields node={only} dispatch={dispatch} />}
 				{typeToggle}
 				{color}
 			</div>
