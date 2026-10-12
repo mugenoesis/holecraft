@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { _electron as electron, expect, test } from '@playwright/test';
@@ -8,6 +8,15 @@ import { cube3mf } from '../web/modelFiles.ts';
 // Tests the packaged app (apps/desktop/release/linux-unpacked), not the dev build,
 // so packaging mistakes such as missing resources are caught.
 const executablePath = path.resolve(import.meta.dirname, '../../apps/desktop/release/linux-unpacked/holecraft');
+
+/** True once a saved design in `dataDir` holds an imported model (a shape of type 'mesh'). */
+function savedWithModel(dataDir: string): boolean {
+	const folder = path.join(dataDir, 'designs');
+	if (!existsSync(folder)) return false;
+	return readdirSync(folder)
+		.filter((f) => f.endsWith('.json'))
+		.some((f) => readFileSync(path.join(folder, f), 'utf8').includes('"shapeType":"mesh"'));
+}
 
 test.describe('desktop app', () => {
 	test.skip(!existsSync(executablePath), 'Package the desktop app first (scripts/package-desktop.sh)');
@@ -121,6 +130,9 @@ test.describe('desktop app', () => {
 				.getByTestId('import-file')
 				.setInputFiles({ name: 'Part.3mf', mimeType: 'application/octet-stream', buffer: cube3mf(2, 'centimeter') });
 			await expect(win.getByTestId('object-list').getByRole('button', { name: /Part/ })).toBeVisible();
+			// Wait for the file itself: the status updates a render after the design does, so a stale "Saved" could be read
+			// and the app closed before the import was written (this flaked in CI).
+			await expect.poll(() => savedWithModel(dataDir), { timeout: 10_000 }).toBe(true);
 			await expect(win.getByTestId('save-status')).toHaveText('Saved');
 		} finally {
 			await app.close();
