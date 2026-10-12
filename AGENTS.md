@@ -151,6 +151,14 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - The reducer deselects what was just hidden (a hidden object must not stay movable); locking keeps the selection. The toggles are
   `RowToggle`s (`aria-pressed`, labelled just "Lock"/"Unlock" and "Hide"/"Show": a name in the label would make `getByRole("button", { name: /Group 1/ })` match three buttons per row) at the end of each Objects row.
 
+## Ruler and surface picking
+- `DesignScene.pickHit(raycaster)` gives the point, world-space face normal and top-level id of the nearest shown hit (flat triangle normals,
+  so curved parts report per-facet normals). `Viewport.pickSurface(x, y)` adds the workplane (inside its edges) as a fallback. The
+  workplane tool will reuse both.
+- The ruler is `RulerOverlay` (React) listening on `viewport.element` next to the viewport's own handlers; `Viewport.setRuler(true)` stops
+  the left button selecting/moving and makes empty-space drags orbit. The maths (`measureBetween`, `snapMeasuredPoint`, `nextRuler`,
+  `formatLength`) is pure, in core/ruler.ts. Ruler state is React state only: it is never in the design or undo history.
+
 ## Rotation
 - Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre
   position). Sizes stay as local params, so a mesh is just position, quaternion and scale.

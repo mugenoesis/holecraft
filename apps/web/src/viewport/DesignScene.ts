@@ -1,4 +1,13 @@
-import { type Design, type GroupNode, MESH_SHAPE_TYPE, type MeshData, type NodeId, type ShapeNode, type ShapeType } from '@holecraft/core';
+import {
+	type Design,
+	type GroupNode,
+	MESH_SHAPE_TYPE,
+	type MeshData,
+	type NodeId,
+	type ShapeNode,
+	type ShapeType,
+	type Vec3,
+} from '@holecraft/core';
 import type { GroupMesh } from '@holecraft/geometry';
 import * as THREE from 'three';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -151,6 +160,15 @@ export class DesignScene {
 		const candidates = this.meshes().filter(isShown);
 		const [hit] = raycaster.intersectObjects(candidates, false);
 		return hit ? (hit.object.userData.rootId as NodeId) : null;
+	}
+
+	/** Like `pick`, but also where the ray meets the surface (mm) and which way that surface faces (a unit vector). */
+	pickHit(raycaster: THREE.Raycaster): { id: NodeId; point: Vec3; normal: Vec3 } | null {
+		this.root.updateMatrixWorld(true);
+		const [hit] = raycaster.intersectObjects(this.meshes().filter(isShown), false);
+		if (!hit?.face) return null;
+		const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+		return { id: hit.object.userData.rootId as NodeId, point: [hit.point.x, hit.point.y, hit.point.z], normal: [n.x, n.y, n.z] };
 	}
 
 	/** Top-level nodes with a visible shape whose on-screen bounding box overlaps `rect` (marquee selection). */
