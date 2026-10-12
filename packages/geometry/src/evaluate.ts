@@ -11,6 +11,7 @@ import {
 	type NodeId,
 	type ShapeNode,
 	sharpEdges,
+	unitSolidMesh,
 	type Vec3,
 } from '@holecraft/core';
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
@@ -137,6 +138,12 @@ class Evaluation {
 			const points: [number, number, number][] = [];
 			for (let i = 0; i < mesh.positions.length; i += 3) points.push([mesh.positions[i]!, mesh.positions[i + 1]!, mesh.positions[i + 2]!]);
 			return this.track(Manifold.hull(points));
+		}
+		const solid = unitSolidMesh(node.shapeType);
+		if (solid) {
+			// the basic solids (cone, wedge, roof...) are a unit mesh stretched to size; it faces outwards and is closed
+			const mesh = new this.M.Mesh({ numProp: 3, vertProperties: solid.positions, triVerts: solid.indices });
+			return this.track(this.track(Manifold.ofMesh(mesh)).scale(size));
 		}
 		switch (node.shapeType) {
 			case MESH_SHAPE_TYPE:

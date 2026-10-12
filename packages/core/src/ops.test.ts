@@ -4,8 +4,18 @@ import { addShape, designBounds, translation, translationOf } from './ops.ts';
 import { getShapeDef, isShapeType, SHAPE_DEFS } from './shapes.ts';
 
 describe('shape definitions', () => {
-	it('provides box, cylinder and sphere with sensible defaults', () => {
-		expect(SHAPE_DEFS.map((d) => d.id)).toEqual(['box', 'cylinder', 'sphere']);
+	it('provides the basic shapes with sensible defaults', () => {
+		expect(SHAPE_DEFS.map((d) => d.id)).toEqual([
+			'box',
+			'cylinder',
+			'sphere',
+			'cone',
+			'pyramid',
+			'wedge',
+			'roof',
+			'round-roof',
+			'half-sphere',
+		]);
 		for (const def of SHAPE_DEFS) {
 			expect(def.name.length).toBeGreaterThan(0);
 			expect(def.defaultSize.every((n) => n > 0)).toBe(true);

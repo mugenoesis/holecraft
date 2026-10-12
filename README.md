@@ -14,7 +14,7 @@ independent project with its own code and design, and it runs entirely on your o
 - **Linux desktop app**: AppImage or .deb that works fully offline.
 
 > **Status: early development (Phase 4d of the roadmap done).** You can keep a library
-> of designs that save automatically, navigate a 3D workplane, add boxes, cylinders and spheres,
+> of designs that save automatically, navigate a 3D workplane, add boxes, cylinders, spheres, cones, pyramids, wedges, roofs and domes,
 > select, move, resize, lift and rotate them, edit their properties, make shapes into holes and
 > group them to cut real holes out of solids, undo/redo, **import** existing models (STL, OBJ,
 > 3MF) and **export for 3D printing** (STL, OBJ, 3MF). Phase 5 tools (align, mirror, ruler...) come next.
@@ -95,7 +95,7 @@ easy to back up or copy.
 
 | Action | How |
 |---|---|
-| Add a shape | Drag it from the Shapes panel onto the workplane, or click it (or press Enter) to add at the centre. Drops snap to the grid |
+| Add a shape | Drag it from the Shapes panel onto the workplane, or click it (or press Enter) to add at the centre. Drops snap to the grid. The panel has Box, Cylinder, Sphere, Cone, Pyramid, Wedge (tallest at the back), Roof (ridge runs front to back), Round Roof (a half cylinder lying along the depth) and Half Sphere. All start 20 mm each way and stretch to any size like a box |
 | Select | Click a shape (or its row in the Objects list). Shift-click adds or removes. Drag a box around shapes to select several. `Ctrl+A` selects all, `Esc` clears. **On a touch screen** (no Shift key): turn on **Select** in the view toolbar, then every tap on a shape or an Objects row adds it to the selection (or takes it out again), and a finger dragging on empty space draws the selection box instead of orbiting; shapes don't move while it is on. Turn it off to go back to normal. **Select all** in the Objects list does what `Ctrl+A` does |
 | Move | Drag a shape. It snaps to the grid and stays on the workplane. Dragging one of several selected shapes moves them all |
 | Resize | Select one shape and drag a handle. Corner handles resize width and depth, side handles one dimension, the top round handle the height. The opposite corner or side stays fixed, and the edge you drag snaps to the grid. Hold `Shift` to scale all three dimensions together, `Alt` to resize about the centre. The size shows live while you drag |

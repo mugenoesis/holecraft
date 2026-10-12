@@ -10,6 +10,7 @@ import {
 	type NodeId,
 	type ShapeNode,
 	type ShapeType,
+	unitSolidMesh,
 	type Vec3,
 } from '@holecraft/core';
 import type { GroupMesh } from '@holecraft/geometry';
@@ -33,6 +34,9 @@ function createUnitGeometry(type: ShapeType): THREE.BufferGeometry {
 			return new THREE.CylinderGeometry(0.5, 0.5, 1, 64).rotateX(Math.PI / 2).translate(0, 0, 0.5);
 		case 'sphere':
 			return new THREE.SphereGeometry(0.5, 48, 32).rotateX(Math.PI / 2).translate(0, 0, 0.5);
+		default:
+			// the other basic solids are one mesh each (the one the CSG engine uses too), with crisp edges and smooth curves
+			return buildResultGeometry(unitSolidMesh(type)!);
 	}
 }
 

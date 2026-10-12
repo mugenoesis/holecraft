@@ -34,7 +34,7 @@ export function ShapesPanel({ onAddShape }: { onAddShape: (type: ShapeType) => v
 						onKeyDown={(e) => onKeyDown(e, def.id)}
 						onDragStart={(e) => onDragStart(e, def.id)}
 					>
-						<span className={`swatch ${def.id}`} style={{ background: def.color }} aria-hidden="true" />
+						<span className={`swatch ${def.id}`} style={{ backgroundColor: def.color }} aria-hidden="true" />
 						{def.name}
 					</div>
 				))}
