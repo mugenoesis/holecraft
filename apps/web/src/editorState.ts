@@ -6,6 +6,7 @@ import {
 	addShape,
 	addShapeOnPlane,
 	alignNodes,
+	type ChamferEdges,
 	canUndo,
 	createHistory,
 	type Design,
@@ -39,6 +40,7 @@ import {
 	setNodePosition,
 	setNodeRotation,
 	setPaletteColor,
+	setShapeChamfer,
 	setShapeGeometry,
 	setShapeSize,
 	showAll,
@@ -104,6 +106,8 @@ export type EditorAction =
 	| { type: 'nudge'; delta: [number, number] }
 	| { type: 'setPosition'; id: NodeId; at: [number, number, number?] }
 	| { type: 'setSize'; id: NodeId; size: Partial<Record<'width' | 'depth' | 'height', number>> }
+	// A box's or cylinder's chamfer in mm (0 removes it) and/or which edges it is on.
+	| { type: 'setChamfer'; id: NodeId; size?: number; edges?: ChamferEdges }
 	| { type: 'rename'; id: NodeId; name: string }
 	| { type: 'setColor'; ids: NodeId[]; color: string }
 	/** Adds a filament colour to the palette (a suggested one when none is given). */
@@ -287,6 +291,15 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 
 		case 'setSize':
 			return commit(state, setShapeSize(design, action.id, action.size));
+
+		case 'setChamfer':
+			return commit(
+				state,
+				setShapeChamfer(design, action.id, {
+					...(action.size !== undefined && { size: action.size }),
+					...(action.edges && { edges: action.edges }),
+				}),
+			);
 
 		case 'rename':
 			return commit(state, renameNode(design, action.id, action.name));

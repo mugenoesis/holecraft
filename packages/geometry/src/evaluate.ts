@@ -1,4 +1,4 @@
-import { type DesignNode, MESH_SHAPE_TYPE, type MeshData, type NodeId, type ShapeNode } from '@holecraft/core';
+import { chamferedMesh, chamferOf, type DesignNode, MESH_SHAPE_TYPE, type MeshData, type NodeId, type ShapeNode } from '@holecraft/core';
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import type { GroupMesh } from './types.ts';
 
@@ -98,6 +98,22 @@ class Evaluation {
 		const { width, depth, height } = node.params as { width: number; depth: number; height: number };
 		const { Manifold } = this.M;
 		const size: [number, number, number] = [width, depth, height];
+		const chamfer = chamferOf(node);
+		if (chamfer) {
+			// Chamfered boxes and cylinders are convex, so the hull of their points is exactly the shape.
+			const mesh = chamferedMesh(
+				node.shapeType as 'box' | 'cylinder',
+				width,
+				depth,
+				height,
+				chamfer.size,
+				chamfer.edges,
+				CYLINDER_SEGMENTS,
+			);
+			const points: [number, number, number][] = [];
+			for (let i = 0; i < mesh.positions.length; i += 3) points.push([mesh.positions[i]!, mesh.positions[i + 1]!, mesh.positions[i + 2]!]);
+			return this.track(Manifold.hull(points));
+		}
 		switch (node.shapeType) {
 			case MESH_SHAPE_TYPE:
 				return this.track(this.imported(node).scale(size));

@@ -1,4 +1,6 @@
 import {
+	chamferedMesh,
+	chamferOf,
 	type Design,
 	type GroupNode,
 	MESH_SHAPE_TYPE,
@@ -99,6 +101,8 @@ export class DesignScene {
 	/** Geometry of imported models, one per stored mesh, shared by every shape that uses it. */
 	private readonly modelGeometries = new Map<string, { source: MeshData; geometry: THREE.BufferGeometry }>();
 	private readonly objects = new Map<NodeId, THREE.Object3D>();
+	/** A chamfered shape is built at its real size (the chamfer is in mm, so it can't be a stretched unit shape): one geometry each. */
+	private readonly chamferGeometries = new Map<NodeId, { key: string; geometry: THREE.BufferGeometry }>();
 	private readonly outlineGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5));
 	private readonly resultMeshes = new Map<NodeId, { mesh: THREE.Mesh; source: GroupMesh | null }>();
 	private selection = new Set<NodeId>();
@@ -130,6 +134,11 @@ export class DesignScene {
 			obj.parent?.remove(obj);
 			if (obj instanceof THREE.Mesh) this.disposeMesh(obj);
 			this.objects.delete(id);
+		}
+		for (const [id, entry] of this.chamferGeometries) {
+			if (live.has(id)) continue;
+			entry.geometry.dispose();
+			this.chamferGeometries.delete(id);
 		}
 		for (const [id, entry] of this.resultMeshes) {
 			if (liveResults.has(id)) continue;
@@ -201,6 +210,8 @@ export class DesignScene {
 		for (const geometry of this.geometries.values()) geometry.dispose();
 		for (const { geometry } of this.modelGeometries.values()) geometry.dispose();
 		this.modelGeometries.clear();
+		for (const { geometry } of this.chamferGeometries.values()) geometry.dispose();
+		this.chamferGeometries.clear();
 		this.outlineGeometry.dispose();
 		this.objects.clear();
 		this.resultMeshes.clear();
@@ -271,12 +282,15 @@ export class DesignScene {
 			this.objects.set(node.id, obj);
 		}
 		const mesh = obj as THREE.Mesh;
-		const geometry = this.geometryForNode(node, ctx.meshes);
-		if (mesh.geometry !== geometry) mesh.geometry = geometry; // an imported model has just arrived
+		const chamfered = this.chamferGeometry(node);
+		const geometry = chamfered ?? this.geometryForNode(node, ctx.meshes);
+		if (mesh.geometry !== geometry) mesh.geometry = geometry; // an imported model has just arrived, or the chamfer changed
 		mesh.userData.rootId = rootId;
 		this.applyTransform(mesh, node.transform);
 		const { width, depth, height } = node.params as { width: number; depth: number; height: number };
-		mesh.scale.set(width, depth, height);
+		// A unit shape is stretched to size; a chamfered one already has it, so only its (unit) outline is stretched.
+		if (!chamfered) mesh.scale.set(width, depth, height);
+		mesh.getObjectByName('selection-outline')?.scale.set(chamfered ? width : 1, chamfered ? depth : 1, chamfered ? height : 1);
 		mesh.visible = !node.hidden && !covered;
 		this.applyLook(mesh.material as THREE.MeshStandardMaterial, node.color, isHole);
 		if (mesh.parent !== parent) parent.add(mesh);
@@ -367,6 +381,26 @@ export class DesignScene {
 		mesh.getObjectByName('selection-outline')?.traverse((o) => {
 			if (o instanceof THREE.LineSegments) (o.material as THREE.Material).dispose();
 		});
+	}
+
+	/** The real-size geometry of a chamfered box or cylinder (rebuilt when its size or chamfer changes), or null without a chamfer. */
+	private chamferGeometry(node: ShapeNode): THREE.BufferGeometry | null {
+		const chamfer = chamferOf(node);
+		const known = this.chamferGeometries.get(node.id);
+		if (!chamfer) {
+			known?.geometry.dispose();
+			this.chamferGeometries.delete(node.id);
+			return null;
+		}
+		const { width, depth, height } = node.params as { width: number; depth: number; height: number };
+		const key = [node.shapeType, width, depth, height, chamfer.size, chamfer.edges].join('|');
+		if (known?.key === key) return known.geometry;
+		known?.geometry.dispose();
+		const geometry = buildResultGeometry(
+			chamferedMesh(node.shapeType as 'box' | 'cylinder', width, depth, height, chamfer.size, chamfer.edges),
+		);
+		this.chamferGeometries.set(node.id, { key, geometry });
+		return geometry;
 	}
 
 	private geometryForNode(node: ShapeNode, meshes: ReadonlyMap<string, MeshData>): THREE.BufferGeometry {

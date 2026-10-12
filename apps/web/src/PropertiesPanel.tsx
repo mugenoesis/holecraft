@@ -1,5 +1,6 @@
 import { type Design, descendantIds, eulerOfTransform, isUpright, type NodeId, rotationOfTransform, translationOf } from '@holecraft/core';
 import type { Dispatch } from 'react';
+import { ChamferFields } from './ChamferFields.tsx';
 import type { EditorAction } from './editorState.ts';
 import { useDraft } from './useDraft.ts';
 
@@ -151,6 +152,7 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 				<NumberField label="Rotate X" value={euler[0]} onCommit={turn(0)} />
 				<NumberField label="Rotate Y" value={euler[1]} onCommit={turn(1)} />
 				<NumberField label="Rotate Z" value={euler[2]} onCommit={turn(2)} />
+				{only.kind === 'shape' && <ChamferFields node={only} dispatch={dispatch} />}
 				{typeToggle}
 				{color}
 			</div>
@@ -174,7 +176,7 @@ function TextField({ label, value, onCommit }: { label: string; value: string; o
 	);
 }
 
-function NumberField({ label, value, onCommit }: { label: string; value: number; onCommit: (v: number) => void }) {
+export function NumberField({ label, value, onCommit }: { label: string; value: number; onCommit: (v: number) => void }) {
 	const d = useDraft(fmt(value), (draft) => {
 		const n = draft.trim() === '' ? Number.NaN : Number(draft);
 		if (Number.isFinite(n)) onCommit(n);

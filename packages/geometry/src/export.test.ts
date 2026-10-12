@@ -8,6 +8,7 @@ import {
 	setNodeColor,
 	setNodeEuler,
 	setNodeMode,
+	setShapeChamfer,
 	setShapeSize,
 } from '@holecraft/core';
 import type { ManifoldToplevel } from 'manifold-3d';
@@ -96,6 +97,43 @@ describe('evaluateNode', () => {
 		close(b.max, [5, 30, 10]);
 		expect((b.min[0]! + b.max[0]!) / 2).toBeCloseTo((a.min[0]! + a.max[0]!) / 2, 4);
 		expect((b.min[1]! + b.max[1]!) / 2).toBeCloseTo((a.min[1]! + a.max[1]!) / 2, 4);
+	});
+
+	it('builds a chamfered box: the edges are cut away, and the outside size is kept', () => {
+		let d = createEmptyDesign('d');
+		d = addShape(d, 'box', [0, 0], { id: 'a' }).design;
+		d = setShapeSize(d, 'a', { width: 30, depth: 20, height: 10 });
+		d = setShapeChamfer(d, 'a', { size: 2, edges: 'all' });
+		const mesh = evaluateNode(M, d, 'a')!;
+		// cross-sections: below 2 mm a rectangle grown by z with corners cut by z; above, the footprint with its vertical edges cut
+		const low = (z: number) => (26 + 2 * z) * (16 + 2 * z) - 2 * z * z;
+		const band = (2 / 6) * (low(0) + 4 * low(1) + low(2));
+		near(volume(mesh), 2 * band + 6 * (600 - 8), 1e-6);
+		expect(bounds(mesh)).toEqual({ min: [-15, -10, 0], max: [15, 10, 10] });
+	});
+
+	it('a chamfered cylinder keeps its chamfer when turned and moved', () => {
+		let d = createEmptyDesign('d');
+		d = addShape(d, 'cylinder', [0, 0], { id: 'c' }).design;
+		d = setShapeChamfer(d, 'c', { size: 3, edges: 'top' });
+		const straight = volume(evaluateNode(M, d, 'c')!);
+		const plain = volume(evaluateNode(M, setShapeChamfer(d, 'c', { size: 0 }), 'c')!);
+		expect(straight).toBeLessThan(plain);
+		d = setNodeEuler(moveNodes(d, ['c'], [40, 0, 5]), 'c', [90, 0, 0]);
+		near(volume(evaluateNode(M, d, 'c')!), straight, 1e-6);
+	});
+
+	it('cuts a hole through a chamfered box in a group', () => {
+		let d = createEmptyDesign('d');
+		d = addShape(d, 'box', [0, 0], { id: 'a' }).design;
+		d = setShapeChamfer(d, 'a', { size: 2 });
+		d = addShape(d, 'cylinder', [0, 0], { id: 'h' }).design;
+		d = setShapeSize(d, 'h', { width: 6, depth: 6, height: 40 });
+		d = setNodeMode(d, ['h'], 'hole');
+		const solid = volume(evaluateNode(M, d, 'a')!);
+		d = groupNodes(d, ['a', 'h'], { id: 'g' }).design;
+		const cut = volume(evaluateNode(M, d, 'g')!);
+		near(cut, solid - 0.5 * 64 * 9 * Math.sin((2 * Math.PI) / 64) * 20, 1e-3);
 	});
 
 	it('builds a group with its holes cut and its own transform applied', () => {
