@@ -107,7 +107,9 @@ function ObjectRow({ design, id, selected, onSelect, dispatch }: ObjectRowProps)
 					style={node.mode === 'hole' ? { borderColor: node.color } : { background: node.color }}
 					aria-hidden="true"
 				/>
-				{node.name} ({fmt(x)}, {fmt(y)})
+				<span className="object-name">
+					{node.name} ({fmt(x)}, {fmt(y)})
+				</span>
 			</button>
 			<RowToggle
 				on={node.locked}

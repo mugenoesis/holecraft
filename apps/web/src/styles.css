@@ -478,7 +478,8 @@ button.primary:disabled {
 	/* wraps onto more rows rather than running under the view cube on narrow screens */
 	flex-wrap: wrap;
 	max-width: calc(100% - 130px);
-	gap: 6px;
+	/* tight, so all the controls fit on one line on a 4:3 tablet (fourThree.spec.ts) */
+	gap: 2px;
 	padding: 4px;
 	background: var(--surface);
 	border: 1px solid var(--border);
@@ -493,7 +494,7 @@ button.primary:disabled {
 	background: transparent;
 	border: 1px solid transparent;
 	border-radius: 6px;
-	padding: 4px 10px;
+	padding: 4px 7px;
 	cursor: pointer;
 }
 
@@ -686,6 +687,12 @@ button.primary:disabled {
 .object-list li > button:first-child {
 	flex: 1;
 	min-width: 0;
+}
+
+/* A long name (an imported file's, often without spaces) wraps anywhere rather than pushing the panel wider. */
+.object-list .object-name {
+	min-width: 0;
+	overflow-wrap: anywhere;
 }
 
 .object-list li[data-hidden="true"] > button:first-child {

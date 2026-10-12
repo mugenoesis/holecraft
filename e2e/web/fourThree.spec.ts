@@ -51,3 +51,36 @@ async function expectVisibleWithoutScrolling(page: Page) {
 	const box = (await name.boundingBox())!;
 	expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height);
 }
+
+/* A 4:3 touch tablet in landscape as the user runs it: about 858 x 510 CSS pixels at 2.33 times the density. */
+test.describe('on a 4:3 touch tablet', () => {
+	const TABLET = { width: 858, height: 510 };
+	test.use({ viewport: TABLET, deviceScaleFactor: 2.33, hasTouch: true, isMobile: true });
+
+	test('the view controls sit on one line, clear of the view cube', async ({ page }) => {
+		await newDesign(page);
+		const controls = page.getByRole('toolbar', { name: 'View controls' }).locator('button, select');
+		const cube = (await page.getByRole('group', { name: 'View cube' }).boundingBox())!;
+		const tops = new Set<number>();
+		for (let i = 0; i < (await controls.count()); i++) {
+			const b = (await controls.nth(i).boundingBox())!;
+			tops.add(Math.round(b.y));
+			expect(b.x + b.width, `control ${i} ends before the view cube`).toBeLessThanOrEqual(cube.x);
+		}
+		expect([...tops], 'one row').toHaveLength(1);
+	});
+
+	test('a long name with no spaces (an imported file’s) wraps in the Objects list instead of making the panel scroll sideways', async ({
+		page,
+	}) => {
+		await newDesign(page);
+		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByTestId('object-list').locator('li').first().locator('button').first().click();
+		const name = page.getByRole('region', { name: 'Properties' }).getByLabel('Name', { exact: true });
+		await name.fill('Long_model_name_exported_from_a_slicer_with_no_spaces_at_all_3mf');
+		await name.press('Enter');
+		await expect(page.getByTestId('object-list')).toContainText('no_spaces_at_all_3mf');
+		const overflow = await page.locator('.panel').evaluate((el) => el.scrollWidth - el.clientWidth);
+		expect(overflow).toBeLessThanOrEqual(0);
+	});
+});
