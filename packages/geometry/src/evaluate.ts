@@ -176,10 +176,17 @@ class Evaluation {
 				this.skipped.push(treatment.id);
 				continue;
 			}
+			// All of one treatment's wedges together, minus all of its tubes together: taking each tube only from its own wedge would
+			// cut away what the neighbouring tube keeps, leaving paper-thin walls at every joint along a curved edge.
+			const wedges: Manifold[] = [];
+			const tubes: Manifold[] = [];
 			for (const cut of treatmentCuts(treatment)) {
-				const prism = this.track(this.M.Manifold.hull(cut.prism));
-				pieces.push(cut.keep ? this.track(prism.subtract(this.cylinder(cut.keep.from, cut.keep.to, cut.keep.radius))) : prism);
+				wedges.push(this.track(this.M.Manifold.hull(cut.prism)));
+				if (cut.keep) tubes.push(this.cylinder(cut.keep.from, cut.keep.to, cut.keep.radius));
 			}
+			if (wedges.length === 0) continue;
+			const wedge = this.track(this.M.Manifold.union(wedges));
+			pieces.push(tubes.length ? this.track(wedge.subtract(this.track(this.M.Manifold.union(tubes)))) : wedge);
 		}
 		return pieces.length ? this.track(base.subtract(this.track(this.M.Manifold.union(pieces)))) : base;
 	}
