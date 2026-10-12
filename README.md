@@ -209,6 +209,7 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/verify-exports.sh` | Write sample STL/OBJ/3MF files with the real writers and check them with an independent mesh library (trimesh, in a Python container) |
 | `scripts/deploy-local.sh` | Rebuild the Docker image from `origin/main` and restart the local test container (default port 8200, keeps its data volume) |
 | `scripts/screenshot.sh` | Screenshot a running instance with software WebGL (`DEMO=1` adds shapes, `VIEW=top` picks a view, `CLICK=0,0` selects, `PRESS=Control+a` presses keys) |
+| `scripts/tool-shots.sh <url> [out-dir]` | Drive the ruler and the Workplane tool in a real browser and save screenshots (ruler line, plane marker and a shape on a top face and on a wall) for looking at what the browser tests only check by numbers |
 | `scripts/make-icon.sh` | Regenerate the app icons from the cube mark cropped out of `branding/logo.jpg` |
 
 ## License
