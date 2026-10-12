@@ -7,6 +7,7 @@ import {
 	addShapeOnPlane,
 	alignNodes,
 	type ChamferEdges,
+	type CountersinkEnd,
 	canUndo,
 	createHistory,
 	type Design,
@@ -44,6 +45,7 @@ import {
 	setNodeRotation,
 	setPaletteColor,
 	setShapeChamfer,
+	setShapeCountersink,
 	setShapeGeometry,
 	setShapeSize,
 	showAll,
@@ -115,6 +117,8 @@ export type EditorAction =
 	| { type: 'setSize'; id: NodeId; size: Partial<Record<'width' | 'depth' | 'height', number>> }
 	// A box's or cylinder's chamfer in mm (0 removes it) and/or which edges it is on.
 	| { type: 'setChamfer'; id: NodeId; size?: number; edges?: ChamferEdges }
+	// A cylinder hole's countersink in mm (0 removes it) and/or which end it flares.
+	| { type: 'setCountersink'; id: NodeId; size?: number; end?: CountersinkEnd }
 	| { type: 'rename'; id: NodeId; name: string }
 	| { type: 'setColor'; ids: NodeId[]; color: string }
 	/** Adds a filament colour to the palette (a suggested one when none is given). */
@@ -316,6 +320,15 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 				setShapeChamfer(design, action.id, {
 					...(action.size !== undefined && { size: action.size }),
 					...(action.edges && { edges: action.edges }),
+				}),
+			);
+
+		case 'setCountersink':
+			return commit(
+				state,
+				setShapeCountersink(design, action.id, {
+					...(action.size !== undefined && { size: action.size }),
+					...(action.end && { end: action.end }),
 				}),
 			);
 

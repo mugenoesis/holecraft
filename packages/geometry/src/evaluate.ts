@@ -1,6 +1,8 @@
 import {
 	chamferedMesh,
 	chamferOf,
+	countersinkOf,
+	countersunkMesh,
 	type DesignNode,
 	type EdgeTreatment,
 	edgeIsPresent,
@@ -114,6 +116,12 @@ class Evaluation {
 		const { width, depth, height } = node.params as { width: number; depth: number; height: number };
 		const { Manifold } = this.M;
 		const size: [number, number, number] = [width, depth, height];
+		const sink = countersinkOf(node);
+		if (sink) {
+			// A flared hole is not convex, so it is built from its mesh (a closed solid facing outwards) rather than as a hull.
+			const mesh = countersunkMesh(width, depth, height, sink.size, sink.end, CYLINDER_SEGMENTS);
+			return this.track(Manifold.ofMesh(new this.M.Mesh({ numProp: 3, vertProperties: mesh.positions, triVerts: mesh.indices })));
+		}
 		const chamfer = chamferOf(node);
 		if (chamfer) {
 			// Chamfered boxes and cylinders are convex, so the hull of their points is exactly the shape.

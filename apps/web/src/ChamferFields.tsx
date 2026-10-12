@@ -1,4 +1,4 @@
-import { CHAMFER_EDGES, type ChamferEdges, chamferOf, type ShapeNode } from '@holecraft/core';
+import { CHAMFER_EDGES, type ChamferEdges, chamferOf, countersinkOf, type ShapeNode } from '@holecraft/core';
 import type { Dispatch } from 'react';
 import type { EditorAction } from './editorState.ts';
 import { NumberField } from './PropertiesPanel.tsx';
@@ -37,6 +37,11 @@ export function ChamferFields({ node, dispatch }: { node: ShapeNode; dispatch: D
 						))}
 					</div>
 				</div>
+			)}
+			{typed > 0 && countersinkOf(node) && (
+				<p className="muted hint field-hint" data-testid="chamfer-ignored">
+					Not used while this hole has a countersink.
+				</p>
 			)}
 			{effective && effective.size < typed && (
 				<p className="muted hint field-hint" data-testid="chamfer-limited">

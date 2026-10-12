@@ -190,6 +190,11 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   linearly); coinciding outline points share an index so there are no degenerate triangles. The same mesh is drawn (`DesignScene` keeps one
   real-size geometry per chamfered shape, mesh scale 1, outline scaled instead) and fed to manifold as `Manifold.hull` (both shapes are convex).
 - Tests derive volumes independently (cross-section integrals, polygon frustums), check watertightness, and read pixels from the front view.
+- **Countersink** (core/countersink.ts): `params.countersink` (mm, typed value kept) and `params.countersinkEnd` (`top` | `bottom` | `both`) on a **cylinder in hole mode**
+  only (`countersinkOf` is null for solids; no format change). It is a 45 degree flare: the opening widens by `size` on every side. A flared cylinder is not
+  convex, so `countersunkMesh` is the same ring loft as a chamfer (exported `loft`/`ellipseOutline`), handed to manifold with `Manifold.ofMesh` (not a hull)
+  and drawn by `DesignScene` through the same real-size-geometry path as a chamfer. `size` is limited to the height (half of it for both ends). It wins over a
+  chamfer on the same hole (the Properties panel says so). Tests derive the flare volume by hand (integral of the growing disc), in core, CSG and a real export.
 
 ## Edge treatments (chamfers and rounds on chosen edges, Stage B)
 - Data: `node.edges?: EdgeTreatment[]` (`{ id, kind: 'chamfer' | 'round', size, points, normals }`) on groups and shapes, **in the node's own frame**
