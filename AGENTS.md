@@ -138,6 +138,12 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   When a non-symmetric shape arrives (library, text), choose its flip axis per shape or mirror its mesh.
 - UI is `ArrangePanel` (actions `align` / `flip`); no keyboard shortcuts yet (Tinkercad-style L and M are reserved for tools).
 
+## Duplicate and repeat
+- `EditorState.lastDuplicate = { sources, copies }` is set by every duplicate. When the selection is exactly those copies,
+  `Ctrl+D` calls `repeatDuplicate` (core/repeat.ts): the step is `copy · source⁻¹` (rigid, so it includes the first offset) and each new
+  copy gets `step · copy`; afterwards `sources` = the copies it was made from. Anything else selected, or a source that was deleted,
+  falls back to the plain 10 mm offset. Size changes are deliberately not repeated.
+
 ## Rotation
 - Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre
   position). Sizes stay as local params, so a mesh is just position, quaternion and scale.
