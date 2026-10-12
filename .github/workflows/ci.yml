@@ -20,7 +20,7 @@ jobs:
       - run: scripts/check.sh
       - name: Keep the coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage/
@@ -61,7 +61,7 @@ jobs:
       - run: npm ci
       - run: LOCAL=1 scripts/package-desktop.sh
       - run: SKIP_BUILD=1 scripts/e2e.sh --project desktop
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: holecraft-linux
           path: |
