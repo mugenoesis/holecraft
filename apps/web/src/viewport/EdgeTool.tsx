@@ -11,9 +11,10 @@ import {
 	nextChosen,
 	treatedEdges,
 } from '@holecraft/core';
-import { useEffect, useRef, useState } from 'react';
-import { drawEdges, initialEdgeSize, sliderMax, statusText } from './edgeDrawing.ts';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { initialEdgeSize, projectEdges, sliderMax, statusText } from './edgeDrawing.ts';
 import { EdgePreview, type PreviewHandlers } from './edgePreview.ts';
+import { SegmentVisibility } from './edgeVisibility.ts';
 import { useSurfaceTool } from './useSurfaceTool.ts';
 import { type FindEdges, useToolEdges } from './useToolEdges.ts';
 import type { Viewport } from './Viewport.ts';
@@ -24,6 +25,8 @@ interface Props {
 	meshes: ReadonlyMap<string, MeshData>;
 	selection: readonly NodeId[];
 	findEdges: FindEdges;
+	/** Changes whenever the camera does, so the edges are placed again where they now are. */
+	camera: unknown;
 	/** The preview runs like a drag: start, preview (any number of times), then apply (one undo step) or cancel. */
 	onStart: () => void;
 	onPreview: (id: NodeId, edges: EdgeTreatment[]) => void;
@@ -81,6 +84,48 @@ function usePreview(
 	return preview;
 }
 
+/** How long the camera must be still before pieces are checked for being hidden behind the model (ms). */
+const SETTLE_MS = 120;
+
+/**
+ * The edges as drawn: placed and projected for the camera as it is (cheap, and only when the camera or shape changes, never on
+ * hover), then the costly check for pieces hidden behind the model, done in chunks once the camera has been still a moment.
+ */
+function useDrawnEdges(
+	getViewport: () => Viewport | null,
+	transform: readonly number[],
+	found: readonly MeshEdge[] | null,
+	camera: unknown,
+) {
+	const [version, setVersion] = useState(0);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `camera` stands for where the camera is
+	const projected = useMemo(() => (found ? projectEdges(getViewport(), transform, found) : []), [getViewport, transform, found, camera]);
+	const visibility = useMemo(
+		() =>
+			new SegmentVisibility(
+				(mid) => getViewport()?.canSee(mid) ?? true,
+				() => setVersion((v) => v + 1),
+			),
+		[getViewport],
+	);
+	// what was found about the pieces of one set of edges means nothing for another
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `found` changing is the trigger
+	useEffect(() => visibility.reset(), [visibility, found]);
+	useEffect(() => {
+		const timer = setTimeout(() => visibility.refresh(projected.flatMap((d) => d.segments)), SETTLE_MS);
+		return () => clearTimeout(timer);
+	}, [visibility, projected]);
+	useEffect(() => () => visibility.cancel(), [visibility]);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `version` changes as the checks for hidden pieces come in
+	const drawn = useMemo(
+		() => projected.map((d) => ({ ...d, segments: d.segments.filter((s) => visibility.visible(s.key)) })),
+		[projected, visibility, version],
+	);
+	const segments = useMemo(() => drawn.flatMap((d) => d.segments), [drawn]);
+	return { drawn, segments };
+}
+
 function EdgePicker(props: Props & { id: NodeId }) {
 	const { id, design, meshes, findEdges, getViewport } = props;
 	const node = design.nodes[id]!;
@@ -97,11 +142,10 @@ function EdgePicker(props: Props & { id: NodeId }) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `found` changing is the trigger
 	useEffect(() => setChosen([]), [found]);
 
-	const drawn = found ? drawEdges(getViewport(), node.transform, found) : [];
-	const segments = drawn.flatMap((d) => d.segments);
+	const { drawn, segments } = useDrawnEdges(getViewport, node.transform, found, props.camera);
 	const segmentsRef = useRef(segments);
 	segmentsRef.current = segments;
-	const treated = found ? treatedEdges(found, preview.base) : new Set<number>();
+	const treated = useMemo(() => (found ? treatedEdges(found, preview.base) : new Set<number>()), [found, preview.base]);
 
 	const close = () => {
 		preview.cancel();

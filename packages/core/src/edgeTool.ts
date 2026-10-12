@@ -88,3 +88,28 @@ export function edgeToolTarget(design: Design, selection: readonly NodeId[]): { 
 	if (node.locked) return { problem: `${node.name} is locked` };
 	return { id: node.id };
 }
+
+/** Edges shorter than this (mm) are not offered: too small to pick on screen, and a chamfer would be bigger than the edge. */
+export const MIN_EDGE_LENGTH = 0.5;
+/** More pieces than this and the tool shows nothing (and says why): drawing and testing that many would make the page freeze. */
+export const MAX_OFFERED_SEGMENTS = 4000;
+
+/** An edge's length in mm, along its whole polyline. */
+export function edgeLength(edge: Pick<MeshEdge, 'points'>): number {
+	let total = 0;
+	for (let i = 0; i + 1 < edge.points.length; i++) {
+		const [a, b] = [edge.points[i]!, edge.points[i + 1]!];
+		total += Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+	}
+	return total;
+}
+
+/** The edges worth offering: those at least MIN_EDGE_LENGTH long, in their order (a shape already cut up by many treatments has thousands of tiny steps). */
+export function usefulEdges(edges: readonly MeshEdge[]): MeshEdge[] {
+	return edges.filter((e) => edgeLength(e) >= MIN_EDGE_LENGTH);
+}
+
+/** How many straight pieces the edges are drawn from. */
+export function countSegments(edges: readonly Pick<MeshEdge, 'points'>[]): number {
+	return edges.reduce((n, e) => n + Math.max(0, e.points.length - 1), 0);
+}

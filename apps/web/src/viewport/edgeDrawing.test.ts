@@ -1,6 +1,6 @@
 import { addShape, createEmptyDesign, type MeshEdge, moveNodes, setShapeSize, type Vec3 } from '@holecraft/core';
 import { describe, expect, it } from 'vitest';
-import { drawEdges, initialEdgeSize, sliderMax, statusText } from './edgeDrawing.ts';
+import { initialEdgeSize, projectEdges, sliderMax, statusText } from './edgeDrawing.ts';
 
 /** A box's top front edge (2 points) and a three-point run (2 segments), in the shape's own frame. */
 const LINE: MeshEdge = {
@@ -36,32 +36,45 @@ const BENT: MeshEdge = {
 };
 const MOVED = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 30, 0, 0, 1]; // 30 mm along x
 
-/** A flat view: x and y in mm become pixels; points with x below `hiddenBelow` are behind something. */
-const view = (hiddenBelow = -Infinity) => ({
+/** A flat view: x and y in mm become pixels. A face "faces the camera" when its normal points along +z (the camera is above). */
+const view = (opts: { facing?: (n: Vec3) => boolean } = {}) => ({
 	project: (p: Vec3) => ({ x: p[0], y: p[1] }),
-	canSee: (p: Vec3) => p[0] >= hiddenBelow,
+	facesCamera: (_p: Vec3, n: Vec3) => (opts.facing ? opts.facing(n) : n[2] > 0),
 });
 
-describe('drawing the offered edges', () => {
+describe('projecting the offered edges', () => {
 	it('places them by the node’s transform and labels each by its ends in the world', () => {
-		const [drawn] = drawEdges(view(), MOVED, [LINE]);
+		const [drawn] = projectEdges(view(), MOVED, [LINE]);
 		expect(drawn).toMatchObject({ index: 0, from: [20, -10, 20], to: [40, -10, 20] });
-		expect(drawn!.segments).toEqual([{ edge: 0, a: { x: 20, y: -10 }, b: { x: 40, y: -10 } }]);
+		expect(drawn!.segments).toEqual([{ edge: 0, key: '0:0', mid: [30, -10, 20], a: { x: 20, y: -10 }, b: { x: 40, y: -10 } }]);
 	});
 
-	it('leaves out the pieces that are hidden (judged at their middle), keeping the edge itself', () => {
-		const drawn = drawEdges(
-			view(0.75),
-			MOVED.map((v, i) => (i === 12 ? 0 : v)),
-			[BENT],
-		);
-		expect(drawn[0]!.segments.map((s) => s.b)).toEqual([{ x: 1, y: 1 }]); // the first piece's middle (x 0.5) is hidden
+	it('gives each piece a key that stays the same for the same piece (edge number, then piece number)', () => {
+		const [drawn] = projectEdges(view(), MOVED, [BENT]);
+		expect(drawn!.segments.map((s) => s.key)).toEqual(['0:0', '0:1']);
+	});
+
+	it('turns the faces with the node, so a shape turned upside down is judged by where its faces point now', () => {
+		const upsideDown = [1, 0, 0, 0, 0, -1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1]; // half a turn about x: the top face now points down
+		expect(projectEdges(view(), upsideDown, [LINE])[0]!.segments).toEqual([]);
+		expect(projectEdges(view(), MOVED, [LINE])[0]!.segments).toHaveLength(1);
+	});
+
+	it('keeps a piece if either of the faces that meet there faces the camera, and drops it if neither does (no ray needed)', () => {
+		const sideFacing = (n: Vec3) => n[1] < 0; // the camera is out in front: only the front (-y) face of LINE faces it
+		expect(projectEdges(view({ facing: sideFacing }), MOVED, [LINE])[0]!.segments).toHaveLength(1);
+		expect(projectEdges(view({ facing: () => false }), MOVED, [LINE])[0]!.segments).toEqual([]);
+	});
+
+	it('keeps the edge itself even when none of its pieces are drawn', () => {
+		const [drawn] = projectEdges(view({ facing: () => false }), MOVED, [LINE]);
+		expect(drawn).toMatchObject({ index: 0, from: [20, -10, 20], to: [40, -10, 20], segments: [] });
 	});
 
 	it('draws nothing without a view, or where the view can’t place a point', () => {
-		expect(drawEdges(null, MOVED, [LINE])).toEqual([]);
-		const behind = { project: () => null, canSee: () => true };
-		expect(drawEdges(behind, MOVED, [LINE])[0]!.segments).toEqual([]);
+		expect(projectEdges(null, MOVED, [LINE])).toEqual([]);
+		const behind = { project: () => null, facesCamera: () => true };
+		expect(projectEdges(behind, MOVED, [LINE])[0]!.segments).toEqual([]);
 	});
 });
 
@@ -88,5 +101,8 @@ describe('the bar', () => {
 		expect(statusText({ kind: 'ready', key: 'k', edges: [LINE] }, 0)).toBe('Click an edge to choose it (Shift adds more)');
 		expect(statusText({ kind: 'ready', key: 'k', edges: [LINE] }, 1)).toBe('1 edge chosen (Shift adds more)');
 		expect(statusText({ kind: 'ready', key: 'k', edges: [LINE, BENT] }, 2)).toBe('2 edges chosen');
+		expect(statusText({ kind: 'tooMany', segments: 12345 }, 0)).toBe(
+			'This part has too many small edges to choose from (12345). Apply edge treatments last, once the shapes are grouped how you want them',
+		);
 	});
 });

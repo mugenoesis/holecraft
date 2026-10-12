@@ -1,4 +1,20 @@
-import { addShape, createEmptyDesign, type Design, type EdgeTreatment, groupNodes, moveNodes, setShapeSize } from '@holecraft/core';
+import {
+	addShape,
+	countSegments,
+	createEmptyDesign,
+	type Design,
+	type EdgeTreatment,
+	edgeLength,
+	groupNodes,
+	MAX_OFFERED_SEGMENTS,
+	MIN_EDGE_LENGTH,
+	moveNodes,
+	setEdgeTreatments,
+	setNodeMode,
+	setShapeCountersink,
+	setShapeSize,
+	treatEdges,
+} from '@holecraft/core';
 import type { ManifoldToplevel } from 'manifold-3d';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { loadManifold } from './load.ts';
@@ -58,5 +74,45 @@ describe('the edges the Edge tool offers', () => {
 		const d = box();
 		expect(toolEdgesKey(withEdges(d, 'a', [TOP_FRONT]), 'a')).toBe(toolEdgesKey(d, 'a'));
 		expect(toolEdgesKey(setShapeSize(d, 'a', { height: 30 }), 'a')).not.toBe(toolEdgesKey(d, 'a'));
+	});
+});
+
+describe('a shape already cut up by many treatments', () => {
+	/** An L-shaped block with a countersunk hole, every outer edge chamfered, then grouped with another block. */
+	function treatedThenWrapped(): Design {
+		let d = createEmptyDesign('d');
+		d = addShape(d, 'box', [0, 0], { id: 'a' }).design;
+		d = addShape(d, 'box', [20, 20], { id: 'b' }).design;
+		d = addShape(d, 'cylinder', [0, 0], { id: 'h' }).design;
+		d = setShapeSize(d, 'h', { width: 6, depth: 6, height: 20 });
+		d = setNodeMode(d, ['h'], 'hole');
+		d = setShapeCountersink(d, 'h', { size: 3 });
+		d = groupNodes(d, ['a', 'b', 'h'], { id: 'g' }).design;
+		const found = toolEdges(M, d, 'g');
+		let n = 0;
+		d = setEdgeTreatments(
+			d,
+			'g',
+			treatEdges(
+				[],
+				found,
+				found.map((_, i) => i),
+				'chamfer',
+				2,
+				() => `t${++n}`,
+			),
+		);
+		d = addShape(d, 'box', [80, 0], { id: 'c' }).design;
+		return groupNodes(d, ['g', 'c'], { id: 'outer' }).design;
+	}
+
+	it('offers only edges you could choose: none shorter than half a millimetre, however many steps the cuts left', () => {
+		const edges = toolEdges(M, treatedThenWrapped(), 'outer');
+		expect(edges.length).toBeGreaterThan(0);
+		expect(edges.every((e) => edgeLength(e) >= MIN_EDGE_LENGTH)).toBe(true);
+	});
+
+	it('leaves few enough pieces to draw (the unfiltered shape has thousands of tiny ones)', () => {
+		expect(countSegments(toolEdges(M, treatedThenWrapped(), 'outer'))).toBeLessThan(MAX_OFFERED_SEGMENTS);
 	});
 });
