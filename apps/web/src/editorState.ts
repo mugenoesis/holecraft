@@ -30,6 +30,8 @@ import {
 	type ShapeType,
 	type SolidMode,
 	selectAll,
+	setHidden,
+	setLocked,
 	setNodeColor,
 	setNodeEuler,
 	setNodeMode,
@@ -38,6 +40,7 @@ import {
 	setPaletteColor,
 	setShapeGeometry,
 	setShapeSize,
+	showAll,
 	suggestPaletteColor,
 	toggleSelection,
 	undo,
@@ -72,6 +75,10 @@ export type EditorAction =
 	// moveStart and moveEnd, like a move.
 	| { type: 'setGeometry'; id: NodeId; geometry: ShapeGeometry }
 	| { type: 'dropToPlane' }
+	// The eye and padlock in the Objects list (by id, not the selection), and the "Show all" button.
+	| { type: 'setHidden'; ids: NodeId[]; hidden: boolean }
+	| { type: 'setLocked'; ids: NodeId[]; locked: boolean }
+	| { type: 'showAll' }
 	// Line the selection up on one axis (needs two or more objects), or mirror it across one.
 	| { type: 'align'; axis: Axis; edge: AlignEdge }
 	| { type: 'flip'; axis: Axis }
@@ -217,6 +224,22 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 
 		case 'dropToPlane':
 			return commit(state, dropToWorkplane(design, state.selection));
+
+		case 'setHidden': {
+			const next = setHidden(design, action.ids, action.hidden);
+			// A hidden object can't stay selected: you could still move or delete what you can't see.
+			return commit(
+				state,
+				next,
+				state.selection.filter((id) => !next.nodes[id]?.hidden),
+			);
+		}
+
+		case 'setLocked':
+			return commit(state, setLocked(design, action.ids, action.locked));
+
+		case 'showAll':
+			return commit(state, showAll(design));
 
 		case 'align':
 			return commit(state, alignNodes(design, state.selection, action.axis, action.edge));

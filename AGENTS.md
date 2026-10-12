@@ -144,6 +144,13 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   copy gets `step · copy`; afterwards `sources` = the copies it was made from. Anything else selected, or a source that was deleted,
   falls back to the plain 10 mm offset. Size changes are deliberately not repeated.
 
+## Hide and lock
+- `hidden` / `locked` live on every node (core/visibility.ts: `setHidden`, `setLocked`, `showAll`, `hasHiddenNodes`). Every edit that
+  must skip locked nodes uses `isEditable`; code that asks "where is it" goes through `nodeBoundsIn`, which returns null for hidden nodes,
+  and `DesignScene` sets `visible = false` (picking and marquee ignore invisible objects). New edits must follow both rules.
+- The reducer deselects what was just hidden (a hidden object must not stay movable); locking keeps the selection. The toggles are
+  `RowToggle`s (`aria-pressed`, labelled just "Lock"/"Unlock" and "Hide"/"Show": a name in the label would make `getByRole("button", { name: /Group 1/ })` match three buttons per row) at the end of each Objects row.
+
 ## Rotation
 - Orientation lives in each node's `transform` (column-major 4x4 = rotation + base-centre
   position). Sizes stay as local params, so a mesh is just position, quaternion and scale.
