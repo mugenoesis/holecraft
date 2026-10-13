@@ -43,6 +43,18 @@ const brushed = addPaint(addShape(createEmptyDesign('b', 'Brush'), 'box', [0, 0]
 const brushBodies = collectBodies(manifold, brushed);
 writeFileSync(`${out}/brush.3mf`, write3mf(brushBodies, { filaments: brushed.palette }));
 writeFileSync(`${out}/brush.count`, String(brushBodies[0]!.mesh.paint!.triangle.filter((v) => v !== 0).length));
+// the box with a height range band round its walls (the surface cut straight along the band's planes), then a gap fill over a speck
+const banded = addPaint(addShape(createEmptyDesign('h', 'Band'), 'box', [0, 0], { id: 'box' }).design, 'box', {
+	id: 'band',
+	kind: 'band',
+	color: '#2a9d8f',
+	origin: [0, 0, 5],
+	up: [0, 0, 1],
+	height: 3,
+});
+const bandBodies = collectBodies(manifold, banded);
+writeFileSync(`${out}/band.3mf`, write3mf(bandBodies, { filaments: banded.palette }));
+writeFileSync(`${out}/band.count`, String(bandBodies[0]!.mesh.paint!.triangle.filter((v) => v !== 0).length));
 writeFileSync(`${out}/plain.3mf`, write3mf(bodies));
 writeFileSync(`${out}/plain.stl`, writeStl(bodies));
 console.log(`wrote ${bodies.length} bodies; palettes of ${d.palette.length} and ${sixteen.palette.length} colours`);

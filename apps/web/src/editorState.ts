@@ -141,6 +141,8 @@ export type EditorAction =
 	| { type: 'setShapeParam'; id: NodeId; key: string; value: number }
 	| { type: 'setShapeText'; id: NodeId; text: string }
 	| { type: 'addPaint'; id: NodeId; fill: PaintFill }
+	// one fill (a gap fill) on several shapes, as one undo step
+	| { type: 'addPaintAll'; ids: NodeId[]; fill: PaintFill }
 	| { type: 'clearPaint'; ids: NodeId[] }
 	| { type: 'rename'; id: NodeId; name: string }
 	| { type: 'setColor'; ids: NodeId[]; color: string }
@@ -386,6 +388,12 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 
 		case 'addPaint':
 			return commit(state, addPaint(design, action.id, action.fill));
+
+		case 'addPaintAll':
+			return commit(
+				state,
+				action.ids.reduce((d, id) => addPaint(d, id, action.fill), design),
+			);
 
 		case 'clearPaint':
 			return commit(

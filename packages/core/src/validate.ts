@@ -144,18 +144,23 @@ function parseBrush(raw: Raw, path: string, id: string, color: string | null): P
 	return { id, kind: 'brush', color, shape, radius, dabs: list };
 }
 
-function parsePaintFill(raw: unknown, path: string): PaintFill {
-	if (!isRecord(raw)) fail(path, 'must be an object');
-	const id = str(raw.id, `${path}.id`, MAX_TREATMENT_ID);
-	const colorOf = (allowNone: boolean): string | null => {
-		if (allowNone && raw.color === null) return null;
-		if (typeof raw.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(raw.color)) fail(`${path}.color`, 'must be a #rrggbb colour');
-		return raw.color.toLowerCase();
-	};
-	if (raw.kind === 'body') return { id, kind: 'body', color: colorOf(false)! };
-	if (raw.kind !== 'region' && raw.kind !== 'brush') fail(`${path}.kind`, 'must be "region", "brush" or "body"');
-	const color = colorOf(true);
-	if (raw.kind === 'brush') return parseBrush(raw, path, id, color);
+const MAX_BAND_HEIGHT = 1000;
+const MAX_GAP_AREA = 1000;
+
+function parseBand(raw: Raw, path: string, id: string, color: string | null): PaintFill {
+	const { height } = raw;
+	if (!(isFiniteNumber(height) && height > 0 && height <= MAX_BAND_HEIGHT))
+		fail(`${path}.height`, `must be a number above 0 and up to ${MAX_BAND_HEIGHT}`);
+	return { id, kind: 'band', color, origin: parsePoint(raw.origin, `${path}.origin`), up: parseDirection(raw.up, `${path}.up`), height };
+}
+
+function parseGaps(raw: Raw, path: string, id: string): PaintFill {
+	const { area } = raw;
+	if (!(isFiniteNumber(area) && area >= 0 && area <= MAX_GAP_AREA)) fail(`${path}.area`, `must be a number from 0 to ${MAX_GAP_AREA}`);
+	return { id, kind: 'gaps', color: null, area };
+}
+
+function parseRegion(raw: Raw, path: string, id: string, color: string | null): PaintFill {
 	const { spread, angle } = raw;
 	if (spread !== undefined && spread !== 'smart' && spread !== 'bucket') fail(`${path}.spread`, 'must be "smart" or "bucket"');
 	if (angle !== undefined && !(isFiniteNumber(angle) && angle >= 0 && angle <= 90)) fail(`${path}.angle`, 'must be a number from 0 to 90');
@@ -168,6 +173,24 @@ function parsePaintFill(raw: unknown, path: string): PaintFill {
 		...(spread !== undefined && { spread }),
 		...(angle !== undefined && { angle }),
 	};
+}
+
+function parsePaintFill(raw: unknown, path: string): PaintFill {
+	if (!isRecord(raw)) fail(path, 'must be an object');
+	const id = str(raw.id, `${path}.id`, MAX_TREATMENT_ID);
+	const colorOf = (allowNone: boolean): string | null => {
+		if (allowNone && raw.color === null) return null;
+		if (typeof raw.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(raw.color)) fail(`${path}.color`, 'must be a #rrggbb colour');
+		return raw.color.toLowerCase();
+	};
+	if (raw.kind === 'body') return { id, kind: 'body', color: colorOf(false)! };
+	if (raw.kind === 'gaps') return parseGaps(raw, path, id);
+	if (raw.kind !== 'region' && raw.kind !== 'brush' && raw.kind !== 'band')
+		fail(`${path}.kind`, 'must be "region", "brush", "band", "gaps" or "body"');
+	const color = colorOf(true);
+	if (raw.kind === 'brush') return parseBrush(raw, path, id, color);
+	if (raw.kind === 'band') return parseBand(raw, path, id, color);
+	return parseRegion(raw, path, id, color);
 }
 
 /** A node's paint, or undefined for none (the field is then left out). */

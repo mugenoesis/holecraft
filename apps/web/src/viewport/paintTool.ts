@@ -15,13 +15,28 @@ import {
 /** What the Paint tool is set to: the colour to paint (null erases), the tool, a smart fill's angle in degrees, and the brush's shape and size (its diameter, mm). */
 export interface PaintSettings {
 	color: string | null;
-	tool: 'smart' | 'bucket' | 'brush';
+	tool: 'smart' | 'bucket' | 'brush' | 'height' | 'gaps';
 	angle: number;
 	shape: BrushShape;
 	size: number;
+	/** The height range tool's band height (mm) and the gap fill's patch area (mm2). */
+	height: number;
+	gapArea: number;
 }
 
-export const DEFAULT_PAINT_SETTINGS: PaintSettings = { color: null, tool: 'smart', angle: DEFAULT_FILL_ANGLE, shape: 'circle', size: 6 };
+export const DEFAULT_PAINT_SETTINGS: PaintSettings = {
+	color: null,
+	tool: 'smart',
+	angle: DEFAULT_FILL_ANGLE,
+	shape: 'circle',
+	size: 6,
+	height: 2,
+	gapArea: 1,
+};
+
+/** The height range slider's limits (mm) and the gap area slider's (mm2). OrcaSlicer's are 0.1 to 8 and 0 to 5: models here run bigger. */
+export const HEIGHT_RANGE = { min: 0.1, max: 50, step: 0.1 } as const;
+export const GAP_AREA = { min: 0, max: 5, step: 0.2 } as const;
 
 /** The brush sizes the slider offers (diameter, mm). */
 export const BRUSH_SIZE = { min: 1, max: 60, step: 1 } as const;
@@ -45,16 +60,18 @@ function paintable(design: Design, hit: SurfaceClick): { id: NodeId; node: Desig
 	return { id: hit.id, node };
 }
 
-/** A hit as a dab in the object's own frame (the transform is a rotation and a position, so going back is the rotation's transpose). */
-function localDab(node: DesignNode, hit: SurfaceClick): BrushDab {
+/** A world point or direction in the object's own frame (the transform is a rotation and a position, so going back is the rotation's transpose). */
+function toLocal(node: DesignNode, v: Vec3, withPosition: boolean): Vec3 {
 	const m = node.transform;
-	const local = (v: Vec3, withPosition: boolean): Vec3 => {
-		const d = [0, 1, 2].map((k) => v[k]! - (withPosition ? m[12 + k]! : 0));
-		return [0, 1, 2].map((c) => round(m[c * 4]! * d[0]! + m[c * 4 + 1]! * d[1]! + m[c * 4 + 2]! * d[2]!)) as Vec3;
-	};
-	const normal = local(hit.normal, false);
-	const length = Math.hypot(...normal);
-	return { point: local(hit.point, true), normal: normal.map((v) => v / length) as Vec3 };
+	const d = [0, 1, 2].map((k) => v[k]! - (withPosition ? m[12 + k]! : 0));
+	return [0, 1, 2].map((c) => round(m[c * 4]! * d[0]! + m[c * 4 + 1]! * d[1]! + m[c * 4 + 2]! * d[2]!)) as Vec3;
+}
+
+const unit = (v: Vec3): Vec3 => v.map((x) => x / Math.hypot(...v)) as Vec3;
+
+/** A hit as a dab in the object's own frame. */
+function localDab(node: DesignNode, hit: SurfaceClick): BrushDab {
+	return { point: toLocal(node, hit.point, true), normal: unit(toLocal(node, hit.normal, false)) };
 }
 
 /** The fill for a brush stroke so far. */
@@ -68,6 +85,11 @@ export function fillFor(design: Design, hit: SurfaceClick, settings: PaintSettin
 	if ('problem' in target) return target;
 	const dab = localDab(target.node, hit);
 	if (settings.tool === 'brush') return { id: target.id, fill: brushFill(newId(), settings, [dab]) };
+	if (settings.tool === 'height') {
+		// a band across the whole surface from the height of the click, along the world's up (which is some other direction in a turned shape's own frame)
+		const up = unit(toLocal(target.node, [0, 0, 1], false));
+		return { id: target.id, fill: { id: newId(), kind: 'band', color: settings.color, origin: dab.point, up, height: settings.height } };
+	}
 	const fill: PaintFill = {
 		id: newId(),
 		kind: 'region',
@@ -77,6 +99,18 @@ export function fillFor(design: Design, hit: SurfaceClick, settings: PaintSettin
 		...(settings.tool === 'bucket' ? { spread: 'bucket' as const } : { angle: settings.angle }),
 	};
 	return { id: target.id, fill };
+}
+
+/** The fill that tidies the paint on the shapes given, for them all (those that can be painted and have paint), or why there is nothing to do. */
+export function gapFillFor(
+	design: Design,
+	ids: readonly NodeId[],
+	settings: PaintSettings,
+): { ids: NodeId[]; fill: PaintFill } | { problem: string } {
+	if (ids.length === 0) return { problem: 'Select the shapes to tidy first' };
+	const tidy = ids.filter((id) => canPaint(design, id) && (design.nodes[id]?.paint?.length ?? 0) > 0);
+	if (tidy.length === 0) return { problem: 'Nothing to tidy: the selected shapes have no paint' };
+	return { ids: tidy, fill: { id: newId(), kind: 'gaps', color: null, area: settings.gapArea } };
 }
 
 /** A brush stroke being dragged across one object: dabs are added as the pointer moves, a third of the radius apart. */

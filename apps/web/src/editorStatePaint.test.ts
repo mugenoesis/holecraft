@@ -97,3 +97,26 @@ describe('a brush stroke (a drag)', () => {
 		expect(editorReducer(moving, { type: 'paintStart', id: 'a' })).toBe(moving);
 	});
 });
+
+describe('addPaintAll (a gap fill over several shapes)', () => {
+	const gaps: PaintFill = { id: 'g', kind: 'gaps', color: null, area: 1 };
+	const two = () =>
+		createEditorState(
+			addShape(addShape(createEmptyDesign('d'), 'box', [0, 0], { id: 'a' }).design, 'cylinder', [50, 0], { id: 'b' }).design,
+		);
+
+	it('puts the fill on every shape given as one undo step', () => {
+		const s = editorReducer(two(), { type: 'addPaintAll', ids: ['a', 'b'], fill: gaps });
+		expect(s.history.present.nodes.a!.paint).toEqual([gaps]);
+		expect(s.history.present.nodes.b!.paint).toEqual([gaps]);
+		expect(s.history.past).toHaveLength(1);
+		const undone = editorReducer(s, { type: 'undo' });
+		expect(undone.history.present.nodes.a!.paint).toBeUndefined();
+		expect(undone.history.present.nodes.b!.paint).toBeUndefined();
+	});
+
+	it('records nothing when no shape can take it', () => {
+		const locked = editorReducer(two(), { type: 'setLocked', ids: ['a', 'b'], locked: true });
+		expect(editorReducer(locked, { type: 'addPaintAll', ids: ['a', 'b'], fill: gaps }).history.past).toHaveLength(1);
+	});
+});

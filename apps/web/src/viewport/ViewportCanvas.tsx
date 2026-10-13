@@ -77,6 +77,8 @@ interface Props {
 	onPaintStrokeStart: (id: NodeId) => void;
 	onPaintStrokePreview: (id: NodeId, fill: PaintFill) => void;
 	onPaintStrokeEnd: () => void;
+	/** A gap fill, on the shapes it can tidy. */
+	onPaintGapFill: (ids: NodeId[], fill: PaintFill) => void;
 }
 
 /** React host for the imperative three.js viewport, plus its overlay controls. */
@@ -321,6 +323,7 @@ export function ViewportCanvas(props: Props) {
 							onStrokeStart={(id) => latest.current.onPaintStrokeStart(id)}
 							onStrokePreview={(id, fill) => latest.current.onPaintStrokePreview(id, fill)}
 							onStrokeEnd={() => latest.current.onPaintStrokeEnd()}
+							onGapFill={(ids, fill) => latest.current.onPaintGapFill(ids, fill)}
 							onEraseAll={(ids) => latest.current.onErasePaint(ids)}
 							onClose={() => setTool(null)}
 						/>

@@ -145,6 +145,7 @@ function EditorView({ initial }: { initial: Design }) {
 					onPaintStrokeStart={(id) => dispatch({ type: 'paintStart', id })}
 					onPaintStrokePreview={(id, fill) => dispatch({ type: 'previewPaint', id, fill })}
 					onPaintStrokeEnd={() => dispatch({ type: 'moveEnd' })}
+					onPaintGapFill={(ids, fill) => dispatch({ type: 'addPaintAll', ids, fill })}
 				/>
 				<aside className="panel">
 					<ShapesPanel

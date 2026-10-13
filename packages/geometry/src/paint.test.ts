@@ -154,3 +154,41 @@ describe('brush strokes in the CSG engine', () => {
 		expect(painted(mesh, 1).area).toBeLessThan(ring * 1.15);
 	});
 });
+
+describe('bands and gap fills in the CSG engine', () => {
+	it('a band is across the node’s own frame, so it turns with the shape: exported on a box lying on its side it is still 240 mm2 and 3 mm tall', () => {
+		// the node's +y is the world's up once it is turned a quarter about X
+		const band: PaintFill = { id: 'h', kind: 'band', color: RED, origin: [0, 5, 0], up: [0, 1, 0], height: 3 };
+		const turned = setNodeEuler(addPaint(box(), 'a', band), 'a', [90, 0, 0]);
+		const placed = evaluateNode(M, turned, 'a')!;
+		expect(painted(placed, 1).area).toBeCloseTo(240, 2);
+		const zs: number[] = [];
+		for (let t = 0; t < placed.paint!.triangle.length; t++) {
+			if (placed.paint!.triangle[t] === 1) for (let k = 0; k < 3; k++) zs.push(placed.positions[placed.indices[t * 3 + k]! * 3 + 2]!);
+		}
+		expect(Math.max(...zs) - Math.min(...zs)).toBeCloseTo(3, 4);
+	});
+
+	it('a band cuts the mesh straight, and the surface keeps its area', () => {
+		const band: PaintFill = { id: 'h', kind: 'band', color: RED, origin: [0, 0, 6], up: [0, 0, 1], height: 4 };
+		const mesh = evaluateGroup(M, addPaint(box(), 'a', band), 'a')!;
+		expect(mesh.indices.length / 3).toBeGreaterThan(12);
+		const everything = { ...mesh, paint: { colors: [''], triangle: new Uint16Array(mesh.indices.length / 3).fill(1) } };
+		expect(painted(everything, 1).area).toBeCloseTo(2400, 2);
+		expect(painted(mesh, 1).area).toBeCloseTo(4 * 20 * 4, 3);
+	});
+
+	it('a gap fill tidies the paint on the finished surface: a speck erased from a disc of paint is filled again', () => {
+		const dab = (color: string | null, radius: number, id: string): PaintFill => ({
+			id,
+			kind: 'brush',
+			color,
+			shape: 'sphere',
+			radius,
+			dabs: [{ point: [0, 0, 20], normal: [0, 0, 1] }],
+		});
+		const speckled = addPaint(addPaint(box(), 'a', dab(RED, 6, 'd')), 'a', dab(null, 0.5, 's'));
+		const tidied = addPaint(speckled, 'a', { id: 'g', kind: 'gaps', color: null, area: 2 });
+		expect(painted(evaluateGroup(M, tidied, 'a')!, 1).area).toBeGreaterThan(painted(evaluateGroup(M, speckled, 'a')!, 1).area + 0.5);
+	});
+});

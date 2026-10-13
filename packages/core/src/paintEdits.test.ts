@@ -265,3 +265,79 @@ describe('brush strokes', () => {
 		expect(out.radius).toBeCloseTo(3 * Math.cbrt(2 * 2 * 0.5), 9);
 	});
 });
+
+describe('height range bands and gap fills', () => {
+	const band = (over: Record<string, unknown> = {}): PaintFill =>
+		({ id: 'h1', kind: 'band', color: RED, origin: [0, 0, 5], up: [0, 0, 1], height: 2, ...over }) as PaintFill;
+	const gaps = (over: Record<string, unknown> = {}): PaintFill =>
+		({ id: 'g1', kind: 'gaps', color: null, area: 1.2, ...over }) as PaintFill;
+
+	it('are added after what is there, saved and read back unchanged; a band can erase, a gap fill has no colour', () => {
+		const d = addPaint(addPaint(addPaint(start(), 'a', band()), 'a', band({ id: 'h2', color: null })), 'a', gaps());
+		expect(paintOf(d)!.map((f) => f.kind)).toEqual(['band', 'band', 'gaps']);
+		expect(parseDesign(JSON.parse(JSON.stringify(d))).nodes.a!.paint).toEqual(paintOf(d));
+	});
+
+	it('refuse a band with a height, direction or colour that makes no sense, and a gap area that is negative or huge', () => {
+		const d = start();
+		for (const bad of [
+			{ height: 0 },
+			{ height: -1 },
+			{ height: 1001 },
+			{ height: Number.NaN },
+			{ up: [0, 0, 0] },
+			{ up: [0, 0, 2] },
+			{ origin: [Number.NaN, 0, 0] },
+			{ color: 'red' },
+		]) {
+			expect(addPaint(d, 'a', band(bad)), JSON.stringify(bad)).toBe(d);
+		}
+		for (const bad of [{ area: -1 }, { area: 1001 }, { area: Number.NaN }])
+			expect(addPaint(d, 'a', gaps(bad)), JSON.stringify(bad)).toBe(d);
+		expect(paintOf(addPaint(d, 'a', gaps({ area: 0 })))).toHaveLength(1);
+	});
+
+	it('are refused by the file reader in the same cases, naming what is wrong', () => {
+		const bad = (fill: unknown) => {
+			const raw = JSON.parse(JSON.stringify(start()));
+			raw.nodes.a.paint = [fill];
+			return () => parseDesign(raw);
+		};
+		expect(bad(band({ height: 0 }))).toThrow(/height/);
+		expect(bad(band({ up: [0, 0, 5] }))).toThrow(/up/);
+		expect(bad(band({ origin: [1, 2] }))).toThrow(/origin/);
+		expect(bad(band({ color: 'red' }))).toThrow(/colour/);
+		expect(bad(gaps({ area: -3 }))).toThrow(/area/);
+		expect(bad(gaps())).not.toThrow();
+		expect(bad(band())).not.toThrow();
+	});
+
+	it('a band changes colour with its slot; a gap fill is left alone', () => {
+		const d = setPaletteColor(addPaint(addPaint(start(), 'a', band({ color: '#2a9d8f' })), 'a', gaps()), 1, '#112233');
+		expect(paintOf(d)![0]!.color).toBe('#112233');
+		expect(paintOf(d)![1]).toEqual(gaps());
+	});
+
+	it('stretch with the shape: the band stays across the same part of the surface, its height scaled along its direction', () => {
+		const [b] = stretchPaint([band({ origin: [0, 0, 5], up: [0, 0, 1], height: 2 })], [2, 2, 0.5], null) as [
+			Extract<PaintFill, { kind: 'band' }>,
+		];
+		expect(b.origin).toEqual([0, 0, 2.5]);
+		expect(b.up).toEqual([0, 0, 1]);
+		expect(b.height).toBeCloseTo(1, 9); // 2 mm of height at half the size
+		const [slanted] = stretchPaint([band({ up: [Math.SQRT1_2, 0, Math.SQRT1_2], height: 2, origin: [0, 0, 0] })], [2, 1, 1], null) as [
+			Extract<PaintFill, { kind: 'band' }>,
+		];
+		expect(Math.hypot(...slanted.up)).toBeCloseTo(1, 9);
+		// a point on the far plane of the band stays on the far plane after the stretch
+		const far: [number, number, number] = [Math.SQRT1_2 * 2, 0, Math.SQRT1_2 * 2];
+		const moved: [number, number, number] = [far[0] * 2, far[1], far[2]];
+		const along = (moved[0] - slanted.origin[0]) * slanted.up[0] + (moved[2] - slanted.origin[2]) * slanted.up[2];
+		expect(along).toBeCloseTo(slanted.height, 9);
+	});
+
+	it('a gap fill’s area follows the square of the average stretch', () => {
+		const [g] = stretchPaint([gaps({ area: 2 })], [2, 2, 2], null) as [Extract<PaintFill, { kind: 'gaps' }>];
+		expect(g.area).toBeCloseTo(8, 9);
+	});
+});
