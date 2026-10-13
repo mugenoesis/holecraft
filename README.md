@@ -45,12 +45,13 @@ Camera: drag one finger on empty space to orbit, two fingers to pan, pinch to zo
 
 ## Importing models
 
-**Import** in the top bar brings in an STL (binary or text), OBJ or 3MF file (3MF files, including
+**Import** in the top bar brings in an STL (binary or text), OBJ, 3MF or SVG file (3MF files, including
 the compressed ones slicers write, are read in the units they were saved in and converted to
 millimetres). The model becomes a shape named after the file, resting on the workplane at its real
 size, and from then on it is like any other shape: move, resize, rotate, recolour, duplicate, turn it
 into a **hole**, group it, export it.
 
+- **SVG files** are extruded into a solid **5 mm** deep (change it with Height, like any shape): the filled shapes of the drawing, in millimetres, standing on the workplane and named after the file. It reads paths (all the curve and arc commands), rectangles (rounded too), circles, ellipses, polygons and polylines, in groups with transforms, with their fill, fill-rule (even-odd or non-zero, so holes come out as holes) and display. Shapes that overlap are joined. The size comes from the file's width and height against its view box (mm, cm, in, pt and pc are honoured; **pixels and plain numbers count as millimetres**); without a size, one unit is a millimetre. **Not read:** strokes (an outline drawn as a stroke has no area: use *Stroke to Path* first), text (use *Object to Path*), gradients, clipping, masks and `use`. A file with nothing filled says so. The up axis does not apply to an SVG.
 - **Which way is up.** Files are read as Z up (CAD, STL and 3MF files). Many OBJ files, from Blender and game tools, have Y as the height and would arrive lying on their side: set the **Up axis** next to the Import button to **Y up** first and the model is stood upright as it is read (a quarter turn, not a mirror, so its width, depth and height are right straight away). The choice is remembered in your browser.
 - A model has to be **watertight** (a closed surface) to be cut or to cut something. If it has holes in
   its surface it still imports and moves, but grouping it with a hole or exporting it as a group says

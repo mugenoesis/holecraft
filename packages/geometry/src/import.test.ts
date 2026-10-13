@@ -359,7 +359,7 @@ describe('importMeshFile', () => {
 	});
 
 	it('rejects unknown file types', async () => {
-		await expect(importMeshFile('x.png', text('x'))).rejects.toThrow(/STL, OBJ or 3MF/);
+		await expect(importMeshFile('x.png', text('x'))).rejects.toThrow(/STL, OBJ, 3MF or SVG/);
 	});
 
 	it('rejects a 3MF with no model inside', async () => {

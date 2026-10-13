@@ -47,6 +47,16 @@ describe('the geometry worker client', () => {
 		await expect(edges).resolves.toEqual([]);
 	});
 
+	it('asks the worker to extrude an SVG, and gives back the mesh it sends', async () => {
+		const client = createWorkerEvaluator();
+		const solid = client.svg('<svg/>', 5);
+		const worker = FakeWorker.made[0]!;
+		expect(worker.sent[0]).toMatchObject({ kind: 'svg', text: '<svg/>', depth: 5 });
+		const mesh = { positions: new Float32Array([0, 0, 0]), indices: new Uint32Array([0, 0, 0]) };
+		worker.reply({ id: worker.sent[0]!.id, svg: mesh });
+		await expect(solid).resolves.toBe(mesh);
+	});
+
 	it('turns an error reply, or the wrong kind of reply, into a failure', async () => {
 		const client = createWorkerEvaluator();
 		const failed = client.edges(subtree, NONE);

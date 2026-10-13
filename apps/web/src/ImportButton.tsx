@@ -3,8 +3,9 @@ import { useRef, useState } from 'react';
 import { IMPORT_ACCEPT, importModelFile } from './importModel.ts';
 import { browserStorage, readUpAxis, writeUpAxis } from './importUpAxis.ts';
 import { uploadMesh } from './meshApi.ts';
+import { extrudeSvg } from './svgExtruder.ts';
 
-/** The "Import" button: pick an STL, OBJ or 3MF file and it becomes a shape in the design. */
+/** The "Import" button: pick an STL, OBJ, 3MF or SVG file and it becomes a shape in the design. */
 export function ImportButton({ onImported }: { onImported: (input: MeshShapeInput, mesh: MeshData) => void }) {
 	const picker = useRef<HTMLInputElement>(null);
 	const [busy, setBusy] = useState(false);
@@ -16,7 +17,7 @@ export function ImportButton({ onImported }: { onImported: (input: MeshShapeInpu
 		setBusy(true);
 		setProblem(null);
 		try {
-			const { input, mesh } = await importModelFile(file, { upload: uploadMesh }, { up });
+			const { input, mesh } = await importModelFile(file, { upload: uploadMesh, extrudeSvg }, { up });
 			onImported(input, mesh);
 		} catch (error) {
 			setProblem(error instanceof Error ? error.message : 'The import failed');
@@ -27,7 +28,12 @@ export function ImportButton({ onImported }: { onImported: (input: MeshShapeInpu
 
 	return (
 		<div className="import-button">
-			<button type="button" disabled={busy} title="Bring in an STL, OBJ or 3MF file as a shape" onClick={() => picker.current?.click()}>
+			<button
+				type="button"
+				disabled={busy}
+				title="Bring in an STL, OBJ, 3MF or SVG file as a shape (an SVG is extruded 5 mm to start)"
+				onClick={() => picker.current?.click()}
+			>
 				{busy ? 'Importing…' : 'Import'}
 			</button>
 			<select

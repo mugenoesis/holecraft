@@ -18,7 +18,7 @@ const file = (name: string, bytes: Uint8Array | string) => {
 		arrayBuffer: async () => data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer,
 	};
 };
-const deps = () => ({ upload: vi.fn(async (_m: MeshData) => REF) });
+const deps = () => ({ upload: vi.fn(async (_m: MeshData) => REF), extrudeSvg: vi.fn(async (_text: string, _depth: number) => tetra) });
 
 describe('importModelFile', () => {
 	it('reads an STL, stores it, and describes the shape to add', async () => {
@@ -51,13 +51,33 @@ describe('importModelFile', () => {
 		expect(b.input.size).toEqual([10, 20, 30]);
 	});
 
+	it('turns an SVG into a solid 5 mm deep (the geometry worker does the extruding), named after the file, and stores it', async () => {
+		const d = deps();
+		const { input } = await importModelFile(file('Logo.svg', '<svg viewBox="0 0 1 1"/>'), d);
+		expect(d.extrudeSvg).toHaveBeenCalledWith('<svg viewBox="0 0 1 1"/>', 5);
+		expect(input).toMatchObject({ name: 'Logo', ref: REF });
+		expect(d.upload).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not turn an SVG when the up axis is set to Y: it is already flat on the floor', async () => {
+		const { input } = await importModelFile(file('Logo.svg', '<svg/>'), deps(), { up: 'y' });
+		expect(input.size).toEqual([10, 20, 30]); // the model the fake extruder gave, as it came
+	});
+
+	it('passes on what is wrong with an SVG, and stores nothing', async () => {
+		const d = deps();
+		d.extrudeSvg.mockRejectedValue(new Error('This SVG has no filled shapes to make a solid from.'));
+		await expect(importModelFile(file('x.svg', '<svg/>'), d)).rejects.toThrow('no filled shapes');
+		expect(d.upload).not.toHaveBeenCalled();
+	});
+
 	it('reads OBJ files too', async () => {
 		const { input } = await importModelFile(file('m.obj', writeObj([body])), deps());
 		expect(input.size).toEqual([10, 20, 30]);
 	});
 
 	it('says what it can read when given something else', async () => {
-		await expect(importModelFile(file('notes.txt', 'hi'), deps())).rejects.toThrow(/STL, OBJ or 3MF/);
+		await expect(importModelFile(file('notes.txt', 'hi'), deps())).rejects.toThrow(/STL, OBJ, 3MF or SVG/);
 	});
 
 	it('says so when a model has no thickness, and stores nothing', async () => {
@@ -81,6 +101,6 @@ describe('importModelFile', () => {
 
 describe('IMPORT_ACCEPT', () => {
 	it('lists the file types the picker should offer', () => {
-		expect(IMPORT_ACCEPT).toBe('.stl,.obj,.3mf');
+		expect(IMPORT_ACCEPT).toBe('.stl,.obj,.3mf,.svg');
 	});
 });
