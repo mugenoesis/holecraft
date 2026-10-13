@@ -372,6 +372,7 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   duplicate, hole/group and the Properties panel therefore work unchanged. Anything that looks up
   `getShapeDef(shapeType)` must special-case it (that bug already happened once, in `duplicateNodes`).
   `MeshNode` (`kind: 'mesh'`) in design.ts is an unused leftover; don't build on it.
+- **Up axis for imports**: `reorientMesh(mesh, 'y')` (core/meshShape.ts) turns a Y-up model a quarter about x, (x, y, z) to (x, -z, y), *before* `normalizeMesh`, so the size and the stored mesh are in the right frame; `importModelFile(file, deps, { up })` takes it, `ImportButton` has the dropdown (kept in localStorage via importUpAxis.ts, not in the design). It happens once at import: an already imported shape is turned with the rotation fields as before.
 - The stored mesh is **normalised into the unit box** every shape is built in (x, y in ±0.5, z 0..1;
   `normalizeMesh`), and the shape's width/depth/height scale it. `normalizeMesh` also turns inside-out pieces round **per shell**
   (`faceShellsOutwards`, core/shells.ts): shells are groups of triangles sharing corners, and a shell enclosed by an odd number of

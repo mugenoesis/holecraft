@@ -116,6 +116,19 @@ body {
 .export-menu,
 .import-button {
 	position: relative;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.import-button > select {
+	font: inherit;
+	font-size: 12px;
+	color: var(--text);
+	background: var(--bg);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 4px 2px;
 }
 
 .export-menu > button,
@@ -428,6 +441,13 @@ button.primary:disabled {
 	gap: 6px;
 	color: var(--muted);
 	font-size: 12px;
+}
+
+/* on a narrower screen the top bar keeps to one row by showing only the dot (the words are in its tooltip) */
+@media (max-width: 1100px) {
+	.server-status .server-label {
+		display: none;
+	}
 }
 
 .server-status .dot {

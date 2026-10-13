@@ -14,7 +14,7 @@ import {
 	viewport,
 } from './helpers.ts';
 import { parseStl } from './meshFiles.ts';
-import { cube3mf, cubeAsciiStl, cubeObj, cubeStl, flatStl, slicerPlate3mf } from './modelFiles.ts';
+import { boxObj, cube3mf, cubeAsciiStl, cubeObj, cubeStl, flatStl, slicerPlate3mf } from './modelFiles.ts';
 
 const importInput = (page: Page) => page.getByTestId('import-file');
 const list = (page: Page) => page.getByTestId('object-list');
@@ -233,5 +233,41 @@ test.describe('files that cannot be imported', () => {
 	test('a model that is too big for a shape says so', async ({ page }) => {
 		await importFile(page, 'huge.stl', cubeStl(2000));
 		await expect(page.getByRole('alert')).toContainText(/too large/i);
+	});
+});
+
+test.describe('which way is up', () => {
+	const up = (page: Page) => page.getByRole('combobox', { name: 'Up axis for imports' });
+
+	test('starts as Z up, which leaves a model as it was made: 10 wide, 20 deep, 30 high', async ({ page }) => {
+		await expect(up(page)).toHaveValue('z');
+		await importFile(page, 'bar.obj', boxObj(10, 20, 30));
+		await list(page).getByRole('button', { name: /^bar/ }).click();
+		await expect(field(page, 'Width')).toHaveValue('10');
+		await expect(field(page, 'Depth')).toHaveValue('20');
+		await expect(field(page, 'Height')).toHaveValue('30');
+	});
+
+	test('Y up stands the model upright: the same file comes in 10 wide, 30 deep and 20 high, and is remembered after a reload', async ({
+		page,
+	}) => {
+		await up(page).selectOption('y');
+		await importFile(page, 'bar.obj', boxObj(10, 20, 30));
+		await list(page).getByRole('button', { name: /^bar/ }).click();
+		await expect(field(page, 'Width')).toHaveValue('10');
+		await expect(field(page, 'Depth')).toHaveValue('30');
+		await expect(field(page, 'Height')).toHaveValue('20');
+		await expect(page.getByTestId('save-status')).toHaveText('Saved');
+		await page.reload();
+		await expect(up(page)).toHaveValue('y');
+	});
+
+	test('an upright import exports with the volume it had (a turn, not a squash), standing on the plane', async ({ page }) => {
+		await up(page).selectOption('y');
+		await importFile(page, 'bar.obj', boxObj(10, 20, 30));
+		const stl = await exportStl(page);
+		expect(stl.volume).toBeCloseTo(10 * 20 * 30, 3);
+		expect(stl.min[2]).toBeCloseTo(0, 5);
+		expect(stl.max[2]).toBeCloseTo(20, 4);
 	});
 });

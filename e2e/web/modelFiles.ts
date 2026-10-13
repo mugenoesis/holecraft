@@ -61,6 +61,14 @@ export function cubeObj(s: number): Buffer {
 	);
 }
 
+/** An OBJ box `x` by `y` by `z` mm, one corner at the origin, written as a modeller that makes Y the height would. */
+export function boxObj(x: number, y: number, z: number): Buffer {
+	const c = CORNERS(1).map(([a, b, d]) => [a! * x, b! * y, d! * z]);
+	return Buffer.from(
+		`# box\n${c.map((p) => `v ${p.join(' ')}`).join('\n')}\n${FACES.map((f) => `f ${f.map((i) => i + 1).join(' ')}`).join('\n')}\n`,
+	);
+}
+
 /** A flat triangle: no thickness, so it cannot be a solid. */
 export function flatStl(): Buffer {
 	const out = Buffer.alloc(84 + 50);

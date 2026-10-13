@@ -1,4 +1,4 @@
-import { type MeshData, type MeshShapeInput, normalizeMesh } from '@holecraft/core';
+import { type MeshData, type MeshShapeInput, normalizeMesh, reorientMesh, type UpAxis } from '@holecraft/core';
 import { IMPORT_EXTENSIONS, importMeshFile } from '@holecraft/geometry';
 
 /** For the file picker's `accept`. */
@@ -20,11 +20,13 @@ export interface ImportDeps {
 export async function importModelFile(
 	file: { name: string; size: number; arrayBuffer(): Promise<ArrayBuffer> },
 	deps: ImportDeps,
+	/** Which of the file's axes is up (Z, unless the file was made by something that makes Y the height). */
+	options: { up?: UpAxis } = {},
 ): Promise<{ input: MeshShapeInput; mesh: MeshData }> {
 	if (file.size > MAX_FILE_BYTES) throw new Error('That file is too large to import (the limit is 100 MB)');
 
 	const imported = await importMeshFile(file.name, new Uint8Array(await file.arrayBuffer()));
-	const { mesh, size } = normalizeMesh(imported);
+	const { mesh, size } = normalizeMesh(reorientMesh(imported, options.up ?? 'z'));
 	const ref = await deps.upload(mesh);
 	return { input: { name: imported.name.slice(0, 100), ref, size }, mesh };
 }
