@@ -1,4 +1,4 @@
-import { type AlignEdge, type Axis, canAlign, canFlip, type Design, type NodeId } from '@holecraft/core';
+import { type AlignEdge, type Axis, canAlign, canFlip, canStandOnPlane, type Design, type NodeId, type WorkPlane } from '@holecraft/core';
 import type { Dispatch } from 'react';
 import type { EditorAction } from './editorState.ts';
 
@@ -16,11 +16,13 @@ const EDGE_GLYPH: Record<AlignEdge, string> = { min: '⇤', centre: '↔', max: 
 interface Props {
 	design: Design;
 	selection: readonly NodeId[];
+	/** The Workplane tool's plane, when one is chosen: it adds the Stand on plane button. */
+	plane: WorkPlane | null;
 	dispatch: Dispatch<EditorAction>;
 }
 
 /** Align the selection along an axis, or mirror it across one. */
-export function ArrangePanel({ design, selection, dispatch }: Props) {
+export function ArrangePanel({ design, selection, plane, dispatch }: Props) {
 	const align = canAlign(design, selection);
 	const flip = canFlip(design, selection);
 	return (
@@ -45,6 +47,18 @@ export function ArrangePanel({ design, selection, dispatch }: Props) {
 					</button>
 				))}
 			</div>
+			{plane && (
+				<div className="arrange-plane" role="group" aria-label="Plane">
+					<button
+						type="button"
+						disabled={!canStandOnPlane(design, selection)}
+						onClick={() => dispatch({ type: 'standOnPlane', plane })}
+						title="Put the selected shape or group on the plane you chose with the Workplane tool: its base on the face and its height going out of it"
+					>
+						Stand on plane
+					</button>
+				</div>
+			)}
 		</section>
 	);
 }

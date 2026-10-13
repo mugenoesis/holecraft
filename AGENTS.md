@@ -196,7 +196,8 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   disabled so tools aim through it, hidden in thumbnails). The Shapes panel and drag-drop (`shapeDropHandlers`) place on it when set.
 - Surface tools (ruler, workplane) share `useSurfaceTool`: it calls `Viewport.setSurfaceTool(true)` (left button stops selecting/moving, drags orbit)
   and reports hover and click on `pickSurface`. `ViewportCanvas` holds the one active `SurfaceTool` and hides the resize/rotate handles meanwhile,
-  because they sit over the canvas and would swallow the clicks. Not done: moving existing shapes on a tilted plane.
+  because they sit over the canvas and would swallow the clicks.
+- **Existing shapes** are put on the plane by `standOnPlane(design, id, plane)` (reducer action `standOnPlane` on the one selected node; the Arrange panel's **Stand on plane** button, shown only while `plane` is set, enabled by `canStandOnPlane`): the node's base centre (a shape's origin; a group's footprint middle at its lowest, `groupLocalBounds`) goes to where the middle of its world bounds projects onto the plane, its up is the plane's normal (`planeFrame`), and it is lifted if that dips below z = 0. It replaces the node's orientation (a spin about its own up is not kept). Not done: dragging an existing shape along the plane (dragging still moves it on the floor).
 
 ## Turning groups
 - `setGroupRotation` (core/groupTransform.ts; `setNodeRotation`/`setNodeEuler` delegate to it for groups, so the `setRotation` and `setEuler`

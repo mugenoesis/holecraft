@@ -111,3 +111,62 @@ test.describe('workplane tool', () => {
 		await expect(floorButton(page)).toHaveCount(0);
 	});
 });
+
+/*
+ * Stand on plane: an existing shape is put on the plane the Workplane tool chose, as a new one is.
+ */
+test.describe('stand on plane', () => {
+	const standButton = (page: Page) => page.getByRole('region', { name: 'Arrange' }).getByRole('button', { name: 'Stand on plane' });
+
+	test('is only offered while a plane is chosen, and goes away with the Floor button', async ({ page }) => {
+		await boxFromAbove(page);
+		await expect(standButton(page)).toHaveCount(0);
+		await toolButton(page).click();
+		await clickAt(page, 0);
+		await expect(standButton(page)).toBeVisible();
+		await floorButton(page).click();
+		await expect(standButton(page)).toHaveCount(0);
+	});
+
+	test('puts the selected shape on the top of the box, keeping its place across, as one undo step', async ({ page }) => {
+		await boxFromAbove(page);
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).click(); // on the floor, inside the box
+		await toolButton(page).click();
+		await clickAt(page, 0); // the box's top, 20 mm up
+		await row(page, 1).click();
+		await expect(field(page, 'Name')).toHaveValue('Cylinder 1');
+		await expect(field(page, 'Z')).toHaveValue('0');
+		await standButton(page).click();
+		await expect(field(page, 'Z')).toHaveValue('20');
+		await expect(field(page, 'X')).toHaveValue('0');
+		await expect(field(page, 'Rotate X')).toHaveValue('0');
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		await page.keyboard.press('Control+z');
+		await expect(field(page, 'Z')).toHaveValue('0');
+	});
+
+	test('puts it against a wall: base on the face and turned to point out of it', async ({ page }) => {
+		await dropShape(page, 'Box');
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+		await selectView(page, 'Front');
+		await cameraSettled(page);
+		await toolButton(page).click();
+		await clickAt(page, 0, -27); // the middle of the box's front face
+		await row(page, 1).click();
+		await standButton(page).click();
+		await expect(field(page, 'Y')).toHaveValue('-10');
+		await expect(field(page, 'Rotate X')).toHaveValue('90');
+	});
+
+	test('is off when nothing, or more than one thing, is selected', async ({ page }) => {
+		await boxFromAbove(page);
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+		await toolButton(page).click();
+		await clickAt(page, 0);
+		await expect(standButton(page)).toBeDisabled(); // nothing selected
+		await page.keyboard.press('Control+a');
+		await expect(standButton(page)).toBeDisabled(); // both
+		await row(page, 1).click();
+		await expect(standButton(page)).toBeEnabled();
+	});
+});

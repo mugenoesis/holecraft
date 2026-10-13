@@ -132,7 +132,7 @@ function EditorView({ initial }: { initial: Design }) {
 				<aside className="panel">
 					<ShapesPanel onAddShape={(shape) => (plane ? addOnPlane(shape, plane, plane.origin) : addAt(shape, [0, 0]))} />
 					<PropertiesPanel design={design} selection={state.selection} dispatch={dispatch} />
-					<ArrangePanel design={design} selection={state.selection} dispatch={dispatch} />
+					<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
 					<PalettePanel design={design} selection={state.selection} dispatch={dispatch} />
 					<ObjectList design={design} selection={state.selection} onSelect={select} dispatch={dispatch} />
 				</aside>
