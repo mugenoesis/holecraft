@@ -126,9 +126,44 @@ function torus(width: number, depth: number, height: number, thickness: number):
 	return outwards(positions, indices);
 }
 
+const STAR_POINTS = 5;
+/** A star of radius 1 with a tip at the back reaches sin(72 deg) to each side, and from -cos(36 deg) to 1 front to back. */
+const STAR_HALF_WIDTH = Math.sin((2 * Math.PI) / STAR_POINTS);
+const STAR_DEPTH = 1 + Math.cos(Math.PI / STAR_POINTS);
+const STAR_CENTRE_Y = (1 - Math.cos(Math.PI / STAR_POINTS)) / 2;
+
+/**
+ * A star: five tips and five inner corners, drawn for a star of radius 1 and stretched so the tips touch the sides, the back and the
+ * front of the shape's box (an affine stretch of its own outline, so it resizes evenly). `inner` is the inner corners' radius as a share of
+ * the tips'. The outline is star-shaped about its middle, so each face is a fan from there.
+ */
+function star(width: number, depth: number, height: number, inner: number): MeshData {
+	const corners = 2 * STAR_POINTS;
+	const at = (x: number, y: number, z: number) => [(x / STAR_HALF_WIDTH) * (width / 2), ((y - STAR_CENTRE_Y) / STAR_DEPTH) * depth, z];
+	const positions: number[] = [];
+	for (const z of [0, height]) {
+		for (let i = 0; i < corners; i++) {
+			const angle = Math.PI / 2 - (Math.PI * i) / STAR_POINTS;
+			const radius = i % 2 === 0 ? 1 : inner;
+			positions.push(...at(radius * Math.cos(angle), radius * Math.sin(angle), z));
+		}
+	}
+	positions.push(...at(0, 0, 0), ...at(0, 0, height));
+	const [bottom, top] = [2 * corners, 2 * corners + 1];
+	const indices: number[] = [];
+	for (let i = 0; i < corners; i++) {
+		const j = (i + 1) % corners;
+		indices.push(i, j, corners + i, j, corners + j, corners + i); // the side
+		indices.push(bottom, j, i); // the bottom
+		indices.push(top, corners + i, corners + j); // the top
+	}
+	return outwards(positions, indices);
+}
+
 const BUILDERS: Record<string, (w: number, d: number, h: number, node: ShapeNode) => MeshData> = {
 	tube: (w, d, h, node) => tube(w, d, h, shapeParam(node, 'wall')),
 	torus: (w, d, h, node) => torus(w, d, h, shapeParam(node, 'thickness')),
+	star: (w, d, h, node) => star(w, d, h, shapeParam(node, 'inner')),
 };
 
 /** The shape types built from their settings. */

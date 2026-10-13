@@ -34,6 +34,7 @@ const EXPECTED: Record<string, { volume: number; tolerance: number }> = {
 	cone: { volume: cone, tolerance: 1e-6 },
 	pyramid: { volume: 1 / 3, tolerance: 1e-6 },
 	wedge: { volume: 1 / 2, tolerance: 1e-6 },
+	hexagon: { volume: 0.75, tolerance: 1e-6 }, // corners at (±0.5, 0) and (±0.25, ±0.5): a 0.5 square and two 0.25 x 0.5 triangles, 1 high
 	roof: { volume: 1 / 2, tolerance: 1e-6 },
 	'half-sphere': { volume: (2 / 3) * Math.PI * 0.25, tolerance: 0.015 }, // half an ellipsoid, 0.5 x 0.5 x 1: a faceted surface falls a little short
 	'round-roof': { volume: (Math.PI * 0.5 * 1) / 2, tolerance: 0.01 }, // half an ellipse (0.5 wide, 1 high) one unit long

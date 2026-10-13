@@ -1,7 +1,7 @@
 import { type MeshData, signedVolume } from './meshShape.ts';
 
 /**
- * The basic solid shapes that are a stretched unit solid, like a box: a cone, pyramid, wedge, roof, half sphere and round roof.
+ * The basic solid shapes that are a stretched unit solid, like a box: a cone, pyramid, wedge, roof, half sphere, round roof and hexagon.
  * Each is one mesh in the unit box every shape is built in (x and y within ±0.5, z from 0 to 1), scaled by the shape's width,
  * depth and height. The same mesh is drawn in the view and given to the CSG engine, so what you see is what is cut and exported.
  *
@@ -106,6 +106,19 @@ const BUILDERS: Record<string, () => MeshData> = {
 				return [k === DOME_STEPS ? 0 : 0.5 * Math.cos(a), Math.sin(a)] as const;
 			}),
 			DOME_SEGMENTS,
+		),
+	// six corners: two at the middle of the left and right sides, four a quarter of the width in from the front and back corners
+	hexagon: () =>
+		extrude(
+			[
+				[0.5, 0],
+				[0.25, 0.5],
+				[-0.25, 0.5],
+				[-0.5, 0],
+				[-0.25, -0.5],
+				[0.25, -0.5],
+			],
+			(x, y, t) => [x, y, t + 0.5],
 		),
 	wedge: () =>
 		extrude(
