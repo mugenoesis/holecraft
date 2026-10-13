@@ -81,6 +81,21 @@ export function signedVolume(mesh: MeshData): number {
 	return volume;
 }
 
+/** Whether an imported shape is shown as the mirror image (in its own x) of its stored model, which is what Flip does to it (see `flipNodes`). */
+export const isMirrored = (node: ShapeNode): boolean => node.params.mirror === 1;
+
+/**
+ * The model as seen in a mirror across its own x = 0 (the middle of its unit box): x reversed and every triangle turned round so it still
+ * faces outwards. A new mesh; the given one is not changed.
+ */
+export function mirrorMeshX(mesh: MeshData): MeshData {
+	const positions = new Float32Array(mesh.positions);
+	for (let i = 0; i < positions.length; i += 3) positions[i] = -positions[i]! + 0;
+	const indices = new Uint32Array(mesh.indices);
+	for (let t = 0; t < indices.length; t += 3) [indices[t + 1], indices[t + 2]] = [indices[t + 2]!, indices[t + 1]!];
+	return { positions, indices };
+}
+
 /** Which of a model file's axes is up: most CAD, STL and 3MF files are Z up; many modellers and games (an OBJ, often) make Y the height. */
 export type UpAxis = 'z' | 'y';
 

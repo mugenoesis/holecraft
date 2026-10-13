@@ -140,11 +140,13 @@ describe('flipNodes', () => {
 		expect(bounds(out, a).min[0]).toBeGreaterThan(bounds(out, b).min[0]);
 	});
 
-	it('leaves imported models alone (they cannot be mirrored yet)', () => {
+	it('flips an imported model too, by showing it mirrored (see flipImported.test.ts for the mirror image itself)', () => {
 		const { d, a } = twoBoxes();
 		const mesh = { ...d.nodes[a]!, shapeType: 'mesh' } as (typeof d.nodes)[string];
 		const withMesh = { ...d, nodes: { ...d.nodes, [a]: mesh } };
-		expect(flipNodes(withMesh, [a], 'x')).toBe(withMesh);
+		const out = flipNodes(withMesh, [a], 'x');
+		expect(out).not.toBe(withMesh);
+		expect((out.nodes[a] as { params: Record<string, unknown> }).params.mirror).toBe(1);
 	});
 
 	it('does nothing with an empty selection', () => {
@@ -169,9 +171,9 @@ describe('canAlign / canFlip', () => {
 		expect(canFlip(locked, [a, b])).toBe(false);
 	});
 
-	it('flip is off when an imported model is selected', () => {
+	it('flip is on for an imported model', () => {
 		const { d, a } = twoBoxes();
 		const mesh = { ...d.nodes[a]!, shapeType: 'mesh' } as (typeof d.nodes)[string];
-		expect(canFlip({ ...d, nodes: { ...d.nodes, [a]: mesh } }, [a])).toBe(false);
+		expect(canFlip({ ...d, nodes: { ...d.nodes, [a]: mesh } }, [a])).toBe(true);
 	});
 });

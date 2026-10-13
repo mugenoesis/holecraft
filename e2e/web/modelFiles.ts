@@ -69,6 +69,31 @@ export function boxObj(x: number, y: number, z: number): Buffer {
 	);
 }
 
+/** A lopsided closed model (a tetrahedron 10 x 20 x 30 mm), so that a mirror image is told from a turned copy. Binary STL. */
+export function tetraStl(): Buffer {
+	const v = [
+		[0, 0, 0],
+		[10, 0, 0],
+		[0, 20, 0],
+		[0, 0, 30],
+	];
+	const tris = [
+		[0, 2, 1],
+		[0, 1, 3],
+		[1, 2, 3],
+		[0, 3, 2],
+	];
+	const out = Buffer.alloc(84 + tris.length * 50);
+	out.write('binary tetrahedron made by a test', 0, 'latin1');
+	out.writeUInt32LE(tris.length, 80);
+	for (const [i, t] of tris.entries()) {
+		for (const [k, vi] of t.entries()) {
+			for (const [j, c] of v[vi]!.entries()) out.writeFloatLE(c, 84 + i * 50 + 12 + k * 12 + j * 4);
+		}
+	}
+	return out;
+}
+
 /** A flat triangle: no thickness, so it cannot be a solid. */
 export function flatStl(): Buffer {
 	const out = Buffer.alloc(84 + 50);

@@ -6,9 +6,11 @@ import {
 	type Design,
 	type GroupNode,
 	getShapeDef,
+	isMirrored,
 	isShapeType,
 	MESH_SHAPE_TYPE,
 	type MeshData,
+	mirrorMeshX,
 	type NodeId,
 	parametricShape,
 	type ShapeNode,
@@ -478,11 +480,13 @@ export class DesignScene {
 		const data = meshes.get(ref);
 		if (!data) return this.geometryFor('box'); // stand-in while the model downloads
 
-		const known = this.modelGeometries.get(ref);
+		// a flipped model is the mirror image of the stored one, so each way round has its own geometry
+		const key = isMirrored(node) ? `${ref}:mirrored` : ref;
+		const known = this.modelGeometries.get(key);
 		if (known?.source === data) return known.geometry;
 		known?.geometry.dispose();
-		const geometry = buildResultGeometry(data);
-		this.modelGeometries.set(ref, { source: data, geometry });
+		const geometry = buildResultGeometry(isMirrored(node) ? mirrorMeshX(data) : data);
+		this.modelGeometries.set(key, { source: data, geometry });
 		return geometry;
 	}
 

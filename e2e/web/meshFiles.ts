@@ -36,6 +36,19 @@ export function parseStl(file: Buffer): StlInfo {
 	return { headerText: file.subarray(0, 80).toString('latin1').replace(/\0+$/, ''), triangles, volume, min, max };
 }
 
+/** The distinct corners of a binary STL, as "x,y,z" text rounded to 0.001 mm, to compare one file's corners with another's. */
+export function stlCorners(file: Buffer): Set<string> {
+	const triangles = file.readUInt32LE(80);
+	const out = new Set<string>();
+	for (let t = 0; t < triangles; t++) {
+		for (let k = 0; k < 3; k++) {
+			const at = 84 + t * 50 + 12 + k * 12;
+			out.add([0, 1, 2].map((c) => (Math.round(file.readFloatLE(at + c * 4) * 1e3) / 1e3 + 0).toFixed(3)).join(','));
+		}
+	}
+	return out;
+}
+
 export interface ObjInfo {
 	comments: string[];
 	objects: string[];

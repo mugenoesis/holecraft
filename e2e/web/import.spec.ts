@@ -13,8 +13,8 @@ import {
 	selectView,
 	viewport,
 } from './helpers.ts';
-import { parseStl } from './meshFiles.ts';
-import { boxObj, cube3mf, cubeAsciiStl, cubeObj, cubeStl, flatStl, slicerPlate3mf } from './modelFiles.ts';
+import { parseStl, stlCorners } from './meshFiles.ts';
+import { boxObj, cube3mf, cubeAsciiStl, cubeObj, cubeStl, flatStl, slicerPlate3mf, tetraStl } from './modelFiles.ts';
 
 const importInput = (page: Page) => page.getByTestId('import-file');
 const list = (page: Page) => page.getByTestId('object-list');
@@ -269,5 +269,57 @@ test.describe('which way is up', () => {
 		expect(stl.volume).toBeCloseTo(10 * 20 * 30, 3);
 		expect(stl.min[2]).toBeCloseTo(0, 5);
 		expect(stl.max[2]).toBeCloseTo(20, 4);
+	});
+});
+
+test.describe('flipping an imported model', () => {
+	const flipX = (page: Page) => page.getByRole('region', { name: 'Arrange' }).getByRole('button', { name: 'Flip X' });
+	async function exportedFile(page: Page) {
+		await exportButton(page).click();
+		const [download] = await Promise.all([
+			page.waitForEvent('download', { timeout: 30_000 }),
+			page.getByRole('menuitem', { name: /as STL/ }).click(),
+		]);
+		return readFile(await download.path());
+	}
+	const mirrored = (corners: Set<string>) =>
+		new Set(
+			[...corners].map((c) =>
+				c
+					.split(',')
+					.map((v, i) => (i === 0 ? (-Number(v) + 0).toFixed(3) : v))
+					.join(','),
+			),
+		);
+
+	test('is allowed: Flip X is on with a model selected', async ({ page }) => {
+		await importFile(page, 'wedge.stl', tetraStl());
+		await expect(flipX(page)).toBeEnabled();
+	});
+
+	test('gives the true mirror image, not a turned copy: the exported corners are the originals with x reversed', async ({ page }) => {
+		await importFile(page, 'wedge.stl', tetraStl());
+		await expect(list(page).getByRole('button', { name: /^wedge/ })).toBeVisible();
+		const before = await exportedFile(page);
+		await flipX(page).click();
+		const after = await exportedFile(page);
+		const [c0, c1] = [stlCorners(before), stlCorners(after)];
+		expect(c1).toEqual(mirrored(c0));
+		expect(c1).not.toEqual(c0);
+		expect(parseStl(after).volume).toBeCloseTo(parseStl(before).volume, 3);
+		expect(parseStl(after).volume).toBeGreaterThan(0);
+	});
+
+	test('flipped twice it is the original, and undo puts it back after one', async ({ page }) => {
+		await importFile(page, 'wedge.stl', tetraStl());
+		await expect(list(page).getByRole('button', { name: /^wedge/ })).toBeVisible();
+		const original = stlCorners(await exportedFile(page));
+		await flipX(page).click();
+		await flipX(page).click();
+		expect(stlCorners(await exportedFile(page))).toEqual(original);
+		await flipX(page).click();
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		await page.keyboard.press('Control+z');
+		expect(stlCorners(await exportedFile(page))).toEqual(original);
 	});
 });
