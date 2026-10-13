@@ -45,3 +45,24 @@ describe('DesignScene: threaded shapes', () => {
 		expect(sizeOf(meshOf())).toEqual([5.4, 5.4, 10]);
 	});
 });
+
+describe('DesignScene: bolts and nuts', () => {
+	it('draws a bolt with its head on the shank (hex head 9.24 mm across corners, 23.5 mm tall in all), and rebuilds when the head changes', () => {
+		let d = addShape(createEmptyDesign('d'), 'bolt', [0, 0], { id: 'a' }).design;
+		scene.sync(d);
+		expect(sizeOf(meshOf())).toEqual([9.24, 8, 23.5]);
+		const first = meshOf().geometry;
+		d = setShapeParam(d, 'a', 'head', 2);
+		scene.sync(d);
+		expect(meshOf().geometry).not.toBe(first);
+		expect(sizeOf(meshOf())).toEqual([8.5, 8.5, 25]);
+	});
+
+	it('draws a nut with its hole: a ray down the middle misses, one through the hex hits', () => {
+		scene.sync(addShape(createEmptyDesign('d'), 'nut', [0, 0], { id: 'a' }).design);
+		expect(sizeOf(meshOf())).toEqual([9.24, 8, 4]);
+		const down = (x: number) => new THREE.Raycaster(new THREE.Vector3(x, 0, 100), new THREE.Vector3(0, 0, -1));
+		expect(scene.pick(down(0))).toBeNull();
+		expect(scene.pick(down(3.5))).toBe('a'); // the thread's root is about 2.1 mm out, the hex goes out to 4
+	});
+});

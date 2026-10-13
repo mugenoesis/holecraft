@@ -11,7 +11,7 @@ import { nodeBoundsIn, shapeBounds, translationOf } from './ops.ts';
 import type { ShapeGeometry } from './resize.ts';
 import { composeTransform, eulerToMatrix, shapeCenter } from './rotation.ts';
 import { getShapeDef, type ShapeType } from './shapes.ts';
-import { isThreadedType, threadFootprint } from './threadStandards.ts';
+import { isThreadedType, minThreadHeight, threadFootprint } from './threadStandards.ts';
 
 /**
  * Pure editing operations. Each returns a new Design, or the very same object when nothing
@@ -133,9 +133,11 @@ function withStretchedEdges(node: ShapeNode, before: ShapeNode['params'], after:
 	return { ...node, edges: stretchTreatments(node.edges, ratio, null)! };
 }
 
-/** A thread keeps its real width and depth (from its size and fit): whatever was asked for them is put back. */
+/** A thread keeps its real width and depth (from its size, fit and head), and a bolt at least its head and a pitch of shank: whatever was asked is put right. */
 function lockFootprint(node: ShapeNode, params: ShapeNode['params']): ShapeNode['params'] {
-	if (isThreadedType(node.shapeType)) params.width = params.depth = threadFootprint(node.shapeType, node.params);
+	if (!isThreadedType(node.shapeType)) return params;
+	[params.width, params.depth] = threadFootprint(node.shapeType, node.params);
+	params.height = Math.max(Number(params.height), minThreadHeight(node.shapeType, node.params) ?? 0);
 	return params;
 }
 

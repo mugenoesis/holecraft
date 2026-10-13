@@ -21,6 +21,8 @@ const NEW = [
 	['polygon', 'Polygon'],
 	['threaded-rod', 'Threaded Rod'],
 	['threaded-hole', 'Threaded Hole'],
+	['bolt', 'Bolt'],
+	['nut', 'Nut'],
 ] as const;
 
 /** The default size of the shapes that are not 20 mm each way. */
@@ -31,6 +33,8 @@ const SIZE: Record<string, [number, number, number]> = {
 	polygon: [19.02, 18.09, 20],
 	'threaded-rod': [5, 5, 20],
 	'threaded-hole': [5.4, 5.4, 10],
+	bolt: [9.237604, 8, 23.5],
+	nut: [9.237604, 8, 4],
 };
 
 describe('the basic shapes', () => {

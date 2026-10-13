@@ -1,4 +1,4 @@
-import { addShape, createEmptyDesign, type Design, groupNodes, setShapeParam, setShapeSize } from '@holecraft/core';
+import { addShape, createEmptyDesign, type Design, groupNodes, type ShapeNode, setShapeParam, setShapeSize } from '@holecraft/core';
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { evaluateGroup, evaluateNode } from './evaluate.ts';
@@ -61,5 +61,43 @@ describe('a screw and its threaded hole', () => {
 		const short = asManifold(evaluateNode(M, threaded('threaded-rod', { size: 5 }, 12), 'a')!);
 		const long = asManifold(evaluateNode(M, threaded('threaded-rod', { size: 5 }, 60), 'a')!);
 		expect(long.volume() / 60).toBeCloseTo(short.volume() / 12, 1);
+	});
+});
+
+describe('a bolt and its nut', () => {
+	const bolt = (size: number, head: number, shank: number): Design => {
+		let d = addShape(createEmptyDesign('d'), 'bolt', [0, 0], { id: 'a' }).design;
+		d = setShapeParam(d, 'a', 'size', size);
+		d = setShapeParam(d, 'a', 'head', head);
+		const offset = Number((d.nodes.a as ShapeNode).params.height) - 20;
+		return setShapeSize(d, 'a', { height: shank + offset });
+	};
+	const nut = (size: number, fit: number): Design =>
+		setShapeParam(setShapeParam(addShape(createEmptyDesign('d'), 'nut', [0, 0], { id: 'a' }).design, 'a', 'size', size), 'a', 'fit', fit);
+	/** The pitch of each size, which the nut has to be moved up by a whole number of to line its thread up with the bolt's. */
+	const PITCH: Record<number, number> = { 3: 0.5, 5: 0.8, 8: 1.25 };
+
+	for (const size of [3, 5, 8]) {
+		for (const head of [1, 2]) {
+			for (const fit of [1, 2, 3]) {
+				it(`M${size}, head ${head}, fit ${fit}: the nut sits on the bolt’s thread without touching it`, () => {
+					const screw = asManifold(evaluateNode(M, bolt(size, head, 30), 'a')!);
+					const turned = asManifold(evaluateNode(M, nut(size, fit), 'a')!).translate([0, 0, PITCH[size]! * 8]);
+					expect(screw.intersect(turned).volume()).toBeLessThan(turned.volume() * 1e-4);
+				});
+			}
+		}
+	}
+
+	it('a nut a half pitch out of step with the bolt’s thread would have to cut into it', () => {
+		const screw = asManifold(evaluateNode(M, bolt(5, 1, 30), 'a')!);
+		const stuck = asManifold(evaluateNode(M, nut(5, 2), 'a')!).translate([0, 0, 0.8 * 8 + 0.4]);
+		expect(screw.intersect(stuck).volume()).toBeGreaterThan(stuck.volume() * 0.01);
+	});
+
+	it('a bolt’s head is wider than the nut’s hole, so it stops the bolt: the hex head does not pass through the hole', () => {
+		const screw = asManifold(evaluateNode(M, bolt(5, 1, 30), 'a')!);
+		const hole = asManifold(evaluateNode(M, threaded('threaded-hole', { size: 5 }, 40), 'a')!);
+		expect(screw.intersect(hole).volume()).toBeGreaterThan(0); // the head (8 mm across flats) is wider than the 5.4 mm hole
 	});
 });
