@@ -3,6 +3,7 @@ import { MAX_SHAPE_SIZE } from './limits.ts';
 import type { MeshData } from './meshShape.ts';
 import { getShapeDef, isShapeType, type ParamDef } from './shapes.ts';
 import { outwards } from './solidShapes.ts';
+import { isThreadedType, threadFootprint, threadSettings } from './threadStandards.ts';
 
 /**
  * Shapes built from their settings (the tube's wall, the torus's ring).
@@ -40,6 +41,7 @@ function typedShare(node: ShapeNode, def: ParamDef): number {
 export function shapeParam(node: ShapeNode, key: string): number {
 	const def = paramDef(node.shapeType, key);
 	if (!def) return Number.NaN;
+	if (def.choices) return def.choices.some((c) => c.value === typedShare(node, def)) ? typedShare(node, def) : def.default;
 	const used = Math.max(def.min, Math.min(def.max, typedShare(node, def)));
 	return def.count ? Math.round(used) : used;
 }
@@ -56,6 +58,13 @@ export function typedParamMm(node: ShapeNode, key: string): number {
 	return def ? typedShare(node, def) * def.mmPerUnit(sizeOf(node)) : Number.NaN;
 }
 
+/** What to keep for a setting typed as `mm` (a pick from its list, a whole count, or a share of the shape), or null if that is not allowed. */
+function settingFor(node: ShapeNode, def: ParamDef, mm: number): number | null {
+	if (def.choices) return def.choices.some((c) => c.value === mm) ? mm : null;
+	const share = def.count ? Math.round(mm) : mm / def.mmPerUnit(sizeOf(node));
+	return share > 0 ? share : null;
+}
+
 /**
  * Sets one of a shape's settings from a value in mm (for the shape as it is now), keeping it as a share of the shape. Refused (the same
  * design back) for a locked shape, a setting the shape does not have, or a number that is not above 0 and within the largest shape size.
@@ -66,9 +75,12 @@ export function setShapeParam(design: Design, id: NodeId, key: string, mm: numbe
 	const def = node?.kind === 'shape' ? paramDef(node.shapeType, key) : null;
 	if (node?.kind !== 'shape' || node.locked || !def) return design;
 	if (!Number.isFinite(mm) || mm <= 0 || mm > MAX_SHAPE_SIZE) return design;
-	const share = def.count ? Math.round(mm) : mm / def.mmPerUnit(sizeOf(node));
-	if (!(share > 0) || node.params[key] === share) return design;
-	const next: ShapeNode = { ...node, params: { ...node.params, [key]: share } };
+	const share = settingFor(node, def, mm);
+	if (share === null || (def.choices ? shapeParam(node, key) : node.params[key]) === share) return design;
+	const params = { ...node.params, [key]: share };
+	// a thread's width and depth follow its size and fit
+	if (isThreadedType(node.shapeType)) params.width = params.depth = threadFootprint(node.shapeType, params);
+	const next: ShapeNode = { ...node, params };
 	return { ...design, nodes: { ...design.nodes, [id]: next }, updatedAt: (now ?? new Date()).toISOString() };
 }
 
@@ -182,11 +194,67 @@ const polygon = (width: number, depth: number, height: number, sides: number): M
 		height,
 	);
 
+/** Facets round a thread, and the steps of its helix: a row of the surface is one 48th of a pitch up, so the profile's corners fall on rows. */
+const THREAD_FACETS = 48;
+/** An ISO thread's depth as a share of its pitch: 5/8 of the 60-degree sharp-V height (sqrt(3)/2 of the pitch). */
+const THREAD_DEPTH = (5 / 8) * (Math.sqrt(3) / 2);
+/** The profile in 48ths of a pitch, from the middle of a crest: flat crest (6), flank (15), flat root (12), flank (15). */
+const CREST_HALF = 3;
+const FLANK = 15;
+
+/** How far out the surface is, 0 at the root and 1 at the crest, `phase` 48ths of a pitch from the middle of a crest (any real number). */
+function profile(phase: number): number {
+	const wrapped = ((phase % THREAD_FACETS) + THREAD_FACETS) % THREAD_FACETS;
+	const away = Math.min(wrapped, THREAD_FACETS - wrapped);
+	return Math.max(0, Math.min(1, 1 - (away - CREST_HALF) / FLANK));
+}
+
+/**
+ * A right-handed thread: a rod of crest radius `crest` with a groove of depth `depth` winding round it once per `pitch` (the crest
+ * climbs as it goes anticlockwise), `length` long, standing on z = 0. It is built at its real size, not stretched, so the pitch is
+ * exact at any length. The surface is a grid of 48 columns round and a row per 48th of a pitch up, joined along the helix, so every
+ * corner of the profile is on a row and the surface is exactly the profile (the last row, at the length, is wherever it falls).
+ */
+function thread(length: number, crest: number, depth: number, pitch: number): MeshData {
+	const step = pitch / THREAD_FACETS;
+	const rows = Math.ceil(length / step - 1e-9) + 1;
+	const positions: number[] = [];
+	for (let j = 0; j < rows; j++) {
+		const z = Math.min(j * step, length);
+		for (let i = 0; i < THREAD_FACETS; i++) {
+			const angle = (2 * Math.PI * i) / THREAD_FACETS;
+			const r = crest - depth * (1 - profile(z / step - i));
+			positions.push(r * Math.cos(angle), r * Math.sin(angle), z);
+		}
+	}
+	positions.push(0, 0, 0, 0, 0, length);
+	const [bottom, top] = [rows * THREAD_FACETS, rows * THREAD_FACETS + 1];
+	const at = (i: number, j: number) => j * THREAD_FACETS + (i % THREAD_FACETS);
+	const indices: number[] = [];
+	for (let j = 0; j + 1 < rows; j++) {
+		for (let i = 0; i < THREAD_FACETS; i++)
+			indices.push(at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j), at(i + 1, j + 1), at(i, j + 1));
+	}
+	for (let i = 0; i < THREAD_FACETS; i++) {
+		indices.push(bottom, at(i + 1, 0), at(i, 0));
+		indices.push(top, at(i, rows - 1), at(i + 1, rows - 1));
+	}
+	return outwards(positions, indices);
+}
+
+/** A threaded shape from its size and fit: the rod, or the hole's cutter, which is the same thread opened out by the fit on every side. */
+function threaded(node: ShapeNode): MeshData {
+	const { size, clearance } = threadSettings(node.shapeType, node.params);
+	return thread(Number(node.params.height), size.diameter / 2 + clearance, THREAD_DEPTH * size.pitch, size.pitch);
+}
+
 const BUILDERS: Record<string, (w: number, d: number, h: number, node: ShapeNode) => MeshData> = {
 	tube: (w, d, h, node) => tube(w, d, h, shapeParam(node, 'wall')),
 	torus: (w, d, h, node) => torus(w, d, h, shapeParam(node, 'thickness')),
 	star: (w, d, h, node) => star(w, d, h, shapeParam(node, 'inner')),
 	polygon: (w, d, h, node) => polygon(w, d, h, shapeParam(node, 'sides')),
+	'threaded-rod': (_w, _d, _h, node) => threaded(node),
+	'threaded-hole': (_w, _d, _h, node) => threaded(node),
 };
 
 /** The shape types built from their settings. */

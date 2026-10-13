@@ -40,7 +40,7 @@ export function addShape(
 		shapeType: type,
 		name: `${def.name} ${count + 1}`,
 		transform: translation(at[0], at[1], 0),
-		mode: 'solid',
+		mode: def.hole ? 'hole' : 'solid',
 		color: def.color,
 		hidden: false,
 		locked: false,

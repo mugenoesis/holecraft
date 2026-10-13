@@ -19,6 +19,8 @@ const NEW = [
 	['hexagon', 'Hexagon'],
 	['star', 'Star'],
 	['polygon', 'Polygon'],
+	['threaded-rod', 'Threaded Rod'],
+	['threaded-hole', 'Threaded Hole'],
 ] as const;
 
 /** The default size of the shapes that are not 20 mm each way. */
@@ -27,6 +29,8 @@ const SIZE: Record<string, [number, number, number]> = {
 	hexagon: [20, 17.32, 20],
 	star: [20, 19.02, 10],
 	polygon: [19.02, 18.09, 20],
+	'threaded-rod': [5, 5, 20],
+	'threaded-hole': [5.4, 5.4, 10],
 };
 
 describe('the basic shapes', () => {

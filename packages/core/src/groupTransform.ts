@@ -7,6 +7,7 @@ import { rigidInverse, transformPoint } from './mat4.ts';
 import { nodeBoundsIn } from './ops.ts';
 import type { ShapeGeometry } from './resize.ts';
 import { isUpright, type Mat3, multiplyMat3, rotationOfTransform } from './rotation.ts';
+import { isThreadedType } from './threadStandards.ts';
 
 /** Turning and sizing whole groups. A group has a position and orientation of its own and no scale of its own. */
 
@@ -113,11 +114,16 @@ export function groupGeometry(design: Design, id: NodeId): ShapeGeometry | null 
 
 /**
  * Whether a group can be resized exactly. A group has no scale of its own, so resizing rescales every shape inside,
- * which is only exact while each one is turned in quarter turns within its group (then its width, depth and height
+ * which is only exact while each one is turned in quarter turns within its group, and no thread is inside (a thread keeps its real size) (then its width, depth and height
  * line up with the group's axes). The group itself must be upright.
  */
 export function canResizeGroup(design: Design, id: NodeId): boolean {
-	return groupGeometry(design, id) !== null && innerNodes(design, id).every((n) => isQuarterTurns(rotationOfTransform(n.transform)));
+	return (
+		groupGeometry(design, id) !== null &&
+		innerNodes(design, id).every(
+			(n) => isQuarterTurns(rotationOfTransform(n.transform)) && !(n.kind === 'shape' && isThreadedType(n.shapeType)),
+		)
+	);
 }
 
 /** Which of the parent's axes (0, 1, 2) each of a node's own axes lines up with, from a quarter-turn rotation. */

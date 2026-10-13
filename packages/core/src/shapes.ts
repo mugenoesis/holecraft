@@ -1,3 +1,5 @@
+import { DEFAULT_FIT, DEFAULT_THREAD_DIAMETER, FITS, THREAD_SIZES } from './threadStandards.ts';
+
 export type ShapeType =
 	| 'box'
 	| 'cylinder'
@@ -12,7 +14,9 @@ export type ShapeType =
 	| 'torus'
 	| 'hexagon'
 	| 'star'
-	| 'polygon';
+	| 'polygon'
+	| 'threaded-rod'
+	| 'threaded-hole';
 
 /**
  * One setting a shape has besides its size (the Properties panel makes a field for each). It is kept as a share of the shape (0.3 is 30% of
@@ -22,6 +26,8 @@ export interface ParamDef {
 	/** Where it is kept in the node's params. */
 	key: string;
 	label: string;
+	/** For a setting that is picked from a list (a thread's size): the values it can take and what they are called. Stored as the value. */
+	choices?: readonly { value: number; label: string }[];
 	/** The share (or count) it starts at. */
 	default: number;
 	/** The least share (or count) it may be. */
@@ -40,9 +46,16 @@ export interface ShapeDef {
 	/** Width (X), depth (Y), height (Z) in mm. */
 	defaultSize: [number, number, number];
 	color: string;
+	/** A thread keeps its real size: its width and depth come from its settings (see threadFootprint) and cannot be changed, only its length (the height). */
+	fixedFootprint?: true;
+	/** Starts as a hole, not a solid. */
+	hole?: true;
 	/** Settings besides the size. A shape with some is built at its real size from them (see parametricMesh), not stretched from a unit mesh. */
 	params?: readonly ParamDef[];
 }
+
+const SIZE_CHOICES = THREAD_SIZES.map((t) => ({ value: t.diameter, label: `M${t.diameter}` }));
+const FIT_CHOICES = FITS.map((f) => ({ value: f.value, label: f.label }));
 
 /**
  * Built-in shapes. Each is built into a unit-sized mesh whose base sits on z=0 and is
@@ -90,6 +103,27 @@ export const SHAPE_DEFS: readonly ShapeDef[] = [
 		color: '#e76f51',
 		// a regular pentagon of radius 10 mm fills 19.02 x 18.09 mm; other counts are stretched to the same box
 		params: [{ key: 'sides', label: 'Sides', count: true, default: 5, min: 3, max: 32, mmPerUnit: () => 1 }],
+	},
+	{
+		id: 'threaded-rod',
+		name: 'Threaded Rod',
+		defaultSize: [5, 5, 20],
+		color: '#8d99ae',
+		fixedFootprint: true,
+		params: [{ key: 'size', label: 'Size', choices: SIZE_CHOICES, default: DEFAULT_THREAD_DIAMETER, min: 2, max: 12, mmPerUnit: () => 1 }],
+	},
+	{
+		id: 'threaded-hole',
+		name: 'Threaded Hole',
+		// M5 opened out by the Normal fit's 0.2 mm on every side
+		defaultSize: [5.4, 5.4, 10],
+		color: '#8d99ae',
+		fixedFootprint: true,
+		hole: true,
+		params: [
+			{ key: 'size', label: 'Size', choices: SIZE_CHOICES, default: DEFAULT_THREAD_DIAMETER, min: 2, max: 12, mmPerUnit: () => 1 },
+			{ key: 'fit', label: 'Fit', choices: FIT_CHOICES, default: DEFAULT_FIT, min: 1, max: 3, mmPerUnit: () => 1 },
+		],
 	},
 ];
 

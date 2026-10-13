@@ -4,6 +4,7 @@ import {
 	eulerOfTransform,
 	groupGeometry,
 	groupRings,
+	isThreadedType,
 	isUpright,
 	type NodeId,
 	rotationOfTransform,
@@ -67,14 +68,19 @@ export function selectedRings(
  * around its contents) and its turn about the vertical. Null when none should show: tipped shapes, and groups that
  * can't be scaled exactly (see `canResizeGroup`).
  */
-export function selectedHandles(design: Design, selection: readonly NodeId[]): { id: NodeId; geometry: ShapeGeometry; yaw: number } | null {
+export function selectedHandles(
+	design: Design,
+	selection: readonly NodeId[],
+): { id: NodeId; geometry: ShapeGeometry; yaw: number; lengthOnly: boolean } | null {
 	const id = selection.length === 1 ? selection[0]! : undefined;
 	const node = id !== undefined ? design.nodes[id] : undefined;
 	if (!id || !node || node.locked || node.hidden) return null;
 	if (node.kind === 'group') {
 		const geometry = canResizeGroup(design, id) ? groupGeometry(design, id) : null;
-		return geometry && { id, geometry, yaw: eulerOfTransform(node.transform)[2] };
+		return geometry && { id, geometry, yaw: eulerOfTransform(node.transform)[2], lengthOnly: false };
 	}
 	const shape = selectedShape(design, selection);
-	return shape?.upright ? { id, geometry: shape.geometry, yaw: shape.yaw } : null;
+	return shape?.upright
+		? { id, geometry: shape.geometry, yaw: shape.yaw, lengthOnly: node.kind === 'shape' && isThreadedType(node.shapeType) }
+		: null;
 }

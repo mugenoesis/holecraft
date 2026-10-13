@@ -11,6 +11,7 @@ import { nodeBoundsIn, shapeBounds, translationOf } from './ops.ts';
 import type { ShapeGeometry } from './resize.ts';
 import { composeTransform, eulerToMatrix, shapeCenter } from './rotation.ts';
 import { getShapeDef, type ShapeType } from './shapes.ts';
+import { isThreadedType, threadFootprint } from './threadStandards.ts';
 
 /**
  * Pure editing operations. Each returns a new Design, or the very same object when nothing
@@ -132,6 +133,12 @@ function withStretchedEdges(node: ShapeNode, before: ShapeNode['params'], after:
 	return { ...node, edges: stretchTreatments(node.edges, ratio, null)! };
 }
 
+/** A thread keeps its real width and depth (from its size and fit): whatever was asked for them is put back. */
+function lockFootprint(node: ShapeNode, params: ShapeNode['params']): ShapeNode['params'] {
+	if (isThreadedType(node.shapeType)) params.width = params.depth = threadFootprint(node.shapeType, node.params);
+	return params;
+}
+
 export function setShapeGeometry(design: Design, id: NodeId, g: ShapeGeometry, now?: Date): Design {
 	const node = design.nodes[id];
 	if (node?.kind === 'group') return setGroupGeometry(design, id, g, now);
@@ -140,12 +147,13 @@ export function setShapeGeometry(design: Design, id: NodeId, g: ShapeGeometry, n
 	if (![g.x, g.y, g.z, ...sizes].every(Number.isFinite) || g.z < 0 || sizes.some((v) => v <= 0 || v > MAX_SHAPE_SIZE)) return design;
 
 	const [x, y, z] = translationOf(node.transform);
+	const params = lockFootprint(node, { ...node.params, width: g.width, depth: g.depth, height: g.height });
 	const same =
 		x === g.x &&
 		y === g.y &&
 		z === g.z &&
-		node.params.width === g.width &&
-		node.params.depth === g.depth &&
+		node.params.width === params.width &&
+		node.params.depth === params.depth &&
 		node.params.height === g.height;
 	if (same) return design;
 
@@ -153,7 +161,6 @@ export function setShapeGeometry(design: Design, id: NodeId, g: ShapeGeometry, n
 	transform[12] = g.x;
 	transform[13] = g.y;
 	transform[14] = g.z;
-	const params = { ...node.params, width: g.width, depth: g.depth, height: g.height };
 	return withNodes(design, { ...design.nodes, [id]: withStretchedEdges({ ...node, transform, params }, node.params, params) }, now);
 }
 
@@ -168,6 +175,8 @@ export function setShapeSize(design: Design, id: NodeId, size: Partial<Record<'w
 		params[key] = v;
 		changed = true;
 	}
+	lockFootprint(node, params);
+	changed = (['width', 'depth', 'height'] as const).some((k) => params[k] !== node.params[k]);
 	return changed ? withNodes(design, { ...design.nodes, [id]: withStretchedEdges({ ...node, params }, node.params, params) }, now) : design;
 }
 

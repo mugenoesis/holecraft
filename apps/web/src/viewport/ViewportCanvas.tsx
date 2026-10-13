@@ -247,6 +247,7 @@ export function ViewportCanvas(props: Props) {
 							nodeId={handles.id}
 							geometry={handles.geometry}
 							yaw={handles.yaw}
+							lengthOnly={handles.lengthOnly}
 							snap={design.grid.snap}
 							getViewport={() => viewportRef.current}
 							onStart={() => latest.current.onMoveStart()}

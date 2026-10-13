@@ -1,4 +1,13 @@
-import { type Design, descendantIds, eulerOfTransform, isUpright, type NodeId, rotationOfTransform, translationOf } from '@holecraft/core';
+import {
+	type Design,
+	descendantIds,
+	eulerOfTransform,
+	isThreadedType,
+	isUpright,
+	type NodeId,
+	rotationOfTransform,
+	translationOf,
+} from '@holecraft/core';
 import type { Dispatch } from 'react';
 import { ChamferFields } from './ChamferFields.tsx';
 import { CountersinkFields } from './CountersinkFields.tsx';
@@ -121,6 +130,8 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 		next[axis] = v;
 		dispatch({ type: 'setEuler', id: only.id, euler: next });
 	};
+	// a thread keeps its real width and depth (from its Size and Fit): only its length can change
+	const fixed = only.kind === 'shape' && isThreadedType(only.shapeType);
 	const size = only.kind === 'shape' ? (only.params as { width: number; depth: number; height: number }) : null;
 
 	return (
@@ -136,16 +147,18 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 					<>
 						<NumberField
 							label="Width"
+							disabled={fixed}
 							value={size.width}
 							onCommit={(width) => dispatch({ type: 'setSize', id: only.id, size: { width } })}
 						/>
 						<NumberField
 							label="Depth"
+							disabled={fixed}
 							value={size.depth}
 							onCommit={(depth) => dispatch({ type: 'setSize', id: only.id, size: { depth } })}
 						/>
 						<NumberField
-							label="Height"
+							label={fixed ? 'Length' : 'Height'}
 							value={size.height}
 							onCommit={(height) => dispatch({ type: 'setSize', id: only.id, size: { height } })}
 						/>
@@ -180,7 +193,17 @@ function TextField({ label, value, onCommit }: { label: string; value: string; o
 	);
 }
 
-export function NumberField({ label, value, onCommit }: { label: string; value: number; onCommit: (v: number) => void }) {
+export function NumberField({
+	label,
+	value,
+	onCommit,
+	disabled,
+}: {
+	label: string;
+	value: number;
+	onCommit: (v: number) => void;
+	disabled?: boolean;
+}) {
 	const d = useDraft(fmt(value), (draft) => {
 		const n = draft.trim() === '' ? Number.NaN : Number(draft);
 		if (Number.isFinite(n)) onCommit(n);
@@ -191,6 +214,7 @@ export function NumberField({ label, value, onCommit }: { label: string; value: 
 			<input
 				type="number"
 				step="any"
+				disabled={disabled}
 				value={d.value}
 				onChange={(e) => d.onChange(e.target.value)}
 				onBlur={d.onBlur}

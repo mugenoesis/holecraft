@@ -20,6 +20,8 @@ describe('shape definitions', () => {
 			'hexagon',
 			'star',
 			'polygon',
+			'threaded-rod',
+			'threaded-hole',
 		]);
 		for (const def of SHAPE_DEFS) {
 			expect(def.name.length).toBeGreaterThan(0);

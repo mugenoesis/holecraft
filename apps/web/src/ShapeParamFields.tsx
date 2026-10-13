@@ -1,4 +1,4 @@
-import { getShapeDef, isShapeType, type ShapeNode, shapeParamMm, typedParamMm } from '@holecraft/core';
+import { getShapeDef, isShapeType, type ParamDef, type ShapeNode, shapeParam, shapeParamMm, typedParamMm } from '@holecraft/core';
 import type { Dispatch } from 'react';
 import type { EditorAction } from './editorState.ts';
 import { NumberField } from './PropertiesPanel.tsx';
@@ -16,6 +16,7 @@ export function ShapeParamFields({ node, dispatch }: { node: ShapeNode; dispatch
 	return (
 		<>
 			{settings.map((p) => {
+				if (p.choices) return <ChoiceField key={p.key} node={node} setting={p} dispatch={dispatch} />;
 				const typed = typedParamMm(node, p.key);
 				const used = shapeParamMm(node, p.key);
 				return (
@@ -34,5 +35,25 @@ export function ShapeParamFields({ node, dispatch }: { node: ShapeNode; dispatch
 				);
 			})}
 		</>
+	);
+}
+
+/** A setting picked from a list (a thread's Size, a threaded hole's Fit): a dropdown that stores the value picked. */
+function ChoiceField({ node, setting, dispatch }: { node: ShapeNode; setting: ParamDef; dispatch: Dispatch<EditorAction> }) {
+	return (
+		<label className="field">
+			<span>{setting.label}</span>
+			<select
+				aria-label={setting.label}
+				value={shapeParam(node, setting.key)}
+				onChange={(e) => dispatch({ type: 'setShapeParam', id: node.id, key: setting.key, value: Number(e.target.value) })}
+			>
+				{setting.choices?.map((c) => (
+					<option key={c.value} value={c.value}>
+						{c.label}
+					</option>
+				))}
+			</select>
+		</label>
 	);
 }
