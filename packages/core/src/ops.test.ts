@@ -19,6 +19,7 @@ describe('shape definitions', () => {
 			'torus',
 			'hexagon',
 			'star',
+			'polygon',
 		]);
 		for (const def of SHAPE_DEFS) {
 			expect(def.name.length).toBeGreaterThan(0);

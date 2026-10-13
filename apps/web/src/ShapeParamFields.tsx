@@ -27,7 +27,7 @@ export function ShapeParamFields({ node, dispatch }: { node: ShapeNode; dispatch
 						/>
 						{used < typed - 1e-9 && (
 							<p className="muted hint field-hint" data-testid="param-limited">
-								Limited to {fmt(used)} mm by the shape’s size.
+								{p.count ? `Limited to ${fmt(used)} sides.` : `Limited to ${fmt(used)} mm by the shape’s size.`}
 							</p>
 						)}
 					</div>

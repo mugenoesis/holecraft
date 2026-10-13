@@ -703,6 +703,10 @@ button.primary:disabled {
 	clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0 50%);
 }
 
+.swatch.polygon {
+	clip-path: polygon(50% 0, 98% 36%, 80% 94%, 20% 94%, 2% 36%);
+}
+
 .swatch.star {
 	clip-path: polygon(50% 0, 62% 36%, 98% 38%, 69% 59%, 79% 95%, 50% 74%, 21% 95%, 31% 59%, 2% 38%, 38% 36%);
 }

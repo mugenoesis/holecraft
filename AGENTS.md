@@ -140,7 +140,7 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   the shapes panel test checks every other type has a mesh. **Every one is the same seen left to right (x-symmetric), which `flipNodes` depends on**: keep that when
   adding shapes, or give the shape its own flip rule. Tests derive volumes from the shapes' dimensions, not the code, and exports are checked in the browser.
 - **Shapes with settings of their own (the parametric system)**: a `ShapeDef` may declare `params: ParamDef[]` (`key`, `label`, `default`, `min`, `max`, and `mmPerUnit(size)`).
-  Tube (`wall`), Torus (`thickness`) and Star (`inner`, the inner corners' radius as a share of the half-width) so far. **The blueprint is Tinkercad: a shape is generated, then simply scaled when you drag its handles, so the whole thing,
+  Tube (`wall`), Torus (`thickness`), Star (`inner`, the inner corners' radius as a share of the half-width) and Polygon (`sides`, a count) so far. **The blueprint is Tinkercad: a shape is generated, then simply scaled when you drag its handles, so the whole thing,
   setting included, stretches evenly.** So a setting is kept in `node.params` as a **share of the shape** (0.3 = 30% of the narrower radius; no format change, validate keeps extra
   numeric params), never as a fixed mm. The Properties field shows and takes **mm for the shape as it is now** (`shapeParamMm`, `typedParamMm`, `setShapeParam` converts mm to a share),
   so resizing a tube from 20 to 40 mm makes its wall 3 then 6 mm and the field follows. What was typed is kept and limited to `[min, max]` only when read (`shapeParam`), so shrinking a
@@ -151,7 +151,8 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   Properties field per declared setting (with a `param-limited` hint) and `setShapeParam` is one undo step. **To add a shape with settings**: add the def (with `params`), a builder in
   `BUILDERS` that is an affine function of width/depth/height, a tile icon in styles.css; keep it x-symmetric for Flip. Do not make a setting a fixed mm that does not scale with the size.
 - Raycasts in scene tests must use `intersectObject(mesh, false)`: the selection outline is a child made of lines, and a recursive ray hits it.
-- Hexagon is a plain stretched solid too (corners at (±0.5, 0) and (±0.25, ±0.5), so regular at 20 × 17.32). **Still to do:** a Polygon with a *number of sides* setting needs a setting that is a count, not a share of the size (a new kind of `ParamDef`).
+- Hexagon is a plain stretched solid too (corners at (±0.5, 0) and (±0.25, ±0.5), so regular at 20 × 17.32).
+- A setting can be a **count** (`ParamDef.count`, the polygon's `sides`): kept as a whole number (rounded when read and set, limited to `[min, max]`), it does not change with the size and its field shows it as it is (`mmPerUnit` is 1). `prism()` in parametricShapes.ts stretches any outline (star, polygon) to fill its box.
 
 ## Arrange (align and flip)
 - `packages/core/src/arrange.ts`: `alignNodes(design, ids, axis, edge)` moves each top-level node along one axis so its low edge / centre /

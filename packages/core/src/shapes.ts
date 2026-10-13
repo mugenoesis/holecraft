@@ -11,7 +11,8 @@ export type ShapeType =
 	| 'tube'
 	| 'torus'
 	| 'hexagon'
-	| 'star';
+	| 'star'
+	| 'polygon';
 
 /**
  * One setting a shape has besides its size (the Properties panel makes a field for each). It is kept as a share of the shape (0.3 is 30% of
@@ -21,12 +22,14 @@ export interface ParamDef {
 	/** Where it is kept in the node's params. */
 	key: string;
 	label: string;
-	/** The share it starts at. */
+	/** The share (or count) it starts at. */
 	default: number;
-	/** The least share it may be. */
+	/** The least share (or count) it may be. */
 	min: number;
-	/** The most share it may be: a wall can never fill the whole tube. */
+	/** The most share (or count) it may be: a wall can never fill the whole tube. */
 	max: number;
+	/** A whole number of things (a polygon's sides) rather than a share of the shape: it is rounded, does not change with the size, and the field shows it as it is (`mmPerUnit` is 1). */
+	count?: boolean;
 	/** How many mm a share of 1 is for a shape of this width, depth and height: what the Properties field shows and takes. */
 	mmPerUnit: (size: readonly [number, number, number]) => number;
 }
@@ -79,6 +82,14 @@ export const SHAPE_DEFS: readonly ShapeDef[] = [
 		color: '#f28c28',
 		// the inner radius is a share of the half-width: 0.4 of 10 mm is the 4 mm a 20 mm wide star starts with
 		params: [{ key: 'inner', label: 'Inner radius', default: 0.4, min: 0.1, max: 0.9, mmPerUnit: ([w]) => w / 2 }],
+	},
+	{
+		id: 'polygon',
+		name: 'Polygon',
+		defaultSize: [19.02, 18.09, 20],
+		color: '#e76f51',
+		// a regular pentagon of radius 10 mm fills 19.02 x 18.09 mm; other counts are stretched to the same box
+		params: [{ key: 'sides', label: 'Sides', count: true, default: 5, min: 3, max: 32, mmPerUnit: () => 1 }],
 	},
 ];
 
