@@ -229,6 +229,7 @@ class Evaluation {
 		const solids: Manifold[] = [];
 		const holes: Manifold[] = [];
 		for (const childId of group.children) {
+			if (this.design.nodes[childId]?.hidden) continue; // a hidden part is not drawn or exported, and a hidden hole does not cut
 			const built = this.child(childId);
 			if (built) (built.isHole ? holes : solids).push(built.manifold);
 		}

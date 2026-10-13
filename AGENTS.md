@@ -175,6 +175,7 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - `hidden` / `locked` live on every node (core/visibility.ts: `setHidden`, `setLocked`, `showAll`, `hasHiddenNodes`). Every edit that
   must skip locked nodes uses `isEditable`; code that asks "where is it" goes through `nodeBoundsIn`, which returns null for hidden nodes,
   and `DesignScene` sets `visible = false` (picking and marquee ignore invisible objects). New edits must follow both rules.
+- **Hidden parts of a group are left out of its shape**: `Evaluation.contents` skips hidden children (so a hidden hole does not cut) and `subtreeHash` omits them (FORMAT v5), so cached results and exports agree with what is drawn. The Objects list's group rows open (local state, starts closed) to nested `ObjectRow`s with their own toggles; a nested row's name selects the top-level group, since parts are not selected alone.
 - The reducer deselects what was just hidden (a hidden object must not stay movable); locking keeps the selection. The toggles are
   `RowToggle`s (`aria-pressed`, labelled just "Lock"/"Unlock" and "Hide"/"Show": a name in the label would make `getByRole("button", { name: /Group 1/ })` match three buttons per row) at the end of each Objects row.
 

@@ -1,5 +1,5 @@
 import { type Design, hasHiddenNodes, type NodeId, nodeBoundsIn, SHAPE_DEFS, type ShapeType, translationOf } from '@holecraft/core';
-import type { Dispatch, DragEvent, KeyboardEvent } from 'react';
+import { type Dispatch, type DragEvent, type KeyboardEvent, useState } from 'react';
 import type { EditorAction } from './editorState.ts';
 import { SHAPE_DRAG_TYPE } from './shapeDrag.ts';
 
@@ -86,12 +86,16 @@ function RowToggle({ on, label, glyph, onClick }: { on: boolean; label: string; 
 interface ObjectRowProps {
 	design: Design;
 	id: NodeId;
+	/** For a row inside a group: the top-level group it belongs to, which clicking the row selects (parts of a group are not selected alone). */
+	selectsId?: NodeId;
 	selected: boolean;
 	onSelect: (id: NodeId, additive: boolean) => void;
 	dispatch: Dispatch<EditorAction>;
 }
 
-function ObjectRow({ design, id, selected, onSelect, dispatch }: ObjectRowProps) {
+function ObjectRow({ design, id, selectsId, selected, onSelect, dispatch }: ObjectRowProps) {
+	// a group's row starts closed; opened, it lists what the group holds, each with its own eye and padlock
+	const [open, setOpen] = useState(false);
 	const node = design.nodes[id];
 	if (!node) return null;
 	// A shape is listed by its base point; a group by the middle of what it holds.
@@ -106,7 +110,7 @@ function ObjectRow({ design, id, selected, onSelect, dispatch }: ObjectRowProps)
 			data-hidden={node.hidden}
 			data-locked={node.locked}
 		>
-			<button type="button" className={selected ? 'selected' : undefined} onClick={(e) => onSelect(id, e.shiftKey)}>
+			<button type="button" className={selected ? 'selected' : undefined} onClick={(e) => onSelect(selectsId ?? id, e.shiftKey)}>
 				<span
 					className={`dot ${node.mode}`}
 					style={node.mode === 'hole' ? { borderColor: node.color } : { background: node.color }}
@@ -116,6 +120,18 @@ function ObjectRow({ design, id, selected, onSelect, dispatch }: ObjectRowProps)
 					{node.name} ({fmt(x)}, {fmt(y)})
 				</span>
 			</button>
+			{node.kind === 'group' && (
+				<button
+					type="button"
+					className="row-toggle"
+					aria-expanded={open}
+					aria-label={open ? 'Hide contents' : 'Show contents'}
+					title={open ? 'Hide what is in this group' : 'Show what is in this group, to hide or lock its parts'}
+					onClick={() => setOpen(!open)}
+				>
+					<span aria-hidden="true">{open ? '▾' : '▸'}</span>
+				</button>
+			)}
 			<RowToggle
 				on={node.locked}
 				label={node.locked ? 'Unlock' : 'Lock'}
@@ -128,6 +144,21 @@ function ObjectRow({ design, id, selected, onSelect, dispatch }: ObjectRowProps)
 				glyph={node.hidden ? '🚫' : '👁'}
 				onClick={() => dispatch({ type: 'setHidden', ids: [id], hidden: !node.hidden })}
 			/>
+			{node.kind === 'group' && open && (
+				<ul className="object-children">
+					{node.children.map((child) => (
+						<ObjectRow
+							key={child}
+							design={design}
+							id={child}
+							selectsId={selectsId ?? id}
+							selected={false}
+							onSelect={onSelect}
+							dispatch={dispatch}
+						/>
+					))}
+				</ul>
+			)}
 		</li>
 	);
 }

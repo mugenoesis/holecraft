@@ -2,7 +2,7 @@ import { type Design, type DesignNode, descendantIds, MESH_SHAPE_TYPE, type Node
 import type { Subtree } from './types.ts';
 
 /** Bump when evaluation changes what a given subtree produces, so cached results are not reused. */
-const FORMAT = 'v4'; // v2: edge treatments; v3: single shapes as roots; v4: smooth cuts along curved edges
+const FORMAT = 'v5'; // v2: edge treatments; v3: single shapes as roots; v4: smooth cuts along curved edges; v5: hidden parts are left out
 
 /**
  * The top-level nodes drawn as one computed mesh: groups (their holes cut), and shapes with treated edges (their chamfers and
@@ -43,7 +43,7 @@ function describe(nodes: Record<NodeId, DesignNode>, id: NodeId, isRoot: boolean
 			node.edges ?? null,
 		];
 	}
-	const children = node.children.map((c) => describe(nodes, c, false));
+	const children = node.children.filter((c) => !nodes[c]?.hidden).map((c) => describe(nodes, c, false)); // a hidden part is not part of the shape
 	// The root group's own transform and mode only matter to whoever places it, not to its shape.
 	return isRoot ? ['g', node.op, children, node.edges ?? null] : ['g', node.mode, node.transform, node.op, children, node.edges ?? null];
 }
