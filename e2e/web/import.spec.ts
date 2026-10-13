@@ -52,9 +52,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('the Import button', () => {
-	test('is there, and offers STL, OBJ and 3MF files', async ({ page }) => {
+	test('is there, and offers STL, OBJ, 3MF and SVG files', async ({ page }) => {
 		await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeEnabled();
-		expect(await importInput(page).getAttribute('accept')).toBe('.stl,.obj,.3mf');
+		expect(await importInput(page).getAttribute('accept')).toBe('.stl,.obj,.3mf,.svg');
 	});
 });
 
@@ -212,7 +212,7 @@ test.describe('export and holes', () => {
 test.describe('files that cannot be imported', () => {
 	test('a file of another kind says what can be imported', async ({ page }) => {
 		await importFile(page, 'notes.txt', Buffer.from('hello'));
-		await expect(page.getByRole('alert')).toContainText('STL, OBJ or 3MF');
+		await expect(page.getByRole('alert')).toContainText('STL, OBJ, 3MF or SVG');
 		await expect(list(page).locator('li')).toHaveCount(0);
 	});
 
@@ -321,5 +321,65 @@ test.describe('flipping an imported model', () => {
 		await page.getByRole('heading', { name: 'Objects' }).click();
 		await page.keyboard.press('Control+z');
 		expect(stlCorners(await exportedFile(page))).toEqual(original);
+	});
+});
+
+test.describe('importing an SVG', () => {
+	const svg = (body: string, attrs = 'viewBox="0 0 100 100"') =>
+		Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" ${attrs}>${body}</svg>`);
+	const shape = (page: Page, name: RegExp) => list(page).getByRole('button', { name });
+
+	test('a filled rectangle becomes a solid 5 mm deep, in millimetres, named after the file', async ({ page }) => {
+		await importFile(page, 'Plate.svg', svg('<rect x="10" y="10" width="30" height="20"/>'));
+		await shape(page, /^Plate/).click();
+		await expect(field(page, 'Width')).toHaveValue('30');
+		await expect(field(page, 'Depth')).toHaveValue('20');
+		await expect(field(page, 'Height')).toHaveValue('5');
+		const stl = await exportStl(page);
+		expect(stl.volume).toBeCloseTo(30 * 20 * 5, 2);
+		expect(stl.min[2]).toBeCloseTo(0, 6);
+	});
+
+	test('holes come out as holes: an even-odd frame is the outer area less the inner', async ({ page }) => {
+		await importFile(page, 'Frame.svg', svg('<path fill-rule="evenodd" d="M0 0H40V40H0Z M10 10H30V30H10Z"/>'));
+		await expect(shape(page, /^Frame/)).toBeVisible();
+		expect((await exportStl(page)).volume).toBeCloseTo((1600 - 400) * 5, 2);
+	});
+
+	test('curves are read: a circle of radius 10 is about 20 across and exports near its true volume', async ({ page }) => {
+		await importFile(page, 'Disc.svg', svg('<circle cx="50" cy="50" r="10"/>'));
+		await shape(page, /^Disc/).click();
+		await expect(field(page, 'Width')).toHaveValue('20');
+		const exact = Math.PI * 100 * 5;
+		expect(Math.abs((await exportStl(page)).volume - exact) / exact).toBeLessThan(0.01);
+	});
+
+	test('the size in the file is honoured (50 mm for a 100 unit drawing), and the Y up choice does not turn it', async ({ page }) => {
+		await page.getByRole('combobox', { name: 'Up axis for imports' }).selectOption('y');
+		await importFile(page, 'Half.svg', svg('<rect width="100" height="100"/>', 'width="50mm" height="50mm" viewBox="0 0 100 100"'));
+		await shape(page, /^Half/).click();
+		await expect(field(page, 'Width')).toHaveValue('50');
+		await expect(field(page, 'Height')).toHaveValue('5');
+	});
+
+	test('an SVG with nothing filled says why, and adds nothing', async ({ page }) => {
+		await importFile(page, 'Lines.svg', svg('<rect width="10" height="10" fill="none" stroke="black"/>'));
+		await expect(page.getByRole('alert')).toContainText('no filled shapes');
+		await expect(page.getByRole('alert')).toContainText('strokes');
+		await expect(page.getByText('Objects: 0')).toBeVisible();
+	});
+
+	test('something that is not an SVG says so', async ({ page }) => {
+		await importFile(page, 'Nope.svg', Buffer.from('hello'));
+		await expect(page.getByRole('alert')).toContainText('not an SVG');
+	});
+
+	test('can be resized like any imported model, its thickness included', async ({ page }) => {
+		await importFile(page, 'Plate.svg', svg('<rect width="30" height="20"/>'));
+		await shape(page, /^Plate/).click();
+		await field(page, 'Height').fill('12');
+		await field(page, 'Height').press('Enter');
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		expect((await exportStl(page)).volume).toBeCloseTo(30 * 20 * 12, 2);
 	});
 });

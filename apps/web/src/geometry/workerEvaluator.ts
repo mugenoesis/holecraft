@@ -1,5 +1,5 @@
 import type { MeshData, MeshEdge } from '@holecraft/core';
-import type { GroupMesh, Subtree } from '@holecraft/geometry';
+import type { GroupMesh, RawMesh, Subtree } from '@holecraft/geometry';
 import type { Evaluator } from './GeometryService.ts';
 import type { WorkerRequest, WorkerResponse } from './geometry.worker.ts';
 
@@ -7,6 +7,8 @@ export interface WorkerEvaluator {
 	evaluate: Evaluator;
 	/** The edges the Edge tool offers on the subtree's root (see `toolEdges`), or with `treated`, those of its finished shape. */
 	edges(subtree: Subtree, meshes: ReadonlyMap<string, MeshData>, treated?: boolean): Promise<MeshEdge[]>;
+	/** An SVG's filled shapes extruded `depth` mm into a solid (see `svgToMesh`). Rejects with a message fit to show. */
+	svg(text: string, depth: number): Promise<RawMesh>;
 	dispose(): void;
 }
 
@@ -64,6 +66,11 @@ export function createWorkerEvaluator(): WorkerEvaluator {
 			const reply = await ask((id) => ({ kind: 'edges', id, subtree, meshes, ...(treated ? { treated } : {}) }));
 			if (!('edges' in reply)) throw unexpected();
 			return reply.edges;
+		},
+		svg: async (text, depth) => {
+			const reply = await ask((id) => ({ kind: 'svg', id, text, depth }));
+			if (!('svg' in reply)) throw unexpected();
+			return reply.svg;
 		},
 		dispose: () => failAll(new Error('The geometry worker was shut down')),
 	};
