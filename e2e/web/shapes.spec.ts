@@ -230,3 +230,49 @@ test.describe('the hexagon and the star', () => {
 		await expect(field(page, 'Inner radius')).toHaveValue('8');
 	});
 });
+
+test.describe('the polygon', () => {
+	/** A regular n-gon of radius 1 with a corner at the back, stretched to a w x d box (worked out by hand). */
+	const polygon = (n: number, w: number, d: number, h: number) => {
+		const angles = Array.from({ length: n }, (_, k) => Math.PI / 2 + (2 * Math.PI * k) / n);
+		const ys = angles.map((a) => Math.sin(a));
+		return (
+			(n / 2) *
+			Math.sin((2 * Math.PI) / n) *
+			(w / (2 * Math.max(...angles.map((a) => Math.cos(a))))) *
+			(d / (Math.max(...ys) - Math.min(...ys))) *
+			h
+		);
+	};
+
+	test('has a Sides field (5 to start) that is a count, not millimetres, and a star does not', async ({ page }) => {
+		for (const name of ['Star', 'Polygon']) await tile(page, name).click();
+		await row(page, 1).click();
+		await expect(field(page, 'Sides')).toHaveValue('5');
+		await row(page, 0).click();
+		await expect(field(page, 'Sides')).toHaveCount(0);
+	});
+
+	test('exports with the volume of its outline, and typing 8 sides changes it', async ({ page }) => {
+		await tile(page, 'Polygon').click();
+		expect((await exportStl(page)).volume).toBeCloseTo(polygon(5, 19.02, 18.09, 20), 0);
+		await row(page, 0).click();
+		await field(page, 'Sides').fill('8');
+		await field(page, 'Sides').press('Enter');
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		expect((await exportStl(page)).volume).toBeCloseTo(polygon(8, 19.02, 18.09, 20), 0);
+	});
+
+	test('keeps its sides when resized, and says when Sides was limited to 3 to 32', async ({ page }) => {
+		await tile(page, 'Polygon').click();
+		await row(page, 0).click();
+		await field(page, 'Sides').fill('7');
+		await field(page, 'Sides').press('Enter');
+		await field(page, 'Width').fill('40');
+		await field(page, 'Width').press('Enter');
+		await expect(field(page, 'Sides')).toHaveValue('7');
+		await field(page, 'Sides').fill('100');
+		await field(page, 'Sides').press('Enter');
+		await expect(page.getByTestId('param-limited')).toContainText('Limited to 32 sides');
+	});
+});

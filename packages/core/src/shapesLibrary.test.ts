@@ -18,10 +18,16 @@ const NEW = [
 	['torus', 'Torus'],
 	['hexagon', 'Hexagon'],
 	['star', 'Star'],
+	['polygon', 'Polygon'],
 ] as const;
 
 /** The default size of the shapes that are not 20 mm each way. */
-const SIZE: Record<string, [number, number, number]> = { torus: [30, 30, 10], hexagon: [20, 17.32, 20], star: [20, 19.02, 10] };
+const SIZE: Record<string, [number, number, number]> = {
+	torus: [30, 30, 10],
+	hexagon: [20, 17.32, 20],
+	star: [20, 19.02, 10],
+	polygon: [19.02, 18.09, 20],
+};
 
 describe('the basic shapes', () => {
 	it('lists the original three first, then the new ones, each with a name and a default size (20 mm each way, except the flatter torus)', () => {

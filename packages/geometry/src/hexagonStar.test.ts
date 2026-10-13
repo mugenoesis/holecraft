@@ -71,3 +71,19 @@ describe('the star in the CSG engine', () => {
 		expect(volume(evaluateGroup(M, g.design, 'g')!)).toBeCloseTo(40 * 40 * 10 - starVolume(0.4, 20, 19.02, 10), 2);
 	});
 });
+
+describe('the polygon in the CSG engine', () => {
+	it('has the volume of its outline for any number of sides, and Sides changes it', () => {
+		const areaOf = (n: number, w: number, d: number, h: number) => {
+			const angles = Array.from({ length: n }, (_, k) => Math.PI / 2 + (2 * Math.PI * k) / n);
+			const ys = angles.map((a) => Math.sin(a));
+			const halfWide = Math.max(...angles.map((a) => Math.cos(a)));
+			return (n / 2) * Math.sin((2 * Math.PI) / n) * (w / (2 * halfWide)) * (d / (Math.max(...ys) - Math.min(...ys))) * h;
+		};
+		let d = addShape(createEmptyDesign('d'), 'polygon', [0, 0], { id: 'a' }).design;
+		d = setShapeSize(d, 'a', { width: 30, depth: 26, height: 8 });
+		expect(volume(evaluateNode(M, d, 'a')!)).toBeCloseTo(areaOf(5, 30, 26, 8), 2);
+		d = setShapeParam(d, 'a', 'sides', 8);
+		expect(volume(evaluateNode(M, d, 'a')!)).toBeCloseTo(areaOf(8, 30, 26, 8), 2);
+	});
+});

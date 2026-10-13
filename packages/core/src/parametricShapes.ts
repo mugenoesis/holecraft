@@ -39,7 +39,9 @@ function typedShare(node: ShapeNode, def: ParamDef): number {
 /** A setting's value for a shape, as a share: what was typed (or the default), limited to what fits. NaN if the shape has no such setting. */
 export function shapeParam(node: ShapeNode, key: string): number {
 	const def = paramDef(node.shapeType, key);
-	return def ? Math.max(def.min, Math.min(def.max, typedShare(node, def))) : Number.NaN;
+	if (!def) return Number.NaN;
+	const used = Math.max(def.min, Math.min(def.max, typedShare(node, def)));
+	return def.count ? Math.round(used) : used;
 }
 
 /** A setting in mm for the shape as it is now: what the Properties field shows, limited to what fits. */
@@ -64,7 +66,7 @@ export function setShapeParam(design: Design, id: NodeId, key: string, mm: numbe
 	const def = node?.kind === 'shape' ? paramDef(node.shapeType, key) : null;
 	if (node?.kind !== 'shape' || node.locked || !def) return design;
 	if (!Number.isFinite(mm) || mm <= 0 || mm > MAX_SHAPE_SIZE) return design;
-	const share = mm / def.mmPerUnit(sizeOf(node));
+	const share = def.count ? Math.round(mm) : mm / def.mmPerUnit(sizeOf(node));
 	if (!(share > 0) || node.params[key] === share) return design;
 	const next: ShapeNode = { ...node, params: { ...node.params, [key]: share } };
 	return { ...design, nodes: { ...design.nodes, [id]: next }, updatedAt: (now ?? new Date()).toISOString() };
@@ -127,27 +129,23 @@ function torus(width: number, depth: number, height: number, thickness: number):
 }
 
 const STAR_POINTS = 5;
-/** A star of radius 1 with a tip at the back reaches sin(72 deg) to each side, and from -cos(36 deg) to 1 front to back. */
-const STAR_HALF_WIDTH = Math.sin((2 * Math.PI) / STAR_POINTS);
-const STAR_DEPTH = 1 + Math.cos(Math.PI / STAR_POINTS);
-const STAR_CENTRE_Y = (1 - Math.cos(Math.PI / STAR_POINTS)) / 2;
 
 /**
- * A star: five tips and five inner corners, drawn for a star of radius 1 and stretched so the tips touch the sides, the back and the
- * front of the shape's box (an affine stretch of its own outline, so it resizes evenly). `inner` is the inner corners' radius as a share of
- * the tips'. The outline is star-shaped about its middle, so each face is a fan from there.
+ * A prism of a flat outline (corners in order, drawn for radius 1 and star-shaped about (0, 0)), stretched so its corners touch the sides,
+ * back and front of the shape's box: an affine stretch of its own outline, so it resizes evenly. Each face is a fan from the outline's middle.
  */
-function star(width: number, depth: number, height: number, inner: number): MeshData {
-	const corners = 2 * STAR_POINTS;
-	const at = (x: number, y: number, z: number) => [(x / STAR_HALF_WIDTH) * (width / 2), ((y - STAR_CENTRE_Y) / STAR_DEPTH) * depth, z];
+function prism(outline: readonly (readonly [number, number])[], width: number, depth: number, height: number): MeshData {
+	const [xs, ys] = [outline.map(([x]) => x), outline.map(([, y]) => y)];
+	const halfWide = Math.max(...xs.map(Math.abs));
+	const [lowest, highest] = [Math.min(...ys), Math.max(...ys)];
+	const at = (x: number, y: number, z: number) => [
+		(x / halfWide) * (width / 2),
+		((y - (lowest + highest) / 2) / (highest - lowest)) * depth,
+		z,
+	];
+	const corners = outline.length;
 	const positions: number[] = [];
-	for (const z of [0, height]) {
-		for (let i = 0; i < corners; i++) {
-			const angle = Math.PI / 2 - (Math.PI * i) / STAR_POINTS;
-			const radius = i % 2 === 0 ? 1 : inner;
-			positions.push(...at(radius * Math.cos(angle), radius * Math.sin(angle), z));
-		}
-	}
+	for (const z of [0, height]) for (const [x, y] of outline) positions.push(...at(x, y, z));
 	positions.push(...at(0, 0, 0), ...at(0, 0, height));
 	const [bottom, top] = [2 * corners, 2 * corners + 1];
 	const indices: number[] = [];
@@ -160,10 +158,35 @@ function star(width: number, depth: number, height: number, inner: number): Mesh
 	return outwards(positions, indices);
 }
 
+/** Corners at angles 90 deg (the back) going round, so the outline is the same seen left to right. */
+const corner = (k: number, of: number, radius: number): [number, number] => {
+	const angle = Math.PI / 2 + (2 * Math.PI * k) / of;
+	return [radius * Math.cos(angle), radius * Math.sin(angle)];
+};
+
+/** A star: five tips and five inner corners; `inner` is the inner corners' radius as a share of the tips'. */
+const star = (width: number, depth: number, height: number, inner: number): MeshData =>
+	prism(
+		Array.from({ length: 2 * STAR_POINTS }, (_, i) => corner(i, 2 * STAR_POINTS, i % 2 === 0 ? 1 : inner)),
+		width,
+		depth,
+		height,
+	);
+
+/** A regular polygon with a corner at the back, stretched to the box. */
+const polygon = (width: number, depth: number, height: number, sides: number): MeshData =>
+	prism(
+		Array.from({ length: sides }, (_, k) => corner(k, sides, 1)),
+		width,
+		depth,
+		height,
+	);
+
 const BUILDERS: Record<string, (w: number, d: number, h: number, node: ShapeNode) => MeshData> = {
 	tube: (w, d, h, node) => tube(w, d, h, shapeParam(node, 'wall')),
 	torus: (w, d, h, node) => torus(w, d, h, shapeParam(node, 'thickness')),
 	star: (w, d, h, node) => star(w, d, h, shapeParam(node, 'inner')),
+	polygon: (w, d, h, node) => polygon(w, d, h, shapeParam(node, 'sides')),
 };
 
 /** The shape types built from their settings. */
