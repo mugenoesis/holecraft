@@ -1,7 +1,9 @@
 import {
+	canResizeGroup,
 	type Design,
 	descendantIds,
 	eulerOfTransform,
+	groupGeometry,
 	isThreadedType,
 	isUpright,
 	lengthOffset,
@@ -15,6 +17,17 @@ import { CountersinkFields } from './CountersinkFields.tsx';
 import type { EditorAction } from './editorState.ts';
 import { ShapeParamFields } from './ShapeParamFields.tsx';
 import { useDraft } from './useDraft.ts';
+
+/** Why a group's size fields are switched off. */
+function whyNotResizable(design: Design, id: NodeId): string {
+	const thread = descendantIds(design, id).some((c) => {
+		const n = design.nodes[c];
+		return n?.kind === 'shape' && isThreadedType(n.shapeType);
+	});
+	return thread
+		? 'It holds a thread, which keeps its real size, so the group cannot be resized.'
+		: 'Resizing needs every shape inside turned in quarter turns (0, 90, 180, 270 degrees).';
+}
 
 const fmt = (n: number) => String(Number(n.toFixed(2)));
 
@@ -99,6 +112,9 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 	if (only.kind === 'group') {
 		const shapes = descendantIds(design, only.id).filter((id) => design.nodes[id]?.kind === 'shape').length;
 		const groupEuler = eulerOfTransform(only.transform);
+		// the box around what it holds (null while it is tipped over): typing a size stretches everything inside, as dragging a handle does
+		const box = groupGeometry(design, only.id);
+		const resizable = canResizeGroup(design, only.id);
 		return (
 			<section aria-label="Properties">
 				<h2>Properties</h2>
@@ -114,7 +130,18 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 							}
 						/>
 					))}
+					{box &&
+						(['width', 'depth', 'height'] as const).map((key) => (
+							<NumberField
+								key={key}
+								label={key[0]!.toUpperCase() + key.slice(1)}
+								value={box[key]}
+								disabled={!resizable}
+								onCommit={(v) => dispatch({ type: 'setGroupSize', id: only.id, size: { [key]: v } })}
+							/>
+						))}
 				</div>
+				{box && !resizable && <p className="muted hint">{whyNotResizable(design, only.id)}</p>}
 				<p>Contains {shapes} shapes</p>
 				{typeToggle}
 				{color}
