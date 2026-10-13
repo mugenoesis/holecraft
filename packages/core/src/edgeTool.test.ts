@@ -153,6 +153,15 @@ describe('what the tool works on', () => {
 		});
 		expect(edgeToolTarget(setLocked(design(), ['a'], true), ['a'])).toEqual({ problem: 'Box 1 is locked' });
 	});
+
+	it('refuses a thread on its own (its helix is thousands of tiny edges), but not a washer or a group holding one', () => {
+		const rod = addShape(createEmptyDesign('d'), 'threaded-rod', [0, 0], { id: 't' }).design;
+		expect(edgeToolTarget(rod, ['t'])).toEqual({ problem: expect.stringContaining('Threads') });
+		const washer = addShape(createEmptyDesign('d'), 'washer', [0, 0], { id: 'w' }).design;
+		expect(edgeToolTarget(washer, ['w'])).toEqual({ id: 'w' });
+		const { design: grouped } = groupNodes(addShape(rod, 'box', [0, 0], { id: 'b' }).design, ['t', 'b'], { id: 'g' });
+		expect(edgeToolTarget(grouped, ['g'])).toEqual({ id: 'g' });
+	});
 });
 
 describe('which edges are worth offering', () => {

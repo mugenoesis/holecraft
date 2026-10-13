@@ -32,24 +32,44 @@ const unit = (a: Vec3): Vec3 => {
 	return [a[0] / n, a[1] / n, a[2] / n];
 };
 
-/** Welds coinciding points, so triangles that touch share corner ids. */
+/** Welds coinciding points, so triangles that touch share corner ids. Hashes the rounded coordinates in a flat table (no string keys: threads are 260k triangles). */
 function weld(mesh: MeshData): { points: Vec3[]; tris: [number, number, number][] } {
-	const ids = new Map<string, number>();
+	const count = Math.floor(mesh.positions.length / 3);
+	const size = 2 ** Math.max(4, Math.ceil(Math.log2(count * 2 + 1)));
+	const table = new Int32Array(size).fill(-1);
+	const grid = new Float64Array(count * 3);
 	const points: Vec3[] = [];
-	const idOf = (i: number) => {
-		const p: Vec3 = [mesh.positions[i * 3]!, mesh.positions[i * 3 + 1]!, mesh.positions[i * 3 + 2]!];
-		const key = p.map((v) => Math.round(v / WELD)).join(',');
-		let id = ids.get(key);
-		if (id === undefined) {
-			id = points.length;
-			ids.set(key, id);
-			points.push(p);
+	const idOfVertex = new Int32Array(count);
+	for (let i = 0; i < count; i++) {
+		const q: Vec3 = [
+			Math.round(mesh.positions[i * 3]! / WELD),
+			Math.round(mesh.positions[i * 3 + 1]! / WELD),
+			Math.round(mesh.positions[i * 3 + 2]! / WELD),
+		];
+		let slot = Math.abs((Math.imul(q[0] | 0, 73856093) ^ Math.imul(q[1] | 0, 19349663) ^ Math.imul(q[2] | 0, 83492791)) | 0) & (size - 1);
+		for (;;) {
+			const found = table[slot]!;
+			if (found < 0) {
+				table[slot] = points.length;
+				grid.set(q, points.length * 3);
+				idOfVertex[i] = points.length;
+				points.push([mesh.positions[i * 3]!, mesh.positions[i * 3 + 1]!, mesh.positions[i * 3 + 2]!]);
+				break;
+			}
+			if (grid[found * 3] === q[0] && grid[found * 3 + 1] === q[1] && grid[found * 3 + 2] === q[2]) {
+				idOfVertex[i] = found;
+				break;
+			}
+			slot = (slot + 1) & (size - 1);
 		}
-		return id;
-	};
+	}
 	const tris: [number, number, number][] = [];
 	for (let i = 0; i + 2 < mesh.indices.length; i += 3) {
-		const t: [number, number, number] = [idOf(mesh.indices[i]!), idOf(mesh.indices[i + 1]!), idOf(mesh.indices[i + 2]!)];
+		const t: [number, number, number] = [
+			idOfVertex[mesh.indices[i]!]!,
+			idOfVertex[mesh.indices[i + 1]!]!,
+			idOfVertex[mesh.indices[i + 2]!]!,
+		];
 		if (t[0] !== t[1] && t[1] !== t[2] && t[0] !== t[2]) tris.push(t);
 	}
 	return { points, tris };
@@ -61,29 +81,78 @@ interface Segment {
 	normals: [Vec3, Vec3];
 }
 
-/** The convex sharp mesh edges: pairs of triangles sharing a side whose faces meet at more than SHARP_ANGLE. */
-function sharpSegments(points: Vec3[], tris: [number, number, number][]): Segment[] {
-	const faceNormals = tris.map(([a, b, c]) => unit(cross(sub(points[b]!, points[a]!), sub(points[c]!, points[a]!))));
-	const sides = new Map<string, number[]>();
-	tris.forEach((t, ti) => {
-		for (let k = 0; k < 3; k++) {
-			const [a, b] = [t[k]!, t[(k + 1) % 3]!];
-			const key = a < b ? `${a},${b}` : `${b},${a}`;
-			const list = sides.get(key);
-			if (list) list.push(ti);
-			else sides.set(key, [ti]);
+/** Thrown by `sharpEdges` when it finds more sharp pieces than the `limit` it was given. */
+export class TooManyEdges extends Error {
+	constructor(readonly limit: number) {
+		super('This shape has too many small edges to chamfer or round (a thread, for example)');
+	}
+}
+
+/** Which triangles share each side, in a flat hash table (no Map: 800k lookups on a thread). A half-edge is triangle * 3 + corner. */
+class SideTable {
+	private readonly size: number;
+	private readonly table: Int32Array;
+	private readonly second: Int32Array;
+	private readonly owners: Uint8Array;
+
+	constructor(private readonly tris: [number, number, number][]) {
+		const halves = tris.length * 3;
+		this.size = 2 ** Math.max(4, Math.ceil(Math.log2(halves * 2 + 1)));
+		this.table = new Int32Array(this.size).fill(-1);
+		this.second = new Int32Array(halves).fill(-1);
+		this.owners = new Uint8Array(halves);
+		for (let h = 0; h < halves; h++) this.add(h);
+	}
+
+	/** The two corners of half-edge `h`. */
+	ends(h: number): [number, number] {
+		const t = this.tris[(h / 3) | 0]!;
+		return [t[h % 3]!, t[(h + 1) % 3]!];
+	}
+
+	private add(h: number): void {
+		const [p, q] = this.ends(h);
+		const [a, b] = p < q ? [p, q] : [q, p];
+		let slot = (((Math.imul(a, 73856093) ^ Math.imul(b, 19349663)) >>> 0) & (this.size - 1)) >>> 0;
+		for (;;) {
+			const found = this.table[slot]!;
+			if (found < 0) {
+				this.table[slot] = h;
+				this.owners[h] = 1;
+				return;
+			}
+			const [fp, fq] = this.ends(found);
+			if (Math.min(fp, fq) === a && Math.max(fp, fq) === b) {
+				if (this.owners[found] === 1) this.second[found] = h;
+				this.owners[found] = Math.min(3, this.owners[found]! + 1);
+				return;
+			}
+			slot = (slot + 1) & (this.size - 1);
 		}
-	});
+	}
+
+	/** Every side shared by exactly two triangles: the first one's half-edge, and the other triangle. */
+	*pairs(): Generator<{ half: number; other: number }> {
+		for (const half of this.table) {
+			if (half >= 0 && this.owners[half] === 2) yield { half, other: (this.second[half]! / 3) | 0 };
+		}
+	}
+}
+
+/** The convex sharp mesh edges: pairs of triangles sharing a side whose faces meet at more than SHARP_ANGLE. */
+function sharpSegments(points: Vec3[], tris: [number, number, number][], limit: number): Segment[] {
+	const normals = tris.map(([a, b, c]) => unit(cross(sub(points[b]!, points[a]!), sub(points[c]!, points[a]!))));
+	const sides = new SideTable(tris);
+	const cosSharp = Math.cos(SHARP_ANGLE);
 	const segments: Segment[] = [];
-	for (const [key, owners] of sides) {
-		if (owners.length !== 2) continue;
-		const [t1, t2] = owners as [number, number];
-		const [n1, n2] = [faceNormals[t1]!, faceNormals[t2]!];
-		if (!(dot(n1, n2) < Math.cos(SHARP_ANGLE))) continue;
-		const [a, b] = key.split(',').map(Number) as [number, number];
+	for (const { half, other } of sides.pairs()) {
+		const [n1, n2] = [normals[(half / 3) | 0]!, normals[other]!];
+		if (!(dot(n1, n2) < cosSharp)) continue;
+		const [a, b] = sides.ends(half);
 		// convex when the second face's far corner lies below the first face
-		const far = tris[t2]!.find((v) => v !== a && v !== b)!;
+		const far = tris[other]!.find((v) => v !== a && v !== b)!;
 		if (dot(sub(points[far]!, points[a]!), n1) >= -1e-9) continue;
+		if (segments.length >= limit) throw new TooManyEdges(limit);
 		segments.push({ a, b, normals: [n1, n2] });
 	}
 	return segments;
@@ -188,9 +257,9 @@ function simplify(points: Vec3[], ids: number[], normals: [Vec3, Vec3][], closed
 }
 
 /** The convex sharp edges of a closed mesh (see the module comment). */
-export function sharpEdges(mesh: MeshData): MeshEdge[] {
+export function sharpEdges(mesh: MeshData, limit = Number.POSITIVE_INFINITY): MeshEdge[] {
 	const { points, tris } = weld(mesh);
-	return new Chainer(points, sharpSegments(points, tris)).edges();
+	return new Chainer(points, sharpSegments(points, tris, limit)).edges();
 }
 
 /** Distance from point p to the segment a-b. */

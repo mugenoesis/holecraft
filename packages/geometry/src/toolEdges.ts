@@ -1,4 +1,13 @@
-import { type DesignNode, type MeshEdge, type NodeId, sharpEdges, usefulEdges } from '@holecraft/core';
+import {
+	type Design,
+	type DesignNode,
+	MAX_SHARP_PIECES,
+	type MeshEdge,
+	type NodeId,
+	sharpEdges,
+	usefulEdges,
+	withSimpleThreads,
+} from '@holecraft/core';
 import type { ManifoldToplevel } from 'manifold-3d';
 import { evaluateGroup, type MeshTable } from './evaluate.ts';
 import { subtreeHash } from './subtree.ts';
@@ -11,6 +20,15 @@ function untreated(design: Nodes, id: NodeId): Nodes {
 	if (!node?.edges) return design;
 	const { edges: _edges, ...rest } = node;
 	return { nodes: { ...design.nodes, [id]: rest } };
+}
+
+/**
+ * Threads stand in as plain cylinders: a real thread is hundreds of thousands of triangles whose helix is thousands of edges nobody could pick
+ * (finding them took over a second, then they were refused anyway). The rest of the part keeps its edges; a treatment on the thread's own surface
+ * or mouth is never offered, and would be skipped as not found if it were.
+ */
+function withPlainThreads(design: Nodes): Nodes {
+	return withSimpleThreads(design as Design);
 }
 
 /**
@@ -27,8 +45,8 @@ export function toolEdges(
 	meshes?: MeshTable,
 	options: { treated?: boolean } = {},
 ): MeshEdge[] {
-	const mesh = evaluateGroup(M, options.treated ? design : untreated(design, id), id, meshes);
-	return mesh ? usefulEdges(sharpEdges(mesh)) : [];
+	const mesh = evaluateGroup(M, withPlainThreads(options.treated ? design : untreated(design, id)), id, meshes);
+	return mesh ? usefulEdges(sharpEdges(mesh, MAX_SHARP_PIECES)) : [];
 }
 
 /** Equal keys mean `toolEdges` gives the same answer: the node's shape, ignoring its own treatments, position, name and colour. */

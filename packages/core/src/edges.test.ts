@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Vec3 } from './camera.ts';
 import { chamferedMesh } from './chamfer.ts';
-import { edgeIsPresent, type MeshEdge, sharpEdges } from './edges.ts';
+import { edgeIsPresent, type MeshEdge, sharpEdges, TooManyEdges } from './edges.ts';
 import type { MeshData } from './meshShape.ts';
 
 /** A w x d x h box from x, y in +-half and z 0..h: 8 corners, 12 outward triangles. */
@@ -140,5 +140,13 @@ describe('edgeIsPresent', () => {
 
 	it('is false against a mesh with no edges at all', () => {
 		expect(edgeIsPresent([], topFront)).toBe(false);
+	});
+});
+
+describe('sharpEdges with a limit', () => {
+	it('gives up as soon as there are more sharp pieces than the limit, and not before', () => {
+		const box = boxMesh(10, 10, 10);
+		expect(sharpEdges(box, 12)).toHaveLength(12);
+		expect(() => sharpEdges(box, 11)).toThrow(TooManyEdges);
 	});
 });
