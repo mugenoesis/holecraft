@@ -2,9 +2,15 @@
   <img src="branding/logo.jpg" alt="Holecraft logo" width="480">
 </p>
 
-# Holecraft
+<h1 align="center">Holecraft</h1>
 
-**Open-source, offline, browser-based 3D modeling for makers.**
+<p align="center">
+  <b>Open-source, offline, browser-based 3D modeling for makers.</b>
+</p>
+
+<p align="center">
+  <a href="https://ko-fi.com/mugenoesis"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support me on Ko-fi"></a>
+</p>
 
 Holecraft is an approachable solid modeler in the spirit of Tinkercad: drag primitive shapes onto a
 workplane, turn some into holes, group them, and export a printable model. It is an
@@ -220,6 +226,11 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/tool-shots.sh <url> [out-dir]` | Drive the ruler, the Workplane tool and the Edge tool in a real browser and save screenshots (ruler line, plane marker and a shape on a top face and on a wall, edges hovered, chosen, previewed and applied) for looking at what the browser tests only check by numbers |
 | `scripts/make-fonts.sh` | Rebuild the bundled Text fonts (`packages/core/src/fonts/fontData.generated.ts`: outlines, widths and boxes of Basic Latin and Latin-1 for four open fonts) and the licence texts in `licenses/` from the `@fontsource` dev dependencies. Only needed when a font changes |
 | `scripts/make-icon.sh` | Regenerate the app icons from the cube mark cropped out of `branding/logo.jpg` |
+
+## Support the project
+
+Holecraft is free and I build it in my spare time. If it saves you time or gets your next print designed, you can
+[buy me a coffee on Ko-fi](https://ko-fi.com/mugenoesis). Bug reports and ideas are welcome as GitHub issues.
 
 ## License
 
