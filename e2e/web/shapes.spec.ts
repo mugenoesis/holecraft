@@ -22,6 +22,13 @@ const TILES = [
 	'Torus',
 	'Hexagon',
 	'Star',
+	'Polygon',
+	'Threaded Rod',
+	'Threaded Hole',
+	'Bolt',
+	'Nut',
+	'Washer',
+	'Standoff',
 ];
 const list = (page: Page) => page.getByTestId('object-list');
 const tile = (page: Page, name: string) => page.getByRole('region', { name: 'Shapes' }).getByRole('button', { name, exact: true });
@@ -592,5 +599,65 @@ test.describe('inch sizes', () => {
 		await pick(page, 'Size', '1/4-20 UNC');
 		await expect(field(page, 'Width')).toHaveValue('12.83'); // 0.505 in
 		await expect(field(page, 'Size').locator('optgroup')).toHaveCount(2);
+	});
+});
+
+/*
+ * Finding a shape: a search box and category chips narrow the Shapes panel's grid.
+ */
+test.describe('searching the Shapes panel', () => {
+	const search = (page: Page) => page.getByRole('region', { name: 'Shapes' }).getByRole('searchbox', { name: 'Search shapes' });
+	const chip = (page: Page, name: string) =>
+		page.getByRole('region', { name: 'Shapes' }).getByRole('group', { name: 'Categories' }).getByRole('button', { name, exact: true });
+	const shown = async (page: Page) => (await page.locator('.shape-tile').allTextContents()).map((t) => t.trim());
+
+	test('starts on All with every shape showing, and a search box', async ({ page }) => {
+		await expect(chip(page, 'All')).toHaveAttribute('aria-pressed', 'true');
+		for (const name of ['Basic', 'Parametric', 'Fasteners']) await expect(chip(page, name)).toHaveAttribute('aria-pressed', 'false');
+		expect(await shown(page)).toHaveLength(TILES.length);
+		await expect(search(page)).toHaveValue('');
+	});
+
+	test('typing narrows the tiles as you go, by name or by another name: a ring is a tube, a torus or a washer', async ({ page }) => {
+		await search(page).fill('nut');
+		expect(await shown(page)).toEqual(['Nut']);
+		await search(page).fill('ring');
+		expect(await shown(page)).toEqual(['Tube', 'Torus', 'Washer']);
+		await search(page).fill('');
+		expect(await shown(page)).toHaveLength(TILES.length);
+	});
+
+	test('a chip shows only that group, and works with a search', async ({ page }) => {
+		await chip(page, 'Fasteners').click();
+		await expect(chip(page, 'Fasteners')).toHaveAttribute('aria-pressed', 'true');
+		await expect(chip(page, 'All')).toHaveAttribute('aria-pressed', 'false');
+		expect(await shown(page)).toEqual(['Threaded Rod', 'Threaded Hole', 'Bolt', 'Nut', 'Washer', 'Standoff']);
+		await search(page).fill('hex');
+		expect(await shown(page)).toEqual(['Nut', 'Standoff']);
+		await chip(page, 'All').click();
+		expect(await shown(page)).toEqual(['Hexagon', 'Nut', 'Standoff']);
+	});
+
+	test('says so when nothing matches, and Escape clears the search', async ({ page }) => {
+		await search(page).fill('zzz');
+		expect(await shown(page)).toEqual([]);
+		await expect(page.getByRole('region', { name: 'Shapes' }).getByRole('status')).toContainText('No shape matches “zzz”');
+		await search(page).press('Escape');
+		await expect(search(page)).toHaveValue('');
+		expect(await shown(page)).toHaveLength(TILES.length);
+	});
+
+	test('Enter adds the first match, and a found shape is added like any other', async ({ page }) => {
+		await search(page).fill('washer');
+		await search(page).press('Enter');
+		await expect(list(page).getByRole('button', { name: /^Washer 1 / })).toBeVisible();
+		await tile(page, 'Washer').click();
+		await expect(list(page).getByRole('button', { name: /^Washer 2 / })).toBeVisible();
+	});
+
+	test('a search that matches nothing does not add anything on Enter', async ({ page }) => {
+		await search(page).fill('zzz');
+		await search(page).press('Enter');
+		await expect(page.getByText('Objects: 0')).toBeVisible();
 	});
 });

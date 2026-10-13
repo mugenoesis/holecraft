@@ -595,14 +595,49 @@ button.primary:disabled {
 	transform: rotateX(-90deg) translateZ(calc(var(--size) / 2));
 }
 
+.shape-search {
+	width: 100%;
+	margin-bottom: 6px;
+	font: inherit;
+	color: var(--text);
+	background: var(--bg);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 4px 8px;
+}
+
+.shape-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin-bottom: 6px;
+}
+
+.shape-chips button {
+	padding: 2px 8px;
+	font: inherit;
+	font-size: 12px;
+	color: var(--text);
+	background: var(--bg);
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	cursor: pointer;
+}
+
+.shape-chips button[aria-pressed="true"] {
+	color: #fff;
+	background: var(--accent);
+	border-color: var(--accent);
+}
+
 .shape-grid {
 	display: grid;
 	/* three to a row in the side panel (nine shapes in three even rows), compact so they do not push Properties off a short screen */
 	grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
 	gap: 6px;
 	margin-bottom: 16px;
-	/* five rows and a peek of the sixth, then it scrolls: the library keeps growing and must not push Properties off a short screen */
-	max-height: 345px;
+	/* four rows and a peek of the fifth, then it scrolls: the library keeps growing and must not push Properties off a short screen */
+	max-height: 280px;
 	overflow-y: auto;
 }
 
