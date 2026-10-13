@@ -1,5 +1,5 @@
 /** One letter of a bundled font, in the font's own units (y up). */
-export interface FontGlyph {
+interface FontGlyph {
 	/** How far the pen moves on after it. */
 	advance: number;
 	/** Its ink: x min, y min, x max, y max (all zero for a space). */
