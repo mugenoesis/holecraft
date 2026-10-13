@@ -142,7 +142,8 @@ function bolt(node: ShapeNode, length: number): MeshData {
 	wrap(mesh, rings);
 	mesh.fan(mesh.point(0, 0, 0), rings[0]!, false);
 	const [under, top] = [length, length + lengthOffset(node.shapeType, node.params)];
-	const [base, rim] = head === 1 ? [hexagon(size.flats), hexagon(size.flats)] : [circle(size.capDiameter), circle(size.capDiameter)];
+	const [base, rim] =
+		head === 1 ? [hexagon(size.headFlats), hexagon(size.headFlats)] : [circle(size.capDiameter), circle(size.capDiameter)];
 	const [headBase, headTop] = [mesh.ring(base, under), mesh.ring(rim, top)];
 	mesh.band(rings[rings.length - 1]!, headBase); // the head's underside, looking down
 	mesh.band(headBase, headTop);

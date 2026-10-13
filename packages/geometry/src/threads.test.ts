@@ -34,9 +34,9 @@ function threaded(type: 'threaded-rod' | 'threaded-hole', settings: Record<strin
 describe('a screw and its threaded hole', () => {
 	const rod = (size: number) => asManifold(evaluateNode(M, threaded('threaded-rod', { size }, 12), 'a')!);
 
-	for (const size of [3, 5, 8]) {
+	for (const size of [3, 5, 8, 104, 105]) {
 		for (const fit of [1, 2, 3]) {
-			it(`M${size} at fit ${fit}: the rod fits inside the hole’s cutter with no overlap, turned the way the thread goes`, () => {
+			it(`size ${size} at fit ${fit}: the rod fits inside the hole’s cutter with no overlap, turned the way the thread goes`, () => {
 				const screw = rod(size);
 				const cutter = asManifold(evaluateNode(M, threaded('threaded-hole', { size, fit }, 12), 'a')!);
 				expect(screw.intersect(cutter).volume()).toBeCloseTo(screw.volume(), 3); // the screw is wholly inside the cutter
@@ -84,12 +84,12 @@ describe('a bolt and its nut', () => {
 	const nut = (size: number, fit: number): Design =>
 		setShapeParam(setShapeParam(addShape(createEmptyDesign('d'), 'nut', [0, 0], { id: 'a' }).design, 'a', 'size', size), 'a', 'fit', fit);
 	/** The pitch of each size, which the nut has to be moved up by a whole number of to line its thread up with the bolt's. */
-	const PITCH: Record<number, number> = { 3: 0.5, 5: 0.8, 8: 1.25 };
+	const PITCH: Record<number, number> = { 3: 0.5, 5: 0.8, 8: 1.25, 104: 25.4 / 24, 105: 25.4 / 20 }; // the last two are #10-24 and 1/4-20
 
-	for (const size of [3, 5, 8]) {
+	for (const size of [3, 5, 8, 104, 105]) {
 		for (const head of [1, 2]) {
 			for (const fit of [1, 2, 3]) {
-				it(`M${size}, head ${head}, fit ${fit}: the nut sits on the bolt’s thread without touching it`, () => {
+				it(`size ${size}, head ${head}, fit ${fit}: the nut sits on the bolt’s thread without touching it`, () => {
 					const screw = asManifold(evaluateNode(M, bolt(size, head, 30), 'a')!);
 					const turned = asManifold(evaluateNode(M, nut(size, fit), 'a')!).translate([0, 0, PITCH[size]! * 8]);
 					expect(screw.intersect(turned).volume()).toBeLessThan(turned.volume() * 1e-4);

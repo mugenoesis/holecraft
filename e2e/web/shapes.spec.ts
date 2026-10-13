@@ -546,3 +546,51 @@ test.describe('washers and standoffs', () => {
 		await expect(field(page, 'Length')).toHaveValue('10');
 	});
 });
+
+/*
+ * Inch sizes: the Size choice also has #4 to 1/2 UNC, built the same way from their own pitch (25.4 / threads per inch) and dimensions.
+ */
+test.describe('inch sizes', () => {
+	const pick = async (page: Page, label: string, option: string) =>
+		properties(page).getByLabel(label, { exact: true }).selectOption({ label: option });
+	const mean = (crest: number, pitch: number) => {
+		const root = crest - 0.5413 * pitch;
+		return (crest * crest) / 8 + (root * root) / 4 + 2 * (5 / 16) * ((crest * crest + crest * root + root * root) / 3);
+	};
+
+	test('a threaded rod can be 1/4-20: 6.35 mm across, and it exports as a 1.27 mm pitch thread', async ({ page }) => {
+		await tile(page, 'Threaded Rod').click();
+		await row(page, 0).click();
+		await pick(page, 'Size', '1/4-20 UNC');
+		await expect(field(page, 'Width')).toHaveValue('6.35');
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		const exact = Math.PI * 20 * mean(3.175, 1.27);
+		const stl = await exportStl(page);
+		expect(Math.abs(stl.volume - exact) / exact).toBeLessThan(0.005);
+		expect(stl.max[0]).toBeCloseTo(3.175, 2);
+		expect(stl.max[1]).toBeCloseTo(3.175, 2);
+		expect(stl.max[2]).toBeCloseTo(20, 3);
+	});
+
+	test('an inch bolt has its own head, and the nut for the same size is wider than a small bolt’s head: a #4-40 bolt is 3/16 across flats, its nut 1/4', async ({
+		page,
+	}) => {
+		await tile(page, 'Bolt').click();
+		await tile(page, 'Nut').click();
+		await row(page, 0).click();
+		await pick(page, 'Size', '#4-40 UNC');
+		await expect(field(page, 'Depth')).toHaveValue('4.76');
+		await row(page, 1).click();
+		await pick(page, 'Size', '#4-40 UNC');
+		await expect(field(page, 'Depth')).toHaveValue('6.35');
+		await expect(field(page, 'Length')).toHaveValue('2.38'); // 3/32 thick
+	});
+
+	test('a washer takes an inch size too, and the Size menu has Metric and Inch groups', async ({ page }) => {
+		await tile(page, 'Washer').click();
+		await row(page, 0).click();
+		await pick(page, 'Size', '1/4-20 UNC');
+		await expect(field(page, 'Width')).toHaveValue('12.83'); // 0.505 in
+		await expect(field(page, 'Size').locator('optgroup')).toHaveCount(2);
+	});
+});
