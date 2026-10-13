@@ -6,7 +6,7 @@ import { signedVolume } from './meshShape.ts';
 import { addShape } from './ops.ts';
 import { hasThreads, parametricShape, setShapeParam, shapeParam, withSimpleThreads } from './parametricShapes.ts';
 import { getShapeDef } from './shapes.ts';
-import { FITS, lengthOffset, STANDOFF_TYPES, THREAD_SIZES } from './threadStandards.ts';
+import { ALL_THREAD_SIZES, FITS, IMPERIAL_SIZES, lengthOffset, STANDOFF_TYPES, THREAD_SIZES } from './threadStandards.ts';
 
 function isClosed(mesh: MeshData): boolean {
 	const seen = new Map<string, number>();
@@ -64,6 +64,14 @@ describe('the washer sizes (ISO 7089)', () => {
 	});
 });
 
+describe('the inch washer', () => {
+	it('starts from a size whose id is its position among the inch sizes, and is as wide as its outside (a 1/4 washer is 0.505 in across)', () => {
+		const w = nodeOf(made('washer', { size: 105 }));
+		expect([w.params.width, w.params.height]).toEqual([expect.closeTo(12.827, 3), expect.closeTo(1.6256, 3)]);
+		expect(IMPERIAL_SIZES).toHaveLength(8);
+	});
+});
+
 describe('the washer', () => {
 	it('has a Size choice only, starts as an M5 (10 mm across, 1 mm thick) and is a solid', () => {
 		expect(getShapeDef('washer').name).toBe('Washer');
@@ -81,14 +89,18 @@ describe('the washer', () => {
 		expect(nodeOf(wide).params.width).toBe(10); // its diameter is fixed
 	});
 
-	for (const size of THREAD_SIZES) {
-		it(`M${size.diameter}: a closed ring facing outwards with the area between its two circles, and nothing in the hole`, () => {
-			const mesh = parametricShape(nodeOf(made('washer', { size: size.diameter })))!;
+	for (const size of ALL_THREAD_SIZES) {
+		it(`${size.label}: a closed ring facing outwards with the area between its two circles, and nothing in the hole`, () => {
+			const mesh = parametricShape(nodeOf(made('washer', { size: size.id })))!;
 			expect(isClosed(mesh)).toBe(true);
 			const exact = (disc(size.washerOuter / 2) - disc(size.washerInner / 2)) * size.washerThickness;
 			expect(signedVolume(mesh)).toBeCloseTo(exact, 3);
 			const { min, max } = bounds(mesh);
-			expect(max).toEqual([size.washerOuter / 2, expect.closeTo(size.washerOuter / 2, 2), size.washerThickness]);
+			expect(max).toEqual([
+				expect.closeTo(size.washerOuter / 2, 3),
+				expect.closeTo(size.washerOuter / 2, 2),
+				expect.closeTo(size.washerThickness, 3),
+			]);
 			expect(min[2]).toBe(0);
 		});
 	}
@@ -129,20 +141,20 @@ describe('the standoff', () => {
 		expect(nodeOf(male).params.height).toBe(10 + 10); // 2 x 5 of body above the 10 mm stud
 	});
 
-	for (const size of THREAD_SIZES) {
-		it(`M${size.diameter} female: a closed surface facing outwards, a hex prism with the thread cut right through it (volume by hand)`, () => {
+	for (const size of ALL_THREAD_SIZES) {
+		it(`${size.label} female: a closed surface facing outwards, a hex prism with the thread cut right through it (volume by hand)`, () => {
 			for (const fit of FITS) {
 				const length = 3 * size.diameter;
-				const mesh = parametricShape(nodeOf(made('standoff', { size: size.diameter, fit: fit.value }, length)))!;
+				const mesh = parametricShape(nodeOf(made('standoff', { size: size.id, fit: fit.value }, length)))!;
 				expect(isClosed(mesh)).toBe(true);
 				const exact = hexArea(size.flats) * length - threadVolume(size.diameter / 2 + fit.clearance, depthOf(size.pitch), length);
 				expect(Math.abs(signedVolume(mesh) - exact) / exact).toBeLessThan(0.006);
 			}
 		});
 
-		it(`M${size.diameter} male: a stud under the body and a blind thread down into it (volume by hand)`, () => {
+		it(`${size.label} male: a stud under the body and a blind thread down into it (volume by hand)`, () => {
 			const [body, stud] = [4 * size.diameter, 2 * size.diameter];
-			const mesh = parametricShape(nodeOf(made('standoff', { size: size.diameter, type: 2 }, body)))!;
+			const mesh = parametricShape(nodeOf(made('standoff', { size: size.id, type: 2 }, body)))!;
 			expect(isClosed(mesh)).toBe(true);
 			const hole = body - size.diameter; // the thread goes down to a diameter above the body's bottom
 			const exact =
@@ -150,7 +162,7 @@ describe('the standoff', () => {
 				hexArea(size.flats) * body -
 				threadVolume(size.diameter / 2 + 0.2, depthOf(size.pitch), hole);
 			expect(Math.abs(signedVolume(mesh) - exact) / exact).toBeLessThan(0.006);
-			expect(bounds(mesh).max[2]).toBeCloseTo(stud + body, 4);
+			expect(bounds(mesh).max[2]).toBeCloseTo(stud + body, 3);
 			expect(bounds(mesh).min[2]).toBe(0);
 		});
 	}

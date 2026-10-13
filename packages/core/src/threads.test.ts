@@ -8,7 +8,7 @@ import { signedVolume } from './meshShape.ts';
 import { addShape } from './ops.ts';
 import { PARAMETRIC_TYPES, parametricShape, setShapeParam, shapeParam, shapeParamMm } from './parametricShapes.ts';
 import { getShapeDef } from './shapes.ts';
-import { FITS, THREAD_SIZES } from './threadStandards.ts';
+import { ALL_THREAD_SIZES, FITS, IMPERIAL_SIZES, THREAD_SIZES } from './threadStandards.ts';
 
 function isClosed(mesh: MeshData): boolean {
 	const seen = new Map<string, number>();
@@ -69,6 +69,38 @@ describe('the standard sizes', () => {
 	});
 });
 
+describe('the inch sizes (unified coarse, UNC)', () => {
+	it('are #4 to 1/2: the nominal diameter in inches converted to mm, with a pitch of 25.4 over the threads per inch', () => {
+		expect(
+			IMPERIAL_SIZES.map((s) => [s.id, s.label, Math.round((s.diameter / 25.4) * 1e6) / 1e6, Math.round((25.4 / s.pitch) * 1e6) / 1e6]),
+		).toEqual([
+			[101, '#4-40 UNC', 0.112, 40],
+			[102, '#6-32 UNC', 0.138, 32],
+			[103, '#8-32 UNC', 0.164, 32],
+			[104, '#10-24 UNC', 0.19, 24],
+			[105, '1/4-20 UNC', 0.25, 20],
+			[106, '5/16-18 UNC', 0.3125, 18],
+			[107, '3/8-16 UNC', 0.375, 16],
+			[108, '1/2-13 UNC', 0.5, 13],
+		]);
+		expect(IMPERIAL_SIZES[4]!.diameter).toBeCloseTo(6.35, 9);
+		expect(IMPERIAL_SIZES[4]!.pitch).toBeCloseTo(1.27, 9);
+	});
+
+	it('come after the metric ones in the Size choice, in their own group, and metric designs saved before still mean the same size', () => {
+		const choices = getShapeDef('threaded-rod').params![0]!.choices!;
+		expect(choices.map((c) => c.group)).toEqual([...THREAD_SIZES.map(() => 'Metric'), ...IMPERIAL_SIZES.map(() => 'Inch (UNC)')]);
+		expect(choices.map((c) => c.value)).toEqual([2, 3, 4, 5, 6, 8, 10, 12, 101, 102, 103, 104, 105, 106, 107, 108]);
+		expect(shapeParam(nodeOf(made('threaded-rod', { size: 105 })), 'size')).toBe(105);
+		expect(setShapeParam(made('threaded-rod'), 'a', 'size', 7)).toEqual(made('threaded-rod')); // still no M7
+	});
+
+	it('set the footprint of a rod from the inch diameter: a 1/4-20 is 6.35 mm across', () => {
+		const rod = nodeOf(made('threaded-rod', { size: 105 }));
+		expect([rod.params.width, rod.params.depth]).toEqual([6.35, 6.35]);
+	});
+});
+
 describe('the threaded shapes', () => {
 	it('are built from their settings, with a Size choice (M5 to start); only the hole has a Fit (Normal to start)', () => {
 		expect(PARAMETRIC_TYPES).toEqual(expect.arrayContaining(['threaded-rod', 'threaded-hole']));
@@ -77,7 +109,7 @@ describe('the threaded shapes', () => {
 		expect([rod.name, hole.name]).toEqual(['Threaded Rod', 'Threaded Hole']);
 		expect(rod.params!.map((p) => p.key)).toEqual(['size']);
 		expect(hole.params!.map((p) => p.key)).toEqual(['size', 'fit']);
-		expect(rod.params![0]!.choices!.map((c) => c.label)).toEqual(THREAD_SIZES.map((s) => `M${s.diameter}`));
+		expect(rod.params![0]!.choices!.map((c) => c.label)).toEqual(ALL_THREAD_SIZES.map((s) => s.label));
 		expect(shapeParam(nodeOf(made('threaded-rod')), 'size')).toBe(5);
 		expect(shapeParam(nodeOf(made('threaded-hole')), 'fit')).toBe(2);
 		expect(nodeOf(made('threaded-hole')).mode).toBe('hole');
@@ -129,10 +161,10 @@ describe('the threaded shapes', () => {
 		expect(canResizeGroup(plain, 'g')).toBe(true);
 	});
 
-	for (const size of THREAD_SIZES) {
-		it(`M${size.diameter}: a closed surface facing outwards, with the volume the ISO profile gives (within the facet error)`, () => {
+	for (const size of ALL_THREAD_SIZES) {
+		it(`${size.label}: a closed surface facing outwards, with the volume the ISO profile gives (within the facet error)`, () => {
 			const length = 20;
-			const mesh = parametricShape(nodeOf(made('threaded-rod', { size: size.diameter }, length)))!;
+			const mesh = parametricShape(nodeOf(made('threaded-rod', { size: size.id }, length)))!;
 			expect(isClosed(mesh)).toBe(true);
 			const R = size.diameter / 2;
 			const exact = Math.PI * length * meanSquare(R, R - depthOf(size.pitch));

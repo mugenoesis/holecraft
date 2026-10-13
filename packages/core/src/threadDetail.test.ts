@@ -6,7 +6,7 @@ import type { MeshData } from './meshShape.ts';
 import { signedVolume } from './meshShape.ts';
 import { addShape } from './ops.ts';
 import { hasThreads, parametricShape, setShapeParam, withSimpleThreads } from './parametricShapes.ts';
-import { THREAD_SIZES } from './threadStandards.ts';
+import { ALL_THREAD_SIZES } from './threadStandards.ts';
 
 function isClosed(mesh: MeshData): boolean {
 	const seen = new Map<string, number>();
@@ -74,8 +74,8 @@ describe('the simple thread detail', () => {
 	}
 
 	it('is a cylinder at the pitch diameter: between the thread’s root and crest, so its volume is too', () => {
-		for (const size of THREAD_SIZES) {
-			const real = made('threaded-rod', size.diameter, 30);
+		for (const size of ALL_THREAD_SIZES) {
+			const real = made('threaded-rod', size.id, 30);
 			const [rm, sm] = [parametricShape(nodeOf(real))!, parametricShape(nodeOf(withSimpleThreads(real)))!];
 			const crest = size.diameter / 2;
 			const root = crest - 0.5413 * size.pitch;

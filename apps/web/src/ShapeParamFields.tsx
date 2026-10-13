@@ -38,6 +38,22 @@ export function ShapeParamFields({ node, dispatch }: { node: ShapeNode; dispatch
 	);
 }
 
+const option = (c: { value: number; label: string }) => (
+	<option key={c.value} value={c.value}>
+		{c.label}
+	</option>
+);
+
+/** The choices in the order given, split into the groups they name (a choice with no group is on its own, with an empty name). */
+export function choiceGroups(setting: ParamDef): [string, { value: number; label: string }[]][] {
+	const groups = new Map<string, { value: number; label: string }[]>();
+	for (const c of setting.choices ?? []) {
+		const name = c.group ?? '';
+		groups.set(name, [...(groups.get(name) ?? []), c]);
+	}
+	return [...groups];
+}
+
 /** A setting picked from a list (a thread's Size, a threaded hole's Fit): a dropdown that stores the value picked. */
 function ChoiceField({ node, setting, dispatch }: { node: ShapeNode; setting: ParamDef; dispatch: Dispatch<EditorAction> }) {
 	return (
@@ -48,11 +64,15 @@ function ChoiceField({ node, setting, dispatch }: { node: ShapeNode; setting: Pa
 				value={shapeParam(node, setting.key)}
 				onChange={(e) => dispatch({ type: 'setShapeParam', id: node.id, key: setting.key, value: Number(e.target.value) })}
 			>
-				{setting.choices?.map((c) => (
-					<option key={c.value} value={c.value}>
-						{c.label}
-					</option>
-				))}
+				{choiceGroups(setting).map(([group, choices]) =>
+					group ? (
+						<optgroup key={group} label={group}>
+							{choices.map(option)}
+						</optgroup>
+					) : (
+						choices.map(option)
+					),
+				)}
 			</select>
 		</label>
 	);

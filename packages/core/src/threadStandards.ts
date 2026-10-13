@@ -6,12 +6,20 @@
  * shape's width and depth come from its Size (and Fit and Head) and cannot be stretched, only its length (the height).
  */
 export interface ThreadSize {
-	/** The nominal (crest) diameter in mm: the number after the M. */
+	/** What a shape stores for this size: a metric size's diameter (M5 is 5, so saved designs read as before), an inch size's 101 and up. */
+	id: number;
+	/** What the Size choice shows: "M5", "#10-24 UNC". */
+	label: string;
+	/** The Size choice groups the sizes by this. */
+	group: 'Metric' | 'Inch (UNC)';
+	/** The nominal (crest) diameter in mm: the number after the M, or the inch size converted. */
 	diameter: number;
 	/** How far the thread rises in one turn, in mm. */
 	pitch: number;
-	/** A hex head or nut's width across its flats (ISO 4017, 4032). */
+	/** A nut's (and a standoff's) width across its flats: ISO 4032, ASME B18.6.3 and B18.2.2. */
 	flats: number;
+	/** A hex bolt head's width across its flats: ISO 4017, and for inch sizes ASME B18.6.3 hex machine screws (numbered sizes) or B18.2.1 hex cap screws. */
+	headFlats: number;
 	/** A hex bolt head's height. */
 	headHeight: number;
 	/** A nut's thickness. */
@@ -27,7 +35,9 @@ export interface ThreadSize {
 	washerThickness: number;
 }
 
-export const THREAD_SIZES: readonly ThreadSize[] = [
+type SizeData = Omit<ThreadSize, 'id' | 'label' | 'group' | 'headFlats'>;
+
+const METRIC: readonly SizeData[] = [
 	{
 		diameter: 2,
 		pitch: 0.4,
@@ -134,6 +144,63 @@ export const THREAD_SIZES: readonly ThreadSize[] = [
 	},
 ];
 
+/** ISO metric, coarse pitch: M2 to M12. */
+export const THREAD_SIZES: readonly ThreadSize[] = METRIC.map((m) => ({
+	...m,
+	id: m.diameter,
+	label: `M${m.diameter}`,
+	group: 'Metric' as const,
+	headFlats: m.flats,
+}));
+
+const inchesToMm = (inches: number) => inches * 25.4;
+
+/**
+ * Unified inch coarse (UNC), #4 to 1/2: the thread is 60 degrees like the metric one, so it is built the same way, with a pitch of 25.4 / threads
+ * per inch. Dimensions are the nominal ones from ASME B18.2.2 (hex nuts, 1/4 and up) and B18.6.3 (machine screw nuts and hex machine screws, numbered
+ * sizes), B18.2.1 (hex cap screws), B18.3 (socket head cap screws) and B18.21.1 (type B narrow flat washers), in inches converted to mm.
+ */
+const inch = (
+	id: number,
+	label: string,
+	d: number,
+	tpi: number,
+	nut: [flats: number, thick: number],
+	head: [flats: number, height: number],
+	cap: [diameter: number, socket: number, engagement: number],
+	washer: [inner: number, outer: number, thick: number],
+): ThreadSize => ({
+	id,
+	label,
+	group: 'Inch (UNC)',
+	diameter: inchesToMm(d),
+	pitch: inchesToMm(1 / tpi),
+	flats: inchesToMm(nut[0]),
+	nutHeight: inchesToMm(nut[1]),
+	headFlats: inchesToMm(head[0]),
+	headHeight: inchesToMm(head[1]),
+	capDiameter: inchesToMm(cap[0]),
+	socketFlats: inchesToMm(cap[1]),
+	socketDepth: inchesToMm(cap[2]),
+	washerInner: inchesToMm(washer[0]),
+	washerOuter: inchesToMm(washer[1]),
+	washerThickness: inchesToMm(washer[2]),
+});
+
+export const IMPERIAL_SIZES: readonly ThreadSize[] = [
+	inch(101, '#4-40 UNC', 0.112, 40, [1 / 4, 3 / 32], [3 / 16, 0.055], [0.183, 3 / 32, 0.051], [0.123, 0.248, 0.032]),
+	inch(102, '#6-32 UNC', 0.138, 32, [5 / 16, 7 / 64], [1 / 4, 0.087], [0.226, 7 / 64, 0.064], [0.154, 0.31, 0.032]),
+	inch(103, '#8-32 UNC', 0.164, 32, [11 / 32, 1 / 8], [1 / 4, 0.103], [0.27, 9 / 64, 0.077], [0.19, 0.377, 0.04]),
+	inch(104, '#10-24 UNC', 0.19, 24, [3 / 8, 1 / 8], [5 / 16, 0.112], [0.312, 5 / 32, 0.09], [0.205, 0.408, 0.04]),
+	inch(105, '1/4-20 UNC', 1 / 4, 20, [7 / 16, 7 / 32], [7 / 16, 5 / 32], [0.375, 3 / 16, 0.12], [0.286, 0.505, 0.064]),
+	inch(106, '5/16-18 UNC', 5 / 16, 18, [1 / 2, 17 / 64], [1 / 2, 13 / 64], [0.469, 1 / 4, 0.151], [0.349, 0.63, 0.064]),
+	inch(107, '3/8-16 UNC', 3 / 8, 16, [9 / 16, 21 / 64], [9 / 16, 15 / 64], [0.562, 5 / 16, 0.182], [0.411, 0.738, 0.064]),
+	inch(108, '1/2-13 UNC', 1 / 2, 13, [3 / 4, 7 / 16], [3 / 4, 5 / 16], [0.75, 3 / 8, 0.245], [0.536, 1.004, 0.064]),
+];
+
+/** Every size a thread can be, metric first. */
+export const ALL_THREAD_SIZES: readonly ThreadSize[] = [...THREAD_SIZES, ...IMPERIAL_SIZES];
+
 /** How much wider than its screw a threaded hole or nut is, in mm on every side: what a printer needs for the two to turn. */
 export const FITS = [
 	{ value: 1, label: 'Tight', clearance: 0.1 },
@@ -153,6 +220,7 @@ export const STANDOFF_TYPES = [
 	{ value: 2, label: 'Male-female' },
 ] as const;
 
+/** The size a new thread starts as: M5, whose id is its diameter. */
 export const DEFAULT_THREAD_DIAMETER = 5;
 export const DEFAULT_STANDOFF_TYPE = 1;
 /** A new standoff's body, in mm. */
@@ -160,8 +228,8 @@ export const DEFAULT_STANDOFF_LENGTH = 10;
 export const DEFAULT_FIT = 2;
 export const DEFAULT_HEAD = 1;
 
-/** The size with this nominal diameter, or undefined if there is no such size. */
-export const threadSize = (diameter: number): ThreadSize | undefined => THREAD_SIZES.find((s) => s.diameter === diameter);
+/** The size with this id (a metric size's diameter, or an inch size's 101 and up), or undefined if there is no such size. */
+export const threadSize = (id: number): ThreadSize | undefined => ALL_THREAD_SIZES.find((s) => s.id === id);
 
 /**
  * What a fastener is: the screw's thread, its hole (the cutter), a bolt (thread and head), a nut (a hex with the hole in it), a washer (a flat
@@ -213,7 +281,8 @@ export function threadFootprint(type: string, params: Readonly<Record<string, un
 	const { size, clearance, head } = threadSettings(type, params);
 	const kind = KINDS[type];
 	if (kind === 'washer') return [size.washerOuter, size.washerOuter];
-	if (kind === 'nut' || kind === 'standoff' || (kind === 'bolt' && head === 1)) return [tidy(acrossCorners(size.flats)), size.flats];
+	if (kind === 'nut' || kind === 'standoff') return [tidy(acrossCorners(size.flats)), size.flats];
+	if (kind === 'bolt' && head === 1) return [tidy(acrossCorners(size.headFlats)), size.headFlats];
 	if (kind === 'bolt') return [size.capDiameter, size.capDiameter];
 	const across = tidy(size.diameter + 2 * clearance);
 	return [across, across];
