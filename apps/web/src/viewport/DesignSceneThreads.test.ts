@@ -83,3 +83,16 @@ describe('DesignScene: simple threads', () => {
 		expect(triangles(meshOf())).toBe(real);
 	});
 });
+
+describe('DesignScene: washers and standoffs', () => {
+	it('draws a washer with its hole, and a male standoff with its stud under the body', () => {
+		scene.sync(addShape(createEmptyDesign('d'), 'washer', [0, 0], { id: 'a' }).design);
+		expect(sizeOf(meshOf())).toEqual([10, 10, 1]);
+		const down = (x: number) => new THREE.Raycaster(new THREE.Vector3(x, 0, 100), new THREE.Vector3(0, 0, -1));
+		expect(scene.pick(down(0))).toBeNull(); // the hole
+		expect(scene.pick(down(4))).toBe('a'); // the ring
+		const d = setShapeParam(addShape(createEmptyDesign('e'), 'standoff', [0, 0], { id: 'a' }).design, 'a', 'type', 2);
+		scene.sync(d);
+		expect(sizeOf(meshOf())).toEqual([9.24, 8, 20]);
+	});
+});

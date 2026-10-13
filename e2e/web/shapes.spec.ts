@@ -476,3 +476,73 @@ test.describe('the thread detail switch', () => {
 		await expect(field(page, 'Length')).toHaveValue('20');
 	});
 });
+
+/*
+ * The washer (a flat ring) and the standoff (a long hex with a thread in it, female or with a stud), exported for real.
+ */
+test.describe('washers and standoffs', () => {
+	const disc = (r: number) => 24 * r * r * Math.sin((2 * Math.PI) / 48);
+	const hexArea = (flats: number) => 2 * Math.sqrt(3) * (flats / 2) ** 2;
+	const mean = (crest: number, pitch: number) => {
+		const root = crest - 0.5413 * pitch;
+		return (crest * crest) / 8 + (root * root) / 4 + 2 * (5 / 16) * ((crest * crest + crest * root + root * root) / 3);
+	};
+	const pick = async (page: Page, label: string, option: string) =>
+		properties(page).getByLabel(label, { exact: true }).selectOption({ label: option });
+
+	test('a washer is an M5 10 mm across and 1 mm thick, with a Size choice only and a fixed width', async ({ page }) => {
+		await tile(page, 'Washer').click();
+		await row(page, 0).click();
+		await expect(field(page, 'Size')).toHaveValue('5');
+		await expect(field(page, 'Fit')).toHaveCount(0);
+		await expect(field(page, 'Width')).toHaveValue('10');
+		await expect(field(page, 'Width')).toBeDisabled();
+		await expect(field(page, 'Length')).toHaveValue('1');
+		await pick(page, 'Size', 'M8');
+		await expect(field(page, 'Width')).toHaveValue('16');
+		await expect(field(page, 'Length')).toHaveValue('1.6');
+	});
+
+	test('a washer exports as the ring between its circles, and has no thread for the Simple threads switch to change', async ({ page }) => {
+		await tile(page, 'Washer').click();
+		const stl = await exportStl(page);
+		const exact = (disc(5) - disc(2.65)) * 1;
+		expect(Math.abs(stl.volume - exact) / exact).toBeLessThan(0.001);
+		await expect(page.getByRole('toolbar', { name: 'View controls' }).getByRole('button', { name: 'Simple threads' })).toHaveCount(0);
+		await tile(page, 'Standoff').click();
+		await expect(page.getByRole('toolbar', { name: 'View controls' }).getByRole('button', { name: 'Simple threads' })).toBeVisible();
+	});
+
+	test('a standoff has Size, Ends (Female-female) and Fit, is 10 mm long, and exports as a hex with a thread right through it', async ({
+		page,
+	}) => {
+		await tile(page, 'Standoff').click();
+		await row(page, 0).click();
+		await expect(field(page, 'Ends')).toHaveValue('1');
+		await expect(field(page, 'Fit')).toHaveValue('2');
+		await expect(field(page, 'Length')).toHaveValue('10');
+		const exact = hexArea(8) * 10 - Math.PI * 10 * mean(2.7, 0.8);
+		expect(Math.abs((await exportStl(page)).volume - exact) / exact).toBeLessThan(0.006);
+	});
+
+	test('a male standoff has a 10 mm stud under its body: Length stays 10 and it is 20 mm tall', async ({ page }) => {
+		await tile(page, 'Standoff').click();
+		await row(page, 0).click();
+		await pick(page, 'Ends', 'Male-female');
+		await expect(field(page, 'Length')).toHaveValue('10');
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		const stl = await exportStl(page);
+		expect(stl.max[2]).toBeCloseTo(20, 3);
+		const exact = Math.PI * 10 * mean(2.5, 0.8) + hexArea(8) * 10 - Math.PI * 5 * mean(2.7, 0.8);
+		expect(Math.abs(stl.volume - exact) / exact).toBeLessThan(0.006);
+	});
+
+	test('a standoff cannot be made shorter than it can hold (an M5 male one needs a 10 mm body)', async ({ page }) => {
+		await tile(page, 'Standoff').click();
+		await row(page, 0).click();
+		await pick(page, 'Ends', 'Male-female');
+		await field(page, 'Length').fill('3');
+		await field(page, 'Length').press('Enter');
+		await expect(field(page, 'Length')).toHaveValue('10');
+	});
+});

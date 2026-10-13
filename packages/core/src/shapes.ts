@@ -1,4 +1,14 @@
-import { DEFAULT_FIT, DEFAULT_HEAD, DEFAULT_THREAD_DIAMETER, defaultThreadSize, FITS, HEADS, THREAD_SIZES } from './threadStandards.ts';
+import {
+	DEFAULT_FIT,
+	DEFAULT_HEAD,
+	DEFAULT_STANDOFF_TYPE,
+	DEFAULT_THREAD_DIAMETER,
+	defaultThreadSize,
+	FITS,
+	HEADS,
+	STANDOFF_TYPES,
+	THREAD_SIZES,
+} from './threadStandards.ts';
 
 export type ShapeType =
 	| 'box'
@@ -18,7 +28,9 @@ export type ShapeType =
 	| 'threaded-rod'
 	| 'threaded-hole'
 	| 'bolt'
-	| 'nut';
+	| 'nut'
+	| 'washer'
+	| 'standoff';
 
 /**
  * One setting a shape has besides its size (the Properties panel makes a field for each). It is kept as a share of the shape (0.3 is 30% of
@@ -58,6 +70,7 @@ export interface ShapeDef {
 
 const SIZE_CHOICES = THREAD_SIZES.map((t) => ({ value: t.diameter, label: `M${t.diameter}` }));
 const HEAD_CHOICES = HEADS.map((h) => ({ value: h.value, label: h.label }));
+const TYPE_CHOICES = STANDOFF_TYPES.map((t) => ({ value: t.value, label: t.label }));
 const FIT_CHOICES = FITS.map((f) => ({ value: f.value, label: f.label }));
 
 /**
@@ -149,6 +162,28 @@ export const SHAPE_DEFS: readonly ShapeDef[] = [
 		fixedFootprint: true,
 		params: [
 			{ key: 'size', label: 'Size', choices: SIZE_CHOICES, default: DEFAULT_THREAD_DIAMETER, min: 2, max: 12, mmPerUnit: () => 1 },
+			{ key: 'fit', label: 'Fit', choices: FIT_CHOICES, default: DEFAULT_FIT, min: 1, max: 3, mmPerUnit: () => 1 },
+		],
+	},
+	{
+		id: 'washer',
+		name: 'Washer',
+		// an M5 washer, 10 mm across and 1 mm thick
+		defaultSize: defaultThreadSize('washer', 0),
+		color: '#8d99ae',
+		fixedFootprint: true,
+		params: [{ key: 'size', label: 'Size', choices: SIZE_CHOICES, default: DEFAULT_THREAD_DIAMETER, min: 2, max: 12, mmPerUnit: () => 1 }],
+	},
+	{
+		id: 'standoff',
+		name: 'Standoff',
+		// an M5 female standoff, 10 mm long
+		defaultSize: defaultThreadSize('standoff', 0),
+		color: '#f28c28',
+		fixedFootprint: true,
+		params: [
+			{ key: 'size', label: 'Size', choices: SIZE_CHOICES, default: DEFAULT_THREAD_DIAMETER, min: 2, max: 12, mmPerUnit: () => 1 },
+			{ key: 'type', label: 'Ends', choices: TYPE_CHOICES, default: DEFAULT_STANDOFF_TYPE, min: 1, max: 2, mmPerUnit: () => 1 },
 			{ key: 'fit', label: 'Fit', choices: FIT_CHOICES, default: DEFAULT_FIT, min: 1, max: 3, mmPerUnit: () => 1 },
 		],
 	},
