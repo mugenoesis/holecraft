@@ -699,6 +699,14 @@ button.primary:disabled {
 	border-radius: 50%;
 }
 
+.swatch.hexagon {
+	clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0 50%);
+}
+
+.swatch.star {
+	clip-path: polygon(50% 0, 62% 36%, 98% 38%, 69% 59%, 79% 95%, 50% 74%, 21% 95%, 31% 59%, 2% 38%, 38% 36%);
+}
+
 .object-list {
 	margin: 0;
 	padding: 0;

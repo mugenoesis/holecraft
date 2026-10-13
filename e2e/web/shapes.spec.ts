@@ -8,7 +8,21 @@ import { parseStl } from './meshFiles.ts';
  * dimensions give (worked out here by hand), proving it is built right all the way through the CSG engine and the export.
  */
 
-const TILES = ['Box', 'Cylinder', 'Sphere', 'Cone', 'Pyramid', 'Wedge', 'Roof', 'Round Roof', 'Half Sphere', 'Tube', 'Torus'];
+const TILES = [
+	'Box',
+	'Cylinder',
+	'Sphere',
+	'Cone',
+	'Pyramid',
+	'Wedge',
+	'Roof',
+	'Round Roof',
+	'Half Sphere',
+	'Tube',
+	'Torus',
+	'Hexagon',
+	'Star',
+];
 const list = (page: Page) => page.getByTestId('object-list');
 const tile = (page: Page, name: string) => page.getByRole('region', { name: 'Shapes' }).getByRole('button', { name, exact: true });
 
@@ -172,5 +186,47 @@ test.describe('shapes with settings of their own', () => {
 		await page.getByRole('heading', { name: 'Objects' }).click();
 		await page.keyboard.press('Control+z');
 		await expect(field(page, 'Wall thickness')).toHaveValue('3');
+	});
+});
+
+/*
+ * The hexagon (a plain stretched solid, a nut's outline) and the star (five tips, with an Inner radius setting), exported for real:
+ * the volumes are worked out here by hand from the outlines.
+ */
+test.describe('the hexagon and the star', () => {
+	test('a hexagon exports with the volume of its outline: 3/4 of its box (20 x 17.32 x 20 mm)', async ({ page }) => {
+		await tile(page, 'Hexagon').click();
+		const stl = await exportStl(page);
+		expect(stl.volume).toBeCloseTo(0.75 * 20 * 17.32 * 20, 1);
+		expect(stl.min.map((v) => Math.round(v * 100) / 100)).toEqual([-10, -8.66, 0]);
+		expect(stl.max.map((v) => Math.round(v * 100) / 100)).toEqual([10, 8.66, 20]);
+	});
+
+	test('a star has an Inner radius field (4 mm to start) and a hexagon does not', async ({ page }) => {
+		for (const name of ['Hexagon', 'Star']) await tile(page, name).click();
+		await row(page, 1).click();
+		await expect(field(page, 'Inner radius')).toHaveValue('4');
+		await row(page, 0).click();
+		await expect(field(page, 'Inner radius')).toHaveCount(0);
+	});
+
+	test('a star exports with the volume of its outline, and a fatter inner radius makes it heavier', async ({ page }) => {
+		const star = (r: number) =>
+			5 * r * Math.sin(Math.PI / 5) * (20 / (2 * Math.sin((2 * Math.PI) / 5))) * (19.02 / (1 + Math.cos(Math.PI / 5))) * 10;
+		await tile(page, 'Star').click();
+		expect((await exportStl(page)).volume).toBeCloseTo(star(0.4), 0);
+		await row(page, 0).click();
+		await field(page, 'Inner radius').fill('6');
+		await field(page, 'Inner radius').press('Enter');
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		expect((await exportStl(page)).volume).toBeCloseTo(star(0.6), 0);
+	});
+
+	test('a star’s inner radius grows with it when resized (4 mm at 20 wide, 8 mm at 40)', async ({ page }) => {
+		await tile(page, 'Star').click();
+		await row(page, 0).click();
+		await field(page, 'Width').fill('40');
+		await field(page, 'Width').press('Enter');
+		await expect(field(page, 'Inner radius')).toHaveValue('8');
 	});
 });

@@ -9,7 +9,9 @@ export type ShapeType =
 	| 'round-roof'
 	| 'half-sphere'
 	| 'tube'
-	| 'torus';
+	| 'torus'
+	| 'hexagon'
+	| 'star';
 
 /**
  * One setting a shape has besides its size (the Properties panel makes a field for each). It is kept as a share of the shape (0.3 is 30% of
@@ -68,6 +70,15 @@ export const SHAPE_DEFS: readonly ShapeDef[] = [
 		color: '#e76f51',
 		// the ring's tube is a share of the narrower side: a third of 30 mm is the 10 mm a 30 mm torus starts with (at most 0.45, so a hole is left)
 		params: [{ key: 'thickness', label: 'Ring thickness', default: 1 / 3, min: 0.02, max: 0.45, mmPerUnit: ([w, d]) => Math.min(w, d) }],
+	},
+	{ id: 'hexagon', name: 'Hexagon', defaultSize: [20, 17.32, 20], color: '#8d99ae' },
+	{
+		id: 'star',
+		name: 'Star',
+		defaultSize: [20, 19.02, 10],
+		color: '#f28c28',
+		// the inner radius is a share of the half-width: 0.4 of 10 mm is the 4 mm a 20 mm wide star starts with
+		params: [{ key: 'inner', label: 'Inner radius', default: 0.4, min: 0.1, max: 0.9, mmPerUnit: ([w]) => w / 2 }],
 	},
 ];
 
