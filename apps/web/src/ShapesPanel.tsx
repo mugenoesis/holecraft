@@ -1,4 +1,14 @@
-import { type Design, hasHiddenNodes, type NodeId, nodeBoundsIn, SHAPE_DEFS, type ShapeType, translationOf } from '@holecraft/core';
+import {
+	type Design,
+	filterShapes,
+	hasHiddenNodes,
+	type NodeId,
+	nodeBoundsIn,
+	SHAPE_CATEGORIES,
+	type ShapeCategory,
+	type ShapeType,
+	translationOf,
+} from '@holecraft/core';
 import { type Dispatch, type DragEvent, type KeyboardEvent, useState } from 'react';
 import type { EditorAction } from './editorState.ts';
 import { SHAPE_DRAG_TYPE } from './shapeDrag.ts';
@@ -6,6 +16,11 @@ import { SHAPE_DRAG_TYPE } from './shapeDrag.ts';
 const fmt = (n: number) => String(Number(n.toFixed(2)));
 
 export function ShapesPanel({ onAddShape }: { onAddShape: (type: ShapeType) => void }) {
+	// a search and a category narrow what is shown; nothing about them is saved
+	const [query, setQuery] = useState('');
+	const [category, setCategory] = useState<ShapeCategory | 'all'>('all');
+	const shapes = filterShapes(query, category);
+
 	const onDragStart = (e: DragEvent, type: ShapeType) => {
 		e.dataTransfer.setData(SHAPE_DRAG_TYPE, type);
 		e.dataTransfer.effectAllowed = 'copy';
@@ -21,9 +36,34 @@ export function ShapesPanel({ onAddShape }: { onAddShape: (type: ShapeType) => v
 	return (
 		<section aria-label="Shapes">
 			<h2>Shapes</h2>
-			<p className="muted hint">Drag onto the workplane, or click to add at the centre.</p>
+			<input
+				type="search"
+				className="shape-search"
+				aria-label="Search shapes"
+				placeholder="Search shapes"
+				title="Find a shape by name (Enter adds the first one, Esc clears)"
+				value={query}
+				onChange={(e) => setQuery(e.target.value)}
+				onKeyDown={(e) => {
+					if (e.key === 'Escape') setQuery('');
+					if (e.key === 'Enter' && shapes[0]) onAddShape(shapes[0].id);
+				}}
+			/>
+			<div className="shape-chips" role="group" aria-label="Categories">
+				{[{ id: 'all' as const, label: 'All' }, ...SHAPE_CATEGORIES].map((c) => (
+					<button key={c.id} type="button" aria-pressed={category === c.id} onClick={() => setCategory(c.id)}>
+						{c.label}
+					</button>
+				))}
+			</div>
+			<p className="muted hint">Click to add, or drag onto the plane.</p>
+			{shapes.length === 0 && (
+				<p className="muted" role="status">
+					No shape matches “{query.trim()}”
+				</p>
+			)}
 			<div className="shape-grid">
-				{SHAPE_DEFS.map((def) => (
+				{shapes.map((def) => (
 					<div
 						key={def.id}
 						role="button"

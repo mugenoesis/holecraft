@@ -54,8 +54,14 @@ export interface ParamDef {
 	mmPerUnit: (size: readonly [number, number, number]) => number;
 }
 
+export type ShapeCategory = 'basic' | 'parametric' | 'fasteners';
+
 export interface ShapeDef {
 	id: ShapeType;
+	/** Which group of the Shapes panel it is in (the chips). */
+	category: ShapeCategory;
+	/** Other words it can be found by in the panel's search ("ring" finds a torus). */
+	keywords: readonly string[];
 	name: string;
 	/** Width (X), depth (Y), height (Z) in mm. */
 	defaultSize: [number, number, number];
@@ -77,7 +83,9 @@ const FIT_CHOICES = FITS.map((f) => ({ value: f.value, label: f.label }));
  * Built-in shapes. Each is built into a unit-sized mesh whose base sits on z=0 and is
  * scaled by its width/depth/height params, so the document only stores sizes.
  */
-export const SHAPE_DEFS: readonly ShapeDef[] = [
+type BaseDef = Omit<ShapeDef, 'category' | 'keywords'>;
+
+const BASE_DEFS: readonly BaseDef[] = [
 	{ id: 'box', name: 'Box', defaultSize: [20, 20, 20], color: '#f28c28' },
 	{ id: 'cylinder', name: 'Cylinder', defaultSize: [20, 20, 20], color: '#2a9d8f' },
 	{ id: 'sphere', name: 'Sphere', defaultSize: [20, 20, 20], color: '#e76f51' },
@@ -188,6 +196,32 @@ export const SHAPE_DEFS: readonly ShapeDef[] = [
 		],
 	},
 ];
+
+/** Where each shape sits in the panel, and what else it is called. */
+const PANEL: Record<ShapeType, { category: ShapeCategory; keywords: readonly string[] }> = {
+	box: { category: 'basic', keywords: ['cube', 'block', 'square'] },
+	cylinder: { category: 'basic', keywords: ['round', 'can', 'rod'] },
+	sphere: { category: 'basic', keywords: ['ball', 'round'] },
+	cone: { category: 'basic', keywords: ['point', 'funnel'] },
+	pyramid: { category: 'basic', keywords: ['triangle', 'point'] },
+	wedge: { category: 'basic', keywords: ['ramp', 'slope', 'triangle'] },
+	roof: { category: 'basic', keywords: ['house', 'ridge', 'triangle'] },
+	'round-roof': { category: 'basic', keywords: ['arch', 'half pipe'] },
+	'half-sphere': { category: 'basic', keywords: ['dome', 'hemisphere', 'bowl'] },
+	hexagon: { category: 'basic', keywords: ['six sides', 'prism'] },
+	tube: { category: 'parametric', keywords: ['pipe', 'ring', 'hollow'] },
+	torus: { category: 'parametric', keywords: ['ring', 'donut', 'o-ring'] },
+	star: { category: 'parametric', keywords: ['five', 'points'] },
+	polygon: { category: 'parametric', keywords: ['pentagon', 'sides', 'regular'] },
+	'threaded-rod': { category: 'fasteners', keywords: ['screw', 'thread', 'stud', 'metric', 'inch'] },
+	'threaded-hole': { category: 'fasteners', keywords: ['screw', 'thread', 'tap', 'cutter'] },
+	bolt: { category: 'fasteners', keywords: ['screw', 'thread', 'head', 'fastener'] },
+	nut: { category: 'fasteners', keywords: ['hex', 'thread', 'fastener'] },
+	washer: { category: 'fasteners', keywords: ['ring', 'flat', 'fastener'] },
+	standoff: { category: 'fasteners', keywords: ['spacer', 'hex', 'thread', 'fastener'] },
+};
+
+export const SHAPE_DEFS: readonly ShapeDef[] = BASE_DEFS.map((d) => ({ ...d, ...PANEL[d.id] }));
 
 export function isShapeType(value: string): value is ShapeType {
 	return SHAPE_DEFS.some((d) => d.id === value);

@@ -24,6 +24,7 @@ export * from './ring.ts';
 export * from './rotation.ts';
 export * from './ruler.ts';
 export * from './rulerSnap.ts';
+export * from './shapeSearch.ts';
 export * from './shapes.ts';
 export * from './solidShapes.ts';
 export * from './surfacePlane.ts';
