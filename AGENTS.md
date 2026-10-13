@@ -7,12 +7,11 @@ Keep updating it as phases complete, but don't expect to find it in a fresh clon
 
 ## What this project is
 
-Holecraft is an **open-source (AGPL-3.0), offline, Tinkercad-inspired 3D modeler**. It is
-*inspired by* Tinkercad's workflow and is **not a clone**:
-- Never copy Tinkercad's name, logo, icons, artwork, color scheme, text, or code.
-- Never fetch assets from tinkercad.com.
-- Design our own UI and interaction specs. Tinkercad is a reference only for which
-  capabilities to offer.
+Holecraft is an **open-source (AGPL-3.0), offline, easy-to-use 3D modeler**. It has its own
+code, name and design:
+- Never copy another product's name, logo, icons, artwork, color scheme, text, or code.
+- Never fetch assets from other products' sites.
+- Design our own UI and interaction specs.
 
 Ships as a Docker web service and a Linux Electron app built from one codebase.
 
@@ -140,7 +139,7 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   the shapes panel test checks every other type has a mesh. **Every one is the same seen left to right (x-symmetric), which `flipNodes` depends on**: keep that when
   adding shapes, or give the shape its own flip rule. Tests derive volumes from the shapes' dimensions, not the code, and exports are checked in the browser.
 - **Shapes with settings of their own (the parametric system)**: a `ShapeDef` may declare `params: ParamDef[]` (`key`, `label`, `default`, `min`, `max`, and `mmPerUnit(size)`).
-  Tube (`wall`), Torus (`thickness`), Star (`inner`, the inner corners' radius as a share of the half-width) and Polygon (`sides`, a count) so far. **The blueprint is Tinkercad: a shape is generated, then simply scaled when you drag its handles, so the whole thing,
+  Tube (`wall`), Torus (`thickness`), Star (`inner`, the inner corners' radius as a share of the half-width) and Polygon (`sides`, a count) so far. **The blueprint: a shape is generated, then simply scaled when you drag its handles, so the whole thing,
   setting included, stretches evenly.** So a setting is kept in `node.params` as a **share of the shape** (0.3 = 30% of the narrower radius; no format change, validate keeps extra
   numeric params), never as a fixed mm. The Properties field shows and takes **mm for the shape as it is now** (`shapeParamMm`, `typedParamMm`, `setShapeParam` converts mm to a share),
   so resizing a tube from 20 to 40 mm makes its wall 3 then 6 mm and the field follows. What was typed is kept and limited to `[min, max]` only when read (`shapeParam`), so shrinking a
@@ -193,7 +192,7 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   place that builds an imported model honours it: `DesignScene.geometryForNode` (its own cached geometry per way round) and `Evaluation.imported` (CSG, edges,
   export). Anything new that reads a model's stored mesh must do the same. Threads are not x-symmetric either (a helix) but flip as a turned copy, which
   keeps them right-handed, as a real fastener should be. A new non-symmetric shape (text, say) would need the same kind of mirror setting.
-- UI is `ArrangePanel` (actions `align` / `flip`); no keyboard shortcuts yet (Tinkercad-style L and M are reserved for tools).
+- UI is `ArrangePanel` (actions `align` / `flip`); no keyboard shortcuts yet (L and M are reserved for tools).
 
 ## Duplicate and repeat
 - `EditorState.lastDuplicate = { sources, copies }` is set by every duplicate. When the selection is exactly those copies,

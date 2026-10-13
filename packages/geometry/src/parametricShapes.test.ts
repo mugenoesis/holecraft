@@ -55,7 +55,7 @@ describe('the tube in the CSG engine', () => {
 		expect(volume(mesh)).toBeCloseTo((area(10, 15) - area(7, 10.5)) * 12, 2);
 	});
 
-	it('stretches evenly when it is made bigger: the wall and the hole grow with it (the way Tinkercad scales a shape)', () => {
+	it('stretches evenly when it is made bigger: the wall and the hole grow with it', () => {
 		const small = one('tube', [20, 20, 20], { wall: 2 }); // 2 mm of the 10 mm radius: 20%
 		expect(volume(evaluateNode(M, small, 'a')!)).toBeCloseTo((area(10, 10) - area(8, 8)) * 20, 2);
 		const big = setShapeSize(small, 'a', { width: 40, depth: 40 });
