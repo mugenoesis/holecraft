@@ -688,6 +688,17 @@ button.primary:disabled {
 	clip-path: ellipse(50% 72% at 50% 100%);
 }
 
+/* a ring seen from above (a tube) or slightly from the side (a torus): the middle is cut out */
+.swatch.tube {
+	border-radius: 50%;
+	mask: radial-gradient(circle, transparent 38%, #000 40%);
+}
+
+.swatch.torus {
+	mask: radial-gradient(ellipse 50% 32%, transparent 55%, #000 58%);
+	border-radius: 50%;
+}
+
 .object-list {
 	margin: 0;
 	padding: 0;

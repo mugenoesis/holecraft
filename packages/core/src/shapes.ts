@@ -1,4 +1,33 @@
-export type ShapeType = 'box' | 'cylinder' | 'sphere' | 'cone' | 'pyramid' | 'wedge' | 'roof' | 'round-roof' | 'half-sphere';
+export type ShapeType =
+	| 'box'
+	| 'cylinder'
+	| 'sphere'
+	| 'cone'
+	| 'pyramid'
+	| 'wedge'
+	| 'roof'
+	| 'round-roof'
+	| 'half-sphere'
+	| 'tube'
+	| 'torus';
+
+/**
+ * One setting a shape has besides its size (the Properties panel makes a field for each). It is kept as a share of the shape (0.3 is 30% of
+ * the radius), so the whole shape, setting included, stretches evenly when it is resized and nothing about it breaks; the field shows and takes mm.
+ */
+export interface ParamDef {
+	/** Where it is kept in the node's params. */
+	key: string;
+	label: string;
+	/** The share it starts at. */
+	default: number;
+	/** The least share it may be. */
+	min: number;
+	/** The most share it may be: a wall can never fill the whole tube. */
+	max: number;
+	/** How many mm a share of 1 is for a shape of this width, depth and height: what the Properties field shows and takes. */
+	mmPerUnit: (size: readonly [number, number, number]) => number;
+}
 
 export interface ShapeDef {
 	id: ShapeType;
@@ -6,6 +35,8 @@ export interface ShapeDef {
 	/** Width (X), depth (Y), height (Z) in mm. */
 	defaultSize: [number, number, number];
 	color: string;
+	/** Settings besides the size. A shape with some is built at its real size from them (see parametricMesh), not stretched from a unit mesh. */
+	params?: readonly ParamDef[];
 }
 
 /**
@@ -22,6 +53,22 @@ export const SHAPE_DEFS: readonly ShapeDef[] = [
 	{ id: 'roof', name: 'Roof', defaultSize: [20, 20, 20], color: '#e76f51' },
 	{ id: 'round-roof', name: 'Round Roof', defaultSize: [20, 20, 20], color: '#8d99ae' },
 	{ id: 'half-sphere', name: 'Half Sphere', defaultSize: [20, 20, 20], color: '#f28c28' },
+	{
+		id: 'tube',
+		name: 'Tube',
+		defaultSize: [20, 20, 20],
+		color: '#2a9d8f',
+		// the wall is a share of the narrower radius: 0.3 of 10 mm is the 3 mm a 20 mm tube starts with
+		params: [{ key: 'wall', label: 'Wall thickness', default: 0.3, min: 0.02, max: 0.95, mmPerUnit: ([w, d]) => Math.min(w, d) / 2 }],
+	},
+	{
+		id: 'torus',
+		name: 'Torus',
+		defaultSize: [30, 30, 10],
+		color: '#e76f51',
+		// the ring's tube is a share of the narrower side: a third of 30 mm is the 10 mm a 30 mm torus starts with (at most 0.45, so a hole is left)
+		params: [{ key: 'thickness', label: 'Ring thickness', default: 1 / 3, min: 0.02, max: 0.45, mmPerUnit: ([w, d]) => Math.min(w, d) }],
+	},
 ];
 
 export function isShapeType(value: string): value is ShapeType {

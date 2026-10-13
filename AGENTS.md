@@ -135,6 +135,17 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   (`createUnitGeometry`, creased normals) and CSG builds it with `Manifold.ofMesh(...).scale(size)`. Box, cylinder and sphere keep their own builders, and
   the shapes panel test checks every other type has a mesh. **Every one is the same seen left to right (x-symmetric), which `flipNodes` depends on**: keep that when
   adding shapes, or give the shape its own flip rule. Tests derive volumes from the shapes' dimensions, not the code, and exports are checked in the browser.
+- **Shapes with settings of their own (the parametric system)**: a `ShapeDef` may declare `params: ParamDef[]` (`key`, `label`, `default`, `min`, `max`, and `mmPerUnit(size)`).
+  Tube (`wall`) and Torus (`thickness`) are the first. **The blueprint is Tinkercad: a shape is generated, then simply scaled when you drag its handles, so the whole thing,
+  setting included, stretches evenly.** So a setting is kept in `node.params` as a **share of the shape** (0.3 = 30% of the narrower radius; no format change, validate keeps extra
+  numeric params), never as a fixed mm. The Properties field shows and takes **mm for the shape as it is now** (`shapeParamMm`, `typedParamMm`, `setShapeParam` converts mm to a share),
+  so resizing a tube from 20 to 40 mm makes its wall 3 then 6 mm and the field follows. What was typed is kept and limited to `[min, max]` only when read (`shapeParam`), so shrinking a
+  shape and growing it back loses nothing; `setShapeParam` refuses locked shapes, unknown settings and values not above 0. Because the shape is an affine stretch of its own outline,
+  **group resize, typing a size and edge-treatment stretching (`stretchTreatments`) are all exact for it: nothing breaks once it is made** (tested: chamfers on a tube survive a
+  resize and remove the same material as chamfering the resized tube directly). It is built by `parametricShape(node)` (core/parametricShapes.ts: `tube` and `torus` builders,
+  `PARAMETRIC_TYPES`); CSG uses `Manifold.ofMesh` with no scale and `DesignScene.realSizeMesh` keys its geometry on the size and the effective settings. `ShapeParamFields` makes a
+  Properties field per declared setting (with a `param-limited` hint) and `setShapeParam` is one undo step. **To add a shape with settings**: add the def (with `params`), a builder in
+  `BUILDERS` that is an affine function of width/depth/height, a tile icon in styles.css; keep it x-symmetric for Flip. Do not make a setting a fixed mm that does not scale with the size.
 - Raycasts in scene tests must use `intersectObject(mesh, false)`: the selection outline is a child made of lines, and a recursive ray hits it.
 - Parametric shapes (torus, tube, polygon, star...) need a declared parameter schema first (see PLAN.md 6b); these six are plain stretched solids.
 

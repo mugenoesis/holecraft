@@ -9,6 +9,7 @@ import {
 	MESH_SHAPE_TYPE,
 	type MeshData,
 	type NodeId,
+	parametricShape,
 	type ShapeNode,
 	sharpEdges,
 	unitSolidMesh,
@@ -138,6 +139,12 @@ class Evaluation {
 			const points: [number, number, number][] = [];
 			for (let i = 0; i < mesh.positions.length; i += 3) points.push([mesh.positions[i]!, mesh.positions[i + 1]!, mesh.positions[i + 2]!]);
 			return this.track(Manifold.hull(points));
+		}
+		// a shape built from its settings (a tube's wall, a ring's thickness) is already at its real size: no stretching
+		const built = parametricShape(node);
+		if (built) {
+			const mesh = new this.M.Mesh({ numProp: 3, vertProperties: built.positions, triVerts: built.indices });
+			return this.track(Manifold.ofMesh(mesh));
 		}
 		const solid = unitSolidMesh(node.shapeType);
 		if (solid) {
