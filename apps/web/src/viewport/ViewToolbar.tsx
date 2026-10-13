@@ -26,6 +26,10 @@ interface Props {
 	/** True while a Workplane-tool plane is in use, which adds a way back to the floor. */
 	planeActive: boolean;
 	onResetPlane: () => void;
+	/** Offered only when the design has a thread: draw threads as plain cylinders while editing (the export is always the real thread). */
+	hasThreads: boolean;
+	simpleThreads: boolean;
+	onToggleSimpleThreads: () => void;
 }
 
 export function ViewToolbar({
@@ -37,6 +41,9 @@ export function ViewToolbar({
 	onToggleTool,
 	planeActive,
 	onResetPlane,
+	hasThreads,
+	simpleThreads,
+	onToggleSimpleThreads,
 }: Props) {
 	return (
 		<div className="viewport-toolbar" role="toolbar" aria-label="View controls">
@@ -91,6 +98,17 @@ export function ViewToolbar({
 			>
 				Edges
 			</button>
+			{hasThreads && (
+				<button
+					type="button"
+					aria-pressed={simpleThreads}
+					aria-label="Simple threads"
+					title="Draw threads as plain cylinders while you edit, which is much quicker for long ones. Exports always have the real thread"
+					onClick={onToggleSimpleThreads}
+				>
+					Simple threads
+				</button>
+			)}
 			{planeActive && (
 				<button type="button" aria-label="Back to the floor" title="Put new shapes on the floor again" onClick={onResetPlane}>
 					Floor

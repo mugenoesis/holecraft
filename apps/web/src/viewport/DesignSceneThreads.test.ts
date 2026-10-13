@@ -1,4 +1,4 @@
-import { addShape, createEmptyDesign, setShapeParam, setShapeSize } from '@holecraft/core';
+import { addShape, createEmptyDesign, setShapeParam, setShapeSize, withSimpleThreads } from '@holecraft/core';
 import * as THREE from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DesignScene } from './DesignScene.ts';
@@ -64,5 +64,22 @@ describe('DesignScene: bolts and nuts', () => {
 		const down = (x: number) => new THREE.Raycaster(new THREE.Vector3(x, 0, 100), new THREE.Vector3(0, 0, -1));
 		expect(scene.pick(down(0))).toBeNull();
 		expect(scene.pick(down(3.5))).toBe('a'); // the thread's root is about 2.1 mm out, the hex goes out to 4
+	});
+});
+
+describe('DesignScene: simple threads', () => {
+	const triangles = (m: THREE.Mesh) => m.geometry.attributes.position!.count / 3;
+
+	it('draws a thread as a plain cylinder when asked, and as the real thread again when not, from the same design', () => {
+		let d = addShape(createEmptyDesign('d'), 'threaded-rod', [0, 0], { id: 'a' }).design;
+		d = setShapeSize(d, 'a', { height: 60 });
+		scene.sync(d);
+		const real = triangles(meshOf());
+		expect(real).toBeGreaterThan(100_000);
+		scene.sync(withSimpleThreads(d));
+		expect(triangles(meshOf())).toBeLessThan(500);
+		expect(sizeOf(meshOf())).toEqual([5, 5, 60]);
+		scene.sync(d);
+		expect(triangles(meshOf())).toBe(real);
 	});
 });

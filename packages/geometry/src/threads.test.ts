@@ -1,4 +1,13 @@
-import { addShape, createEmptyDesign, type Design, groupNodes, type ShapeNode, setShapeParam, setShapeSize } from '@holecraft/core';
+import {
+	addShape,
+	createEmptyDesign,
+	type Design,
+	groupNodes,
+	type ShapeNode,
+	setShapeParam,
+	setShapeSize,
+	withSimpleThreads,
+} from '@holecraft/core';
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { evaluateGroup, evaluateNode } from './evaluate.ts';
@@ -99,5 +108,28 @@ describe('a bolt and its nut', () => {
 		const screw = asManifold(evaluateNode(M, bolt(5, 1, 30), 'a')!);
 		const hole = asManifold(evaluateNode(M, threaded('threaded-hole', { size: 5 }, 40), 'a')!);
 		expect(screw.intersect(hole).volume()).toBeGreaterThan(0); // the head (8 mm across flats) is wider than the 5.4 mm hole
+	});
+});
+
+describe('the simple thread detail in the CSG engine', () => {
+	it('works out a block with a long threaded hole from a plain cylinder: a small fraction of the triangles, about the same material', () => {
+		let d = addShape(createEmptyDesign('d'), 'box', [0, 0], { id: 'b' }).design;
+		d = setShapeSize(d, 'b', { width: 40, depth: 40, height: 60 });
+		d = addShape(d, 'threaded-hole', [0, 0], { id: 'h' }).design;
+		d = setShapeSize(d, 'h', { height: 60 });
+		const [real, simple] = [d, withSimpleThreads(d)].map((x) => evaluateGroup(M, groupNodes(x, ['b', 'h'], { id: 'g' }).design, 'g')!) as [
+			GroupMesh,
+			GroupMesh,
+		];
+		expect(simple.indices.length).toBeLessThan(real.indices.length / 20);
+		const [vReal, vSimple] = [asManifold(real).volume(), asManifold(simple).volume()];
+		expect(Math.abs(vSimple - vReal) / vReal).toBeLessThan(0.01);
+	});
+
+	it('a bolt’s hex head is cut the same either way', () => {
+		const d = addShape(createEmptyDesign('d'), 'bolt', [0, 0], { id: 'a' }).design;
+		const head = (x: Design) =>
+			asManifold(evaluateNode(M, x, 'a')!).intersect(M.Manifold.cube([20, 20, 3.5], true).translate([0, 0, 20 + 3.5 / 2]));
+		expect(head(withSimpleThreads(d)).volume()).toBeCloseTo(head(d).volume(), 3);
 	});
 });
