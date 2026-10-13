@@ -1,4 +1,4 @@
-import { fontOf, type ShapeNode, textOf, textOutlines } from '@holecraft/core';
+import { fontOf, isMirrored, type ShapeNode, textOf, textOutlines } from '@holecraft/core';
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 
 /**
@@ -13,9 +13,11 @@ export function textSolid(M: ManifoldToplevel, node: ShapeNode): Manifold {
 	const flat = M.CrossSection.ofPolygons(outline.polygons, 'NonZero');
 	const centred = flat.translate([-(min[0] + max[0]) / 2, -(min[1] + max[1]) / 2]);
 	const fitted = centred.scale([width / (max[0] - min[0]), depth / (max[1] - min[1])]);
+	// a flipped text is the mirror image, so its letters read backwards (a turned copy would not)
+	const shown = isMirrored(node) ? fitted.mirror([1, 0]) : fitted;
 	try {
-		return fitted.extrude(height);
+		return shown.extrude(height);
 	} finally {
-		for (const section of [flat, centred, fitted]) section.delete();
+		for (const section of new Set([flat, centred, fitted, shown])) section.delete();
 	}
 }

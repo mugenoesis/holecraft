@@ -18,7 +18,7 @@ describe('the Shapes panel to start with', () => {
 
 	it('shows a tile for every shape, in order, and no "nothing matches" message', () => {
 		const tiles = [...html.matchAll(/class="shape-tile"[^>]*>.*?<\/span>([^<]+)<\/div>/g)].map((m) => m[1]);
-		expect(tiles).toEqual(SHAPE_DEFS.map((d) => d.name));
+		expect(tiles).toEqual(SHAPE_DEFS.filter((d) => !d.noTile).map((d) => d.name)); // a sketch is drawn, not picked
 		expect(html).not.toContain('No shape matches');
 	});
 });

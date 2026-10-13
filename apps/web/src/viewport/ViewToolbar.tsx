@@ -55,6 +55,7 @@ function toggles(p: Props): Toggle[] {
 		tool('workplane', 'Workplane', 'Build on a face: click a face to put new shapes on it (W)'),
 		tool('edges', 'Edges', 'Chamfer or round edges of the selected shape (E)'),
 		tool('paint', 'Paint', "Paint faces in the design's filament colours: click a face (N)"),
+		tool('sketch', 'Sketch', 'Draw a 2D sketch on the floor or a chosen face, then extrude it into a shape (K)'),
 	];
 	if (p.hasThreads)
 		list.push({

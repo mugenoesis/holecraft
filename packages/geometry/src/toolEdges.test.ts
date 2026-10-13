@@ -47,6 +47,18 @@ const withEdges = (d: Design, id: string, edges: EdgeTreatment[]): Design => ({
 });
 const box = () => addShape(createEmptyDesign('d'), 'box', [0, 0], { id: 'a' }).design;
 
+describe('threads in a group', () => {
+	it('are offered as plain cylinders, so the edges stay few and quick to find', () => {
+		const withRod = addShape(box(), 'threaded-rod', [40, 0], { id: 't' }).design;
+		const { design, id } = groupNodes(withRod, ['a', 't'], { id: 'g' });
+		const started = performance.now();
+		const edges = toolEdges(M, design, id!);
+		expect(performance.now() - started).toBeLessThan(2000);
+		expect(countSegments(edges)).toBeLessThan(500);
+		expect(edges.length).toBeGreaterThanOrEqual(12); // the box's own edges are all still there
+	});
+});
+
 describe('the edges the Edge tool offers', () => {
 	it('a box offers its 12 edges, in its own frame', () => {
 		const edges = toolEdges(M, moveNodes(box(), ['a'], [30, 0, 0]), 'a');

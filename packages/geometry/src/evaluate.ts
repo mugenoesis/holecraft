@@ -22,6 +22,7 @@ import {
 } from '@holecraft/core';
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { treatmentCuts } from './edgeCut.ts';
+import { sketchSolid } from './sketchSolid.ts';
 import { textSolid } from './textSolid.ts';
 import type { GroupMesh } from './types.ts';
 
@@ -173,6 +174,8 @@ class Evaluation {
 				return this.track(this.imported(node).scale(size));
 			case 'text':
 				return this.track(textSolid(this.M, node)); // the letters, already at the shape's size
+			case 'sketch':
+				return this.track(sketchSolid(this.M, node)); // the drawing, already at the shape's size
 			case 'cylinder':
 				return this.track(this.track(Manifold.cylinder(1, 0.5, 0.5, CYLINDER_SEGMENTS, false)).scale(size));
 			case 'sphere':

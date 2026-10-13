@@ -26,7 +26,17 @@ const buttons = (html: string) => [...html.matchAll(/<button[^>]*aria-label="([^
 
 describe('ViewToolbar', () => {
 	it('shows every control on a desktop', () => {
-		expect(buttons(render(false))).toEqual(['Home view', 'Fit all', 'Orthographic', 'Select', 'Ruler', 'Workplane', 'Edges', 'Paint']);
+		expect(buttons(render(false))).toEqual([
+			'Home view',
+			'Fit all',
+			'Orthographic',
+			'Select',
+			'Ruler',
+			'Workplane',
+			'Edges',
+			'Paint',
+			'Sketch',
+		]);
 	});
 
 	it('tucks the tools into a menu in the compact layout', () => {

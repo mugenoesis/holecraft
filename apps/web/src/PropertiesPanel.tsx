@@ -10,6 +10,7 @@ import {
 	lengthOffset,
 	type NodeId,
 	rotationOfTransform,
+	type ShapeNode,
 	translationOf,
 } from '@holecraft/core';
 import type { Dispatch } from 'react';
@@ -41,6 +42,46 @@ interface Props {
 	dispatch: Dispatch<EditorAction>;
 	/** Keeps the selected shape or group in the library of saved shapes. */
 	library: Library;
+	/** Takes the sketch shape back into the Sketch tool to redraw it. */
+	onEditSketch?: (id: NodeId) => void;
+}
+
+/** The settings a kind of shape has besides its size (each shows only for the shapes it belongs to). */
+function ShapeSettings({
+	node,
+	dispatch,
+	onEditSketch,
+}: {
+	node: ShapeNode;
+	dispatch: Dispatch<EditorAction>;
+	onEditSketch: ((id: NodeId) => void) | undefined;
+}) {
+	return (
+		<>
+			<ChamferFields node={node} dispatch={dispatch} />
+			<CountersinkFields node={node} dispatch={dispatch} />
+			<ShapeParamFields node={node} dispatch={dispatch} />
+			<EditSketchButton node={node} onEdit={onEditSketch} />
+		</>
+	);
+}
+
+/** Edit sketch: for a sketch shape only, and off while it is locked. */
+function EditSketchButton({ node, onEdit }: { node: ShapeNode; onEdit: ((id: NodeId) => void) | undefined }) {
+	if (node.shapeType !== 'sketch' || !onEdit) return null;
+	return (
+		<div className="button-row">
+			<button
+				type="button"
+				className="primary"
+				disabled={node.locked}
+				onClick={() => onEdit(node.id)}
+				title="Go back into the drawing tools to change this sketch"
+			>
+				Edit sketch
+			</button>
+		</div>
+	);
 }
 
 /** Save to library, for one shape or group at a time (group several first); a different selection starts the box afresh. */
@@ -67,7 +108,7 @@ function ShapeColour({ design, ids, value, dispatch }: { design: Design; ids: No
 	return <ColourField label="Color" inputLabel="Color" value={value} designColours={design.palette} {...events} />;
 }
 
-export function PropertiesPanel({ design, selection, dispatch, library }: Props) {
+export function PropertiesPanel({ design, selection, dispatch, library, onEditSketch }: Props) {
 	const nodes = selection.flatMap((id) => (design.nodes[id] ? [design.nodes[id]] : []));
 
 	if (nodes.length === 0) {
@@ -221,9 +262,7 @@ export function PropertiesPanel({ design, selection, dispatch, library }: Props)
 				<NumberField label="Rotate X" value={euler[0]} onCommit={turn(0)} />
 				<NumberField label="Rotate Y" value={euler[1]} onCommit={turn(1)} />
 				<NumberField label="Rotate Z" value={euler[2]} onCommit={turn(2)} />
-				{only.kind === 'shape' && <ChamferFields node={only} dispatch={dispatch} />}
-				{only.kind === 'shape' && <CountersinkFields node={only} dispatch={dispatch} />}
-				{only.kind === 'shape' && <ShapeParamFields node={only} dispatch={dispatch} />}
+				{only.kind === 'shape' && <ShapeSettings node={only} dispatch={dispatch} onEditSketch={onEditSketch} />}
 				{typeToggle}
 				{color}
 			</div>

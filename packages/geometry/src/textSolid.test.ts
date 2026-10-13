@@ -2,6 +2,7 @@ import {
 	addShape,
 	createEmptyDesign,
 	type Design,
+	flipNodes,
 	groupNodes,
 	setNodeMode,
 	setShapeParam,
@@ -151,5 +152,30 @@ describe('a Text shape in the CSG engine', () => {
 		expect(b.max[2]).toBeCloseTo(8, 6);
 		expect((b.min[0]! + b.max[0]!) / 2).toBeCloseTo(40, 6);
 		expect(volume(body!.mesh)).toBeCloseTo(volume(evaluateNode(M, d, 't')), 3); // float32 positions, 40 mm out
+	});
+});
+
+describe('a flipped Text shape', () => {
+	it('is the mirror image: an L has its stem at the left, and flipped at the right, with the same volume and the same size', () => {
+		const d = text('L');
+		const flipped = flipNodes(d, ['t'], 'x');
+		const [a, b] = [evaluateGroup(M, d, 't')!, evaluateGroup(M, flipped, 't')!];
+		expect(volume(b)).toBeCloseTo(volume(a), 5);
+		expect(bounds(b).max[0]).toBeCloseTo(bounds(a).max[0]!, 5);
+		// the top of an L is its stem, at the left; mirrored, at the right
+		const topX = (m: GroupMesh) => {
+			const top = bounds(m).max[1]!;
+			let sum = 0;
+			let n = 0;
+			for (let i = 0; i < m.positions.length; i += 3) {
+				if (m.positions[i + 1]! > top - 0.01) {
+					sum += m.positions[i]!;
+					n++;
+				}
+			}
+			return sum / n;
+		};
+		expect(topX(a)).toBeLessThan(-0.5);
+		expect(topX(b)).toBeGreaterThan(0.5);
 	});
 });

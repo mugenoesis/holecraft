@@ -33,7 +33,8 @@ export type ShapeType =
 	| 'nut'
 	| 'washer'
 	| 'standoff'
-	| 'text';
+	| 'text'
+	| 'sketch';
 
 /**
  * One setting a shape has besides its size (the Properties panel makes a field for each). It is kept as a share of the shape (0.3 is 30% of
@@ -73,6 +74,8 @@ export interface ShapeDef {
 	fixedFootprint?: true;
 	/** Starts as a hole, not a solid. */
 	hole?: true;
+	/** Has no tile in the Shapes panel (and is not found by its search): it is made some other way, as a sketch is by drawing it. */
+	noTile?: true;
 	/** Settings it starts with besides its size and its `params` defaults: a text's words. */
 	initial?: Readonly<Record<string, string | number>>;
 	/** Settings besides the size. A shape with some is built at its real size from them (see parametricMesh), not stretched from a unit mesh. */
@@ -210,6 +213,14 @@ const BASE_DEFS: readonly BaseDef[] = [
 		initial: { text: DEFAULT_TEXT },
 		params: [{ key: 'font', label: 'Font', choices: FONT_CHOICES, default: DEFAULT_FONT, min: 1, max: 4, mmPerUnit: () => 1 }],
 	},
+	{
+		// made by the Sketch tool, which gives it its drawing and size; this is only what a damaged or empty one falls back to
+		id: 'sketch',
+		name: 'Sketch',
+		defaultSize: [20, 20, 10],
+		color: '#e76f51',
+		noTile: true,
+	},
 ];
 
 /** Where each shape sits in the panel, and what else it is called. */
@@ -235,6 +246,7 @@ const PANEL: Record<ShapeType, { category: ShapeCategory; keywords: readonly str
 	washer: { category: 'fasteners', keywords: ['ring', 'flat', 'fastener'] },
 	standoff: { category: 'fasteners', keywords: ['spacer', 'hex', 'thread', 'fastener'] },
 	text: { category: 'parametric', keywords: ['letters', 'words', 'label', 'name', 'sign', 'font', 'type'] },
+	sketch: { category: 'parametric', keywords: ['draw', 'outline', 'extrude', '2d'] },
 };
 
 export const SHAPE_DEFS: readonly ShapeDef[] = BASE_DEFS.map((d) => ({ ...d, ...PANEL[d.id] }));

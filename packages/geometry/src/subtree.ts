@@ -2,7 +2,7 @@ import { type Design, type DesignNode, descendantIds, MESH_SHAPE_TYPE, type Node
 import type { Subtree } from './types.ts';
 
 /** Bump when evaluation changes what a given subtree produces, so cached results are not reused. */
-const FORMAT = 'v6'; // v2: edge treatments; v3: single shapes as roots; v4: smooth cuts along curved edges; v5: hidden parts are left out; v6: paint
+const FORMAT = 'v7'; // v2: edge treatments; v3: single shapes as roots; v4: smooth cuts along curved edges; v5: hidden parts are left out; v6: paint; v7: sketches
 
 /**
  * The top-level nodes drawn as one computed mesh: groups (their holes cut), shapes with treated edges (their chamfers and
@@ -15,7 +15,8 @@ export function rootComputedNodes(design: Design): NodeId[] {
 		if (!node || node.hidden) return false;
 		return (
 			node.kind === 'group' ||
-			(node.kind === 'shape' && (node.shapeType === 'text' || (node.edges?.length ?? 0) > 0 || (node.paint?.length ?? 0) > 0))
+			(node.kind === 'shape' &&
+				(node.shapeType === 'text' || node.shapeType === 'sketch' || (node.edges?.length ?? 0) > 0 || (node.paint?.length ?? 0) > 0))
 		);
 	});
 }
@@ -43,7 +44,14 @@ function describe(nodes: Record<NodeId, DesignNode>, id: NodeId, isRoot: boolean
 	if (node.kind === 'shape') {
 		// A shape worked out on its own is in its own frame, so where it is doesn't matter to its shape.
 		if (isRoot)
-			return ['s', node.shapeType, Object.entries(node.params).sort(([a], [b]) => a.localeCompare(b)), node.edges ?? null, paintOf(node)];
+			return [
+				's',
+				node.shapeType,
+				Object.entries(node.params).sort(([a], [b]) => a.localeCompare(b)),
+				node.edges ?? null,
+				paintOf(node),
+				node.sketch ?? null,
+			];
 		return [
 			's',
 			node.shapeType,
@@ -51,6 +59,7 @@ function describe(nodes: Record<NodeId, DesignNode>, id: NodeId, isRoot: boolean
 			node.transform,
 			Object.entries(node.params).sort(([a], [b]) => a.localeCompare(b)),
 			node.edges ?? null,
+			node.sketch ?? null,
 		];
 	}
 	const children = node.children.filter((c) => !nodes[c]?.hidden).map((c) => describe(nodes, c, false)); // a hidden part is not part of the shape
