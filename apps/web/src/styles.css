@@ -763,8 +763,17 @@ button.primary:disabled {
 
 .object-list li {
 	display: flex;
+	flex-wrap: wrap;
 	align-items: center;
 	gap: 2px;
+}
+
+/* what a group holds, indented under its row */
+.object-list .object-children {
+	flex: 0 0 100%;
+	margin: 0;
+	padding: 0 0 0 14px;
+	list-style: none;
 }
 
 .object-list li > button:first-child {
