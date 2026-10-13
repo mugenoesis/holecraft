@@ -161,8 +161,11 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   selection's centre. Both return the same object when nothing changes; `canAlign` / `canFlip` drive the buttons.
 - Flip never stores a negative scale (transforms are rotation + position only). Every node's frame is also flipped about its local x,
   `L' = F_parent · L · FLIP_X` (root: the world reflection instead of `F_parent`), which is exact because every built-in shape is symmetric
-  about its own x. **A shape that isn't x-symmetric, and imported models, can't use this**: `flipNodes` refuses imported models today.
-  When a non-symmetric shape arrives (library, text), choose its flip axis per shape or mirror its mesh.
+  about its own x. **Imported models are not x-symmetric, so each one in a flipped root also has `params.mirror` toggled** (`isMirrored`, `mirrorMeshX` in
+  core/meshShape.ts; the key is dropped again when back to the stored model): the extra `FLIP_X` on its frame then makes it the true mirror image. Every
+  place that builds an imported model honours it: `DesignScene.geometryForNode` (its own cached geometry per way round) and `Evaluation.imported` (CSG, edges,
+  export). Anything new that reads a model's stored mesh must do the same. Threads are not x-symmetric either (a helix) but flip as a turned copy, which
+  keeps them right-handed, as a real fastener should be. A new non-symmetric shape (text, say) would need the same kind of mirror setting.
 - UI is `ArrangePanel` (actions `align` / `flip`); no keyboard shortcuts yet (Tinkercad-style L and M are reserved for tools).
 
 ## Duplicate and repeat

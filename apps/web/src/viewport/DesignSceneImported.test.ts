@@ -1,4 +1,4 @@
-import { addMeshShape, addShape, createEmptyDesign, type Design, type MeshData, normalizeMesh } from '@holecraft/core';
+import { addMeshShape, addShape, createEmptyDesign, type Design, flipNodes, type MeshData, normalizeMesh } from '@holecraft/core';
 import * as THREE from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DesignScene } from './DesignScene.ts';
@@ -80,5 +80,25 @@ describe('DesignScene with imported models', () => {
 	it('does not disturb ordinary shapes', () => {
 		scene.sync(design, undefined, undefined, new Map([[OTHER, unitTetra()]]));
 		expect(meshOf('b').geometry.getAttribute('position').count).toBeGreaterThan(0);
+	});
+});
+
+describe('DesignScene with a flipped imported model', () => {
+	const xs = (m: THREE.Mesh) => Array.from(m.geometry.attributes.position!.array).filter((_, i) => i % 3 === 0);
+
+	it('draws the model mirrored in its own x, from a geometry of its own, and the stored one again when flipped back', () => {
+		const models = new Map([[REF, unitTetra()]]);
+		scene.sync(design, undefined, undefined, models);
+		const before = xs(meshOf('m1'));
+		const flipped = flipNodes(design, ['m1'], 'x');
+		scene.sync(flipped, undefined, undefined, models);
+		const after = xs(meshOf('m1'));
+		expect(after).toHaveLength(before.length);
+		expect(new Set(after.map((v) => Math.round(v * 1e4)))).toEqual(new Set(before.map((v) => Math.round(-v * 1e4) + 0)));
+		expect(after).not.toEqual(before);
+		// the other copy of the same model, not flipped, is still drawn as stored
+		expect(xs(meshOf('m2'))).toEqual(before);
+		scene.sync(flipNodes(flipped, ['m1'], 'x'), undefined, undefined, models);
+		expect(xs(meshOf('m1'))).toEqual(before);
 	});
 });

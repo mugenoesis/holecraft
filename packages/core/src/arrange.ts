@@ -1,8 +1,7 @@
 import type { Bounds, Vec3 } from './camera.ts';
-import type { Design, DesignNode, Mat4, NodeId } from './design.ts';
-import { descendantIds } from './groups.ts';
+import type { Design, DesignNode, Mat4, NodeId, ShapeNode } from './design.ts';
 import { multiplyMat4 } from './mat4.ts';
-import { MESH_SHAPE_TYPE } from './meshShape.ts';
+import { isMirrored, MESH_SHAPE_TYPE } from './meshShape.ts';
 import { nodeBoundsIn } from './ops.ts';
 import type { Axis } from './rotation.ts';
 
@@ -75,28 +74,29 @@ function reflection(axis: Axis, at: number): Mat4 {
 	return m;
 }
 
-const hasImportedModel = (design: Design, id: NodeId): boolean =>
-	[id, ...descendantIds(design, id)].some((n) => {
-		const node = design.nodes[n];
-		return node?.kind === 'shape' && node.shapeType === MESH_SHAPE_TYPE;
-	});
+/** An imported model with its mirror setting turned over (and the setting dropped when it is back to the stored model). */
+function withMirrorToggled(node: ShapeNode): ShapeNode {
+	const { mirror: _gone, ...rest } = node.params;
+	return { ...node, params: isMirrored(node) ? rest : { ...rest, mirror: 1 } };
+}
 
-/** Whether Flip can do anything: something unlocked is selected and none of it is an imported model. */
+/** Whether Flip can do anything: something unlocked is selected. */
 export function canFlip(design: Design, ids: readonly NodeId[]): boolean {
-	return ids.some((id) => isEditable(design.nodes[id])) && !ids.some((id) => hasImportedModel(design, id));
+	return ids.some((id) => isEditable(design.nodes[id]));
 }
 
 /**
  * Mirrors the selection through a plane across `axis`, placed in the middle of everything
  * selected (so one object flips in place, and several swap sides). Everything still ends up with a
  * proper rotation, never a negative scale: each node's own frame is turned round x as well, which
- * is invisible because every shape is symmetric about its own x. Imported models are not, so a
- * selection holding one is left alone. Locked objects stay put.
+ * is invisible because every shape is symmetric about its own x. An imported model is not, so it is
+ * also shown mirrored in its own x (`params.mirror`), which makes it the true mirror image and not a
+ * turned copy; flipping again puts it back. Locked objects stay put.
  */
 export function flipNodes(design: Design, ids: readonly NodeId[], axis: Axis, now?: Date): Design {
 	const roots = ids.filter((id) => isEditable(design.nodes[id]));
 	const all = selectionBounds(design, ids);
-	if (roots.length === 0 || !all || ids.some((id) => hasImportedModel(design, id))) return design;
+	if (roots.length === 0 || !all) return design;
 	const mirror = reflection(axis, edgeOf(all, AXIS_INDEX[axis], 'centre'));
 
 	const nodes = { ...design.nodes };
@@ -104,7 +104,8 @@ export function flipNodes(design: Design, ids: readonly NodeId[], axis: Axis, no
 	const redo = (id: NodeId, parentFlip: Mat4) => {
 		const node = nodes[id];
 		if (!node) return;
-		nodes[id] = { ...node, transform: multiplyMat4(multiplyMat4(parentFlip, node.transform), FLIP_X) };
+		const flipped = { ...node, transform: multiplyMat4(multiplyMat4(parentFlip, node.transform), FLIP_X) };
+		nodes[id] = node.kind === 'shape' && node.shapeType === MESH_SHAPE_TYPE ? withMirrorToggled(flipped as ShapeNode) : flipped;
 		if (node.kind === 'group') for (const child of node.children) redo(child, FLIP_X);
 	};
 	for (const id of roots) redo(id, mirror);

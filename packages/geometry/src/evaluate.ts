@@ -6,8 +6,10 @@ import {
 	type DesignNode,
 	type EdgeTreatment,
 	edgeIsPresent,
+	isMirrored,
 	MESH_SHAPE_TYPE,
 	type MeshData,
+	mirrorMeshX,
 	type NodeId,
 	parametricShape,
 	type ShapeNode,
@@ -106,7 +108,8 @@ class Evaluation {
 		const data = this.meshes?.get(String(node.params.mesh));
 		if (!data) throw new Error(`The model data for "${node.name}" is missing`);
 		try {
-			const mesh = new this.M.Mesh({ numProp: 3, vertProperties: data.positions, triVerts: data.indices });
+			const shown = isMirrored(node) ? mirrorMeshX(data) : data; // a flipped model is the mirror image of the one stored
+			const mesh = new this.M.Mesh({ numProp: 3, vertProperties: shown.positions, triVerts: shown.indices });
 			return this.track(this.M.Manifold.ofMesh(mesh));
 		} catch {
 			throw new Error(`"${node.name}" is not watertight (its surface has holes or overlaps), so it cannot be used to cut or be cut`);
