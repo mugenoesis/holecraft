@@ -107,6 +107,15 @@ export function ViewToolbar({
 			>
 				Paint
 			</button>
+			<button
+				type="button"
+				aria-pressed={tool === 'sketch'}
+				aria-label="Sketch"
+				title="Draw a 2D sketch on the floor or a chosen face, then extrude it into a shape (K)"
+				onClick={() => onToggleTool('sketch')}
+			>
+				Sketch
+			</button>
 			{hasThreads && (
 				<button
 					type="button"

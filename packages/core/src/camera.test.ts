@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Vec3 } from './camera.ts';
 import {
 	applyViewPreset,
 	cameraPosition,
@@ -6,6 +7,7 @@ import {
 	fitToBounds,
 	HOME_VIEW,
 	homeViewFor,
+	lookAlongNormal,
 	MAX_DISTANCE,
 	MIN_DISTANCE,
 	type OrbitState,
@@ -15,6 +17,7 @@ import {
 	viewRotation,
 	zoom,
 } from './camera.ts';
+import { planeFrame } from './surfacePlane.ts';
 
 const front: OrbitState = { target: [0, 0, 0], azimuth: 0, polar: Math.PI / 2, distance: 100 };
 
@@ -180,5 +183,49 @@ describe('homeViewFor', () => {
 		expect([v.azimuth, v.polar, v.target]).toEqual([HOME_VIEW.azimuth, HOME_VIEW.polar, HOME_VIEW.target]);
 		expect(homeViewFor(0)).toEqual(HOME_VIEW);
 		expect(homeViewFor(Number.NaN)).toEqual(HOME_VIEW);
+	});
+});
+
+describe('lookAlongNormal', () => {
+	const rows = (s: OrbitState) => {
+		const r = viewRotation(s);
+		return { right: r.slice(0, 3), up: r.slice(3, 6), back: r.slice(6, 9) };
+	};
+	const close = (got: number[], want: number[]) => {
+		for (const [i, v] of got.entries()) expect(v).toBeCloseTo(want[i]!, 2);
+	};
+	const base: OrbitState = { target: [1, 2, 3], azimuth: -0.6, polar: 1, distance: 100 };
+
+	it('looks straight at a floor from above, with x to the right and y up the screen, as the plane’s own axes are', () => {
+		const s = lookAlongNormal(base, [0, 0, 1], [5, 6, 0], 200);
+		const { right, up, back } = rows(s);
+		close(right, [1, 0, 0]);
+		close(up, [0, 1, 0]);
+		close(back, [0, 0, 1]);
+		expect(s.target).toEqual([5, 6, 0]);
+		expect(s.distance).toBe(200);
+	});
+
+	it('looks straight at any face: the camera is on the normal’s side, right is the plane’s x and up is its y (up the wall on a wall)', () => {
+		for (const n of [
+			[0, -1, 0],
+			[1, 0, 0],
+			[0, 1, 0],
+			[-1, 0, 0],
+			[0.6, 0.8, 0],
+			[0.5, 0.5, Math.SQRT1_2],
+		] as Vec3[]) {
+			const unit = n.map((v) => v / Math.hypot(...n)) as Vec3;
+			const { right, up, back } = rows(lookAlongNormal(base, unit, [0, 0, 0], 100));
+			const frame = planeFrame(unit); // row-major: columns are the plane's x, y and normal
+			close(back, unit);
+			close(right, [frame[0]!, frame[3]!, frame[6]!]);
+			close(up, [frame[1]!, frame[4]!, frame[7]!]);
+		}
+	});
+
+	it('keeps the distance when none is given, and copes with a normal that is not quite unit length', () => {
+		expect(lookAlongNormal(base, [0, 0, 1], [0, 0, 0]).distance).toBe(100);
+		close(rows(lookAlongNormal(base, [0, 0, 3], [0, 0, 0])).back, [0, 0, 1]);
 	});
 });

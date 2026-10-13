@@ -74,6 +74,9 @@ function reflection(axis: Axis, at: number): Mat4 {
 	return m;
 }
 
+/** Shapes that are not the same seen left to right, so a flip must also show them mirrored in their own x (`params.mirror`): imported models, sketches and text. */
+const MIRRORED_TYPES = new Set<string>([MESH_SHAPE_TYPE, 'sketch', 'text']);
+
 /** An imported model with its mirror setting turned over (and the setting dropped when it is back to the stored model). */
 function withMirrorToggled(node: ShapeNode): ShapeNode {
 	const { mirror: _gone, ...rest } = node.params;
@@ -105,7 +108,7 @@ export function flipNodes(design: Design, ids: readonly NodeId[], axis: Axis, no
 		const node = nodes[id];
 		if (!node) return;
 		const flipped = { ...node, transform: multiplyMat4(multiplyMat4(parentFlip, node.transform), FLIP_X) };
-		nodes[id] = node.kind === 'shape' && node.shapeType === MESH_SHAPE_TYPE ? withMirrorToggled(flipped as ShapeNode) : flipped;
+		nodes[id] = node.kind === 'shape' && MIRRORED_TYPES.has(node.shapeType) ? withMirrorToggled(flipped as ShapeNode) : flipped;
 		if (node.kind === 'group') for (const child of node.children) redo(child, FLIP_X);
 	};
 	for (const id of roots) redo(id, mirror);

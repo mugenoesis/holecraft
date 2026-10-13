@@ -124,7 +124,7 @@ describe('paint and the palette', () => {
 
 describe('saving paint', () => {
 	it('keeps it through saving and reading back, and the format is 4 (older files load unchanged)', () => {
-		expect(DESIGN_FORMAT_VERSION).toBe(4);
+		expect(DESIGN_FORMAT_VERSION).toBeGreaterThanOrEqual(4); // paint came in with format 4
 		const d = addPaint(addPaint(start(), 'a', top()), 'a', top('p2', '#0000ff'));
 		expect(parseDesign(JSON.parse(JSON.stringify(d))).nodes.a!.paint).toEqual(paintOf(d));
 		const old = JSON.parse(JSON.stringify(start()));

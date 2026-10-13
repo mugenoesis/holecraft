@@ -122,6 +122,22 @@ export function fitToBounds(s: OrbitState, bounds: Bounds, fovDeg: number, aspec
 	};
 }
 
+/**
+ * The view that looks straight at a surface with outward `normal` (the camera on the normal's side), with its x to the right and its y up the
+ * screen (up the wall on a wall), keeping the zoom unless `distance` is given. This is the view of the plane a sketch is drawn on.
+ */
+export function lookAlongNormal(s: OrbitState, normal: Vec3, target: Vec3, distance = s.distance): OrbitState {
+	const length = Math.hypot(...normal);
+	const n = normal.map((v) => v / length) as Vec3;
+	const flat = Math.hypot(n[0], n[1]) < 1e-6; // straight above or below: no heading to follow
+	return {
+		target: [...target],
+		polar: clamp(Math.acos(Math.max(-1, Math.min(1, n[2]))), MIN_POLAR, MAX_POLAR),
+		azimuth: flat ? 0 : Math.atan2(n[0], -n[1]),
+		distance: clamp(distance, MIN_DISTANCE, MAX_DISTANCE),
+	};
+}
+
 export function applyViewPreset(s: OrbitState, name: ViewPresetName): OrbitState {
 	const { azimuth, polar } = VIEW_PRESETS[name];
 	return { ...s, target: [...s.target], azimuth, polar };

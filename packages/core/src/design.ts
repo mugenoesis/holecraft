@@ -2,10 +2,11 @@ import type { Vec3 } from './camera.ts';
 import type { GridSettings } from './grid.ts';
 import { DEFAULT_GRID } from './grid.ts';
 import { DEFAULT_PALETTE } from './palette.ts';
+import type { Sketch } from './sketch.ts';
 import type { Units } from './units.ts';
 
 /** Bump when the on-disk design format changes, and add a migration. */
-export const DESIGN_FORMAT_VERSION = 4;
+export const DESIGN_FORMAT_VERSION = 5;
 
 /** What the designs list shows about each saved design. */
 export interface DesignSummary {
@@ -109,6 +110,8 @@ export interface ShapeNode extends BaseNode {
 	kind: 'shape';
 	shapeType: string;
 	params: Record<string, number | string | boolean>;
+	/** A Sketch shape's drawing (see sketch.ts): its outlines, centred on the shape's own origin. Only on shapes of type `sketch`. */
+	sketch?: Sketch;
 }
 
 /** An imported mesh (STL, OBJ, 3MF); geometry lives in a separate blob. */

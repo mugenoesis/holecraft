@@ -16,6 +16,7 @@ import type { GridSettings } from './grid.ts';
 import { isMeshRef, MESH_SHAPE_TYPE } from './meshShape.ts';
 import { DEFAULT_PALETTE, isHexColor, MAX_PALETTE_SIZE } from './palette.ts';
 import { isShapeType } from './shapes.ts';
+import { MAX_SKETCH_COORDINATE, MAX_SKETCH_OUTLINES, MAX_SKETCH_POINTS, type Sketch } from './sketch.ts';
 
 /** A saved design that cannot be trusted, with where in it the problem is. */
 export class DesignValidationError extends Error {
@@ -241,6 +242,25 @@ function parseShapeParams(rawParams: unknown, path: string): Record<string, numb
 	return params;
 }
 
+/** A sketch shape's drawing: 1 to 64 outlines of 3 to 512 points each. Not recentred: that is for whoever makes the drawing. */
+function parseSketch(raw: unknown, path: string): Sketch {
+	if (!isRecord(raw) || !Array.isArray(raw.outlines)) fail(`${path}.sketch`, 'a sketch shape needs a sketch with a list of outlines');
+	if (raw.outlines.length < 1 || raw.outlines.length > MAX_SKETCH_OUTLINES)
+		fail(`${path}.sketch.outlines`, `must have 1 to ${MAX_SKETCH_OUTLINES} outlines`);
+	const outlines = raw.outlines.map((outline, i) => {
+		const where = `${path}.sketch.outlines.${i}`;
+		if (!isRecord(outline) || !Array.isArray(outline.points) || outline.points.length < 3 || outline.points.length > MAX_SKETCH_POINTS)
+			fail(where, `must be an outline of 3 to ${MAX_SKETCH_POINTS} points`);
+		const points = outline.points.map((p, k) => {
+			const ok = Array.isArray(p) && p.length === 2 && p.every((n) => isFiniteNumber(n) && Math.abs(n) <= MAX_SKETCH_COORDINATE);
+			if (!ok) fail(`${where}.points.${k}`, `must be a point: two finite numbers, none beyond ±${MAX_SKETCH_COORDINATE}`);
+			return [(p as number[])[0]!, (p as number[])[1]!] as [number, number];
+		});
+		return { points };
+	});
+	return { outlines };
+}
+
 function parseShape(base: BaseNode, raw: Raw, path: string): ShapeNode {
 	const shapeType = raw.shapeType;
 	if (typeof shapeType !== 'string' || (shapeType !== MESH_SHAPE_TYPE && !isShapeType(shapeType)))
@@ -249,7 +269,9 @@ function parseShape(base: BaseNode, raw: Raw, path: string): ShapeNode {
 	// An imported model must point at a stored mesh by a proper reference: it becomes a file name.
 	if (shapeType === MESH_SHAPE_TYPE && !isMeshRef(params.mesh))
 		fail(`${path}.params.mesh`, 'an imported model needs a valid mesh reference');
-	return { ...base, kind: 'shape', shapeType, params };
+	// only a sketch shape has a drawing (and it must have one); on anything else the field is dropped
+	const sketch = shapeType === 'sketch' ? parseSketch(raw.sketch, path) : undefined;
+	return { ...base, kind: 'shape', shapeType, params, ...(sketch && { sketch }) };
 }
 
 function parseGroup(base: BaseNode, raw: Raw, path: string): GroupNode {
@@ -290,6 +312,8 @@ const MIGRATIONS: Record<number, (design: Record<string, unknown>) => Record<str
 	2: (design) => design,
 	// 3 -> 4: nodes may carry paint (fills on the surface). Nothing to change in older files.
 	3: (design) => design,
+	// 4 -> 5: shapes may be sketches (a drawing extruded). Nothing to change in older files.
+	4: (design) => design,
 };
 
 function migrate(raw: Record<string, unknown>): Record<string, unknown> {

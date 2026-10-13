@@ -74,7 +74,8 @@ describe('the polygon', () => {
 		expect(shapeParam(next.nodes.a as ShapeNode, 'sides')).toBe(8);
 		expect((next.nodes.a as ShapeNode).params.sides).toBe(8);
 		expect(setShapeParam(next, 'a', 'sides', 8)).toBe(next);
-		expect(setShapeParam(setLocked(next, ['a'], true), 'a', 'sides', 6)).toEqual(setLocked(next, ['a'], true));
+		const locked = setLocked(next, ['a'], true);
+		expect(setShapeParam(locked, 'a', 'sides', 6)).toBe(locked);
 		const bigger = setShapeSize(next, 'a', { width: 60, depth: 60 });
 		expect(shapeParam(bigger.nodes.a as ShapeNode, 'sides')).toBe(8);
 	});
