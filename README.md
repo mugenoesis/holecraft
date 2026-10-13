@@ -28,6 +28,12 @@ always means "this filament". **Add colour** and **Remove colour** manage the pa
 if its slot is removed (they print with the nearest remaining filament). Shapes can still be any colour via the
 Color field in Properties; they print with the nearest palette colour.
 
+Both colour fields have a swatch that opens a **colour wheel** (hue round the rim, white in the middle, a
+**Brightness** slider) and 24 ready-made **filament colours** (Properties also offers the design's own
+colours first), and a box for typing the colour as hex (`#rrggbb` or `#rgb`). Dragging on the wheel shows
+the colour on the shapes as you go and keeps where you let go as one undo step; on a touch screen the wheel
+opens as a sheet along the bottom of the screen.
+
 **Export as 3MF for OrcaSlicer** writes the palette as the file's filament list and gives each object the
 filament (numbered from 1) of its colour, in the form OrcaSlicer, Bambu Studio and Trident read for
 multi-material projects. Only filament settings are written (at OrcaSlicer's generic PLA values), never your
@@ -36,11 +42,23 @@ which loads it and keeps every object's filament and all the colours, for 4 and 
 
 ## On a phone or tablet
 
-The editor works from a phone's browser (open the server's address on your home network). On a narrow
-screen the 3D view takes the top of the screen, the top bar wraps onto a few rows, and the shapes,
-properties and object list sit in a short scrolling strip below. Menus and messages open across the
-full width, and buttons, fields and the resize/rotate handles are larger on touch screens.
-Camera: drag one finger on empty space to orbit, two fingers to pan, pinch to zoom.
+The editor works from a phone's browser (open the server's address on your home network). On any touch
+screen, and in windows narrower than 900 px, it uses a **compact layout** so the 3D view keeps the room:
+
+- The top bar is one row (two on a phone): back, undo and redo as arrows, the design's name, Import, Export
+  and the save status.
+- The view toolbar keeps **Home**, **Fit** and **Select** and puts **Ruler**, **Workplane**, **Edges**,
+  **Paint** and **Orthographic** under **Tools**. The tool in use stays on the bar (`Paint ✕`), so one tap
+  puts it away, since a touch screen has no `Esc`.
+- The side panel (beside the view on a tablet, below it on a phone) shows one tab at a time: **Shapes**,
+  **Edit** (Properties and Arrange), **Colours** and **Objects**. Selecting something from the Shapes tab
+  brings up Edit (the tab shows how many things are selected), and clearing the selection goes back.
+- While something is selected a bar over the bottom of the view does what the editing shortcuts do:
+  **Duplicate** (`Ctrl+D`, which also repeats the last move), **Make hole** / **Make solid**, **Group**
+  and **Ungroup** (`Ctrl+G`), **Delete** and **Done** (`Esc`).
+
+Menus and messages open across the full width, and buttons, fields and the resize/rotate handles are larger
+on touch screens. Camera: drag one finger on empty space to orbit, two fingers to pan, pinch to zoom.
 
 ## Importing models
 

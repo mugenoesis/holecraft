@@ -14,7 +14,7 @@ import {
 	withSimpleThreads,
 } from '@holecraft/core';
 import { meshRefsIn, type Subtree } from '@holecraft/geometry';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GeometryService } from '../geometry/GeometryService.ts';
 import { createWorkerEvaluator, type WorkerEvaluator } from '../geometry/workerEvaluator.ts';
 import { ThumbnailScheduler } from '../thumbnailScheduler.ts';
@@ -79,6 +79,10 @@ interface Props {
 	onPaintStrokeEnd: () => void;
 	/** A gap fill, on the shapes it can tidy. */
 	onPaintGapFill: (ids: NodeId[], fill: PaintFill) => void;
+	/** The compact layout (touch screens, narrow windows): the view toolbar tucks its tools into a menu. */
+	compact: boolean;
+	/** Buttons for the selection, shown over the bottom of the view while no tool is (tools have their own bar there). */
+	selectionBar?: ReactNode;
 }
 
 /** React host for the imperative three.js viewport, plus its overlay controls. */
@@ -265,7 +269,9 @@ export function ViewportCanvas(props: Props) {
 						hasThreads={hasThreads(design)}
 						simpleThreads={simpleThreads}
 						onToggleSimpleThreads={toggleSimpleThreads}
+						compact={props.compact}
 					/>
+					{!tool && props.selectionBar}
 					<ViewCube camera={state} onSelect={(view) => viewportRef.current?.setView(view)} />
 					{!tool && handles && (
 						<HandlesOverlay

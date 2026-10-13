@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { newDesign, viewport } from './helpers.ts';
+import { newDesign, openPanel, viewport } from './helpers.ts';
 import { cubeStl } from './modelFiles.ts';
 
 /*
@@ -27,7 +27,7 @@ test.describe('on a phone', () => {
 		await page.getByRole('button', { name: 'Box', exact: true }).click();
 		const buttons = page.locator('.topbar button:visible, .topbar a:visible');
 		const count = await buttons.count();
-		expect(count).toBeGreaterThanOrEqual(7); // back, undo, redo, group, ungroup, import, export
+		expect(count).toBeGreaterThanOrEqual(5); // back, undo, redo, import, export (group and ungroup are on the selection bar)
 		for (let i = 0; i < count; i++) {
 			const b = await box(buttons.nth(i));
 			expect(b.x, `button ${i} starts on screen`).toBeGreaterThanOrEqual(0);
@@ -39,7 +39,7 @@ test.describe('on a phone', () => {
 		const cube = await box(page.getByRole('group', { name: 'View cube' }));
 		const controls = page.getByRole('toolbar', { name: 'View controls' }).locator('button, select');
 		const count = await controls.count();
-		expect(count).toBeGreaterThanOrEqual(7); // home, fit, ortho, ruler, workplane, edges, views
+		expect(count).toBeGreaterThanOrEqual(5); // home, fit, select, tools (ruler, workplane, edges, paint, ortho), views
 		for (let i = 0; i < count; i++) {
 			const b = await box(controls.nth(i));
 			expect(b.x + b.width, `control ${i} ends on screen`).toBeLessThanOrEqual(PHONE.width);
@@ -87,9 +87,61 @@ test.describe('on a phone', () => {
 		expect(alert.x + alert.width).toBeLessThanOrEqual(PHONE.width);
 	});
 
+	test('the top bar is at most two rows, so the view keeps the space', async ({ page }) => {
+		const bar = await box(page.locator('.topbar'));
+		expect(bar.height).toBeLessThanOrEqual(100);
+	});
+
+	test('the panel shows one tab at a time, and selecting a shape brings up its settings', async ({ page }) => {
+		await expect(page.getByRole('tab', { name: 'Shapes' })).toHaveAttribute('aria-selected', 'true');
+		await expect(page.getByRole('region', { name: 'Properties' })).toBeHidden();
+		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.keyboard.press('Control+a');
+		await expect(page.getByRole('tab', { name: 'Edit' })).toHaveAttribute('aria-selected', 'true');
+		await expect(page.getByRole('region', { name: 'Properties' })).toBeVisible();
+		await expect(page.getByRole('region', { name: 'Shapes' })).toBeHidden();
+		await page.getByRole('toolbar', { name: 'Selection' }).getByRole('button', { name: 'Done' }).click();
+		await expect(page.getByRole('tab', { name: 'Shapes' })).toHaveAttribute('aria-selected', 'true');
+	});
+
+	test('the selection bar does the editing shortcuts with a tap, inside the screen', async ({ page }) => {
+		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await openPanel(page, 'Objects');
+		await page.getByTestId('object-list').getByRole('button', { name: /Box 1/ }).click();
+		const bar = page.getByRole('toolbar', { name: 'Selection' });
+		const b = await box(bar);
+		expect(b.x).toBeGreaterThanOrEqual(0);
+		expect(b.x + b.width).toBeLessThanOrEqual(PHONE.width);
+		await bar.getByRole('button', { name: 'Duplicate' }).click();
+		await expect(page.getByTestId('object-list').locator('li')).toHaveCount(2);
+		await bar.getByRole('button', { name: 'Delete' }).click();
+		await expect(page.getByTestId('object-list').locator('li')).toHaveCount(1);
+		await expect(bar).toBeHidden();
+	});
+
+	test('the tools are in a menu, and the tool in use stays on the bar to put it away', async ({ page }) => {
+		await page.getByRole('button', { name: 'Tools' }).click();
+		await page.getByRole('menuitemcheckbox', { name: 'Ruler' }).click();
+		const ruler = page.getByRole('toolbar', { name: 'View controls' }).getByRole('button', { name: 'Ruler' });
+		await expect(ruler).toHaveAttribute('aria-pressed', 'true');
+		await ruler.click();
+		await expect(ruler).toBeHidden();
+	});
+
+	test('the colour wheel opens as a sheet inside the screen', async ({ page }) => {
+		await openPanel(page, 'Colours');
+		await page.getByRole('button', { name: /Open the colour wheel/ }).click();
+		const sheet = await box(page.getByRole('dialog', { name: 'Pick a colour' }));
+		expect(sheet.x).toBeGreaterThanOrEqual(0);
+		expect(sheet.x + sheet.width).toBeLessThanOrEqual(PHONE.width);
+		expect(sheet.y + sheet.height).toBeLessThanOrEqual(PHONE.height);
+	});
+
 	test('buttons and fields are big enough for a finger', async ({ page }) => {
 		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await openPanel(page, 'Objects');
 		await page.getByTestId('object-list').getByRole('button', { name: /Box 1/ }).click();
+		await openPanel(page, 'Edit');
 		for (const name of ['Undo', 'Import', 'Export']) {
 			const b = await box(page.getByRole('button', { name, exact: true }));
 			expect(b.height, `${name} is tall enough`).toBeGreaterThanOrEqual(40);
@@ -100,6 +152,7 @@ test.describe('on a phone', () => {
 
 	test('the resize and rotate handles are big enough to grab', async ({ page }) => {
 		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await openPanel(page, 'Objects');
 		await page.getByTestId('object-list').getByRole('button', { name: /Box 1/ }).click();
 		const handles = page.locator('.handle, .rotate-handle');
 		await expect.poll(() => handles.count()).toBeGreaterThan(3);
@@ -110,6 +163,7 @@ test.describe('on a phone', () => {
 	});
 
 	test('the colour swatches fit on screen and are big enough to tap', async ({ page }) => {
+		await openPanel(page, 'Colours');
 		await page.getByRole('button', { name: 'Add colour' }).click();
 		const tiles = page.locator('.palette-tile');
 		await expect(tiles).toHaveCount(5);
@@ -125,6 +179,7 @@ test.describe('on a phone', () => {
 
 	test('importing a file still works from the phone layout', async ({ page }) => {
 		await page.getByTestId('import-file').setInputFiles({ name: 'Cube.stl', mimeType: 'application/octet-stream', buffer: cubeStl(20) });
+		await openPanel(page, 'Objects');
 		await expect(page.getByTestId('object-list').getByRole('button', { name: /Cube/ })).toBeVisible();
 	});
 });

@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { Fingers } from './fingers.ts';
-import { camera, center, dropShape, newDesign, selectedNames, viewport } from './helpers.ts';
+import { camera, center, dropShape, newDesign, openPanel, selectedNames, viewport } from './helpers.ts';
 
 /*
  * Selecting more than one object with a finger alone: a Select toggle in the view toolbar makes every tap add to (or take
@@ -19,7 +19,7 @@ async function threeShapes(page: Page) {
 	await dropShape(page, 'Box', -150, 0);
 	await dropShape(page, 'Cylinder', 150, 0);
 	await dropShape(page, 'Sphere', 0, 120);
-	await page.getByRole('heading', { name: 'Objects' }).click();
+	await openPanel(page, 'Objects'); // a touch screen has the compact layout, where the list is a tab of the panel
 	await page.keyboard.press('Escape'); // nothing selected
 	const c = await center(viewport(page));
 	return { c, left: { x: c.x - 150, y: c.y }, right: { x: c.x + 150, y: c.y }, below: { x: c.x, y: c.y + 120 } };

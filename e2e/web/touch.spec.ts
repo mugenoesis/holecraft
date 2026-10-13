@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { Fingers } from './fingers.ts';
-import { camera, center, newDesign, objects, selectedNames, viewport } from './helpers.ts';
+import { camera, center, newDesign, objects, openPanel, selectedNames, viewport } from './helpers.ts';
 
 test.use({ hasTouch: true });
 
@@ -91,6 +91,7 @@ test.describe('touch camera controls', () => {
 
 	test('tapping empty space still clears the selection', async ({ page }) => {
 		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await openPanel(page, 'Objects');
 		await page.getByTestId('object-list').getByRole('button', { name: /Box 1/ }).click();
 		await expect.poll(() => selectedNames(page)).toEqual(['Box 1']);
 		const fingers = await Fingers.on(page);

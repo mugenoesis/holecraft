@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { camera, cameraSettled, newDesign } from './helpers.ts';
+import { camera, cameraSettled, newDesign, openPanel } from './helpers.ts';
 
 /*
  * The editor on 4:3 screens (old monitors, iPads, a browser window tiled to a square-ish shape). These
@@ -75,10 +75,13 @@ test.describe('on a 4:3 touch tablet', () => {
 	}) => {
 		await newDesign(page);
 		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await openPanel(page, 'Objects');
 		await page.getByTestId('object-list').locator('li').first().locator('button').first().click();
+		await openPanel(page, 'Edit');
 		const name = page.getByRole('region', { name: 'Properties' }).getByLabel('Name', { exact: true });
 		await name.fill('Long_model_name_exported_from_a_slicer_with_no_spaces_at_all_3mf');
 		await name.press('Enter');
+		await openPanel(page, 'Objects');
 		await expect(page.getByTestId('object-list')).toContainText('no_spaces_at_all_3mf');
 		const overflow = await page.locator('.panel').evaluate((el) => el.scrollWidth - el.clientWidth);
 		expect(overflow).toBeLessThanOrEqual(0);

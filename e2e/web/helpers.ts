@@ -30,6 +30,15 @@ export async function camera(page: Page) {
 	};
 }
 
+/**
+ * Shows one of the side panel's parts. In the compact layout (touch screens, narrow windows) the panel is a set of tabs
+ * and only one part is on screen; on a desktop every part is always shown, so this does nothing.
+ */
+export async function openPanel(page: Page, name: 'Shapes' | 'Edit' | 'Colours' | 'Objects') {
+	const tab = page.getByRole('tab', { name, exact: true });
+	if (await tab.isVisible()) await tab.click();
+}
+
 export const properties = (page: Page) => page.getByRole('region', { name: 'Properties' });
 export const field = (page: Page, name: string) => properties(page).getByLabel(name, { exact: true });
 

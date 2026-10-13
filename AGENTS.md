@@ -455,6 +455,28 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - `e2e/web/phone.spec.ts` measures real positions at 412x915 with touch (`isMobile`); add a check there when
   adding anything to the top bar. Look at a screenshot too (`scripts/screenshot.sh <url> out.png 412 915`).
 
+## Compact layout (touch screens and narrow windows)
+- `useCompactLayout()` (compactLayout.ts) is true for `(max-width: 900px), (pointer: coarse)`, so every touch screen (phones, the Fold's
+  inner screen, tablets) and narrow windows. `EditorView` puts `compact` on `.app`; **style the compact layout with `.app.compact`
+  selectors, not a second copy of the media query**, so JS and CSS can't disagree. Markup that differs (`TopBar` arrows,
+  `ViewToolbar`'s **Tools** menu, the tabs, the selection bar) takes a `compact` prop.
+- The side panel becomes tabs (`PanelTabs`, `usePanelTab`, pure rule `tabAfterSelection`): parts are kept mounted and `hidden`, so a search
+  or a half-typed name survives a tab change. **E2e tests that touch the panel on a touch or narrow viewport must call
+  `openPanel(page, 'Objects' | 'Edit' | 'Colours' | 'Shapes')`** (helpers.ts; it does nothing on a desktop).
+- `SelectionBar` (role `toolbar`, name "Selection") is the touch stand-in for Ctrl+D, H, Ctrl+G, Delete and Esc; `ViewportCanvas` shows
+  it (`selectionBar` prop) only while no surface tool is on, since tools have their own bar at the bottom. Top-bar Group/Ungroup are
+  `hidden` in the compact layout because the bar has them.
+- In the compact **Tools** menu the items are `menuitemcheckbox`es; the active tool also stays on the bar as a pressed button with the
+  tool's own name, so `getByRole('button', { name: 'Paint' })` still finds it once on.
+
+## Colours (the wheel)
+- `ColourField` (swatch + hex box) replaces `<input type="color">`; the hex box keeps the old accessible names (`Color` in Properties,
+  `Change the chosen colour` in Colours) and applies a complete `#rrggbb` as it is typed, so tests can still `fill()` it.
+- `ColourPicker` is the wheel (CSS conic + radial gradients; maths in core/colour.ts: `hexToHsv`, `hsvToHex`, `hueSatAtWheel`,
+  `wheelPointOf`, `parseHexInput`, `FILAMENT_COLOURS`). A wheel or brightness drag previews on the shapes through the drag flow:
+  `colourStart`, then `previewColor` / `previewPalette`, then `moveEnd` (one undo step) or `cancelDrag`; `useColourEdit` wires that.
+  A preset or a typed colour is one ordinary edit.
+
 ## Squarer screens (4:3, tablets)
 - `homeViewFor(aspect)` (core/camera.ts) backs the home camera off by 1.6 / aspect on windows squarer than 1.6 so the whole workplane
   shows; `CameraRig` uses it for the opening view (until anyone moves the camera) and for `goHome()`. Don't use `HOME_VIEW` directly for

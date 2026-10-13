@@ -14,6 +14,7 @@ import {
 } from '@holecraft/core';
 import type { Dispatch } from 'react';
 import { ChamferFields } from './ChamferFields.tsx';
+import { ColourField, useColourEdit } from './ColourField.tsx';
 import { CountersinkFields } from './CountersinkFields.tsx';
 import type { EditorAction } from './editorState.ts';
 import { SaveToLibrary } from './SaveToLibrary.tsx';
@@ -56,6 +57,16 @@ function SaveBox({ design, nodes, library }: { design: Design; nodes: readonly D
 	);
 }
 
+/** The selected shapes' colour: the wheel previews on them as it is dragged, and the design's own colours come first. */
+function ShapeColour({ design, ids, value, dispatch }: { design: Design; ids: NodeId[]; value: string; dispatch: Dispatch<EditorAction> }) {
+	const events = useColourEdit(
+		dispatch,
+		(color) => ({ type: 'previewColor', ids, color }),
+		(color) => ({ type: 'setColor', ids, color }),
+	);
+	return <ColourField label="Color" inputLabel="Color" value={value} designColours={design.palette} {...events} />;
+}
+
 export function PropertiesPanel({ design, selection, dispatch, library }: Props) {
 	const nodes = selection.flatMap((id) => (design.nodes[id] ? [design.nodes[id]] : []));
 
@@ -83,16 +94,7 @@ export function PropertiesPanel({ design, selection, dispatch, library }: Props)
 	);
 	const saveBox = <SaveBox design={design} nodes={nodes} library={library} />;
 
-	const color = (
-		<label className="field">
-			<span>Color</span>
-			<input
-				type="color"
-				value={nodes[0]!.color}
-				onChange={(e) => dispatch({ type: 'setColor', ids: nodes.map((n) => n.id), color: e.target.value })}
-			/>
-		</label>
-	);
+	const color = <ShapeColour design={design} ids={nodes.map((n) => n.id)} value={nodes[0]!.color} dispatch={dispatch} />;
 
 	// Solid or hole. Neither button is pressed when the selection is a mix.
 	const modes = new Set(nodes.map((n) => n.mode));
