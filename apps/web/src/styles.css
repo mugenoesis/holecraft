@@ -1292,8 +1292,16 @@ button.primary:disabled {
 	color: var(--muted);
 }
 .arrange-grid button,
-.arrange-flip button {
+.arrange-flip button,
+.arrange-plane button {
 	padding: 4px 6px;
+}
+.arrange-plane {
+	display: flex;
+	margin-top: 4px;
+}
+.arrange-plane button {
+	flex: 1;
 }
 .arrange-flip {
 	display: flex;

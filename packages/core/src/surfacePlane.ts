@@ -1,6 +1,8 @@
 import type { Vec3 } from './camera.ts';
 import type { Design, NodeId } from './design.ts';
-import { addShape, shapeBounds } from './ops.ts';
+import { groupLocalBounds } from './groupTransform.ts';
+import { multiplyMat4 } from './mat4.ts';
+import { addShape, nodeBoundsIn, shapeBounds, translation } from './ops.ts';
 import { composeTransform, type Mat3 } from './rotation.ts';
 import type { ShapeType } from './shapes.ts';
 
@@ -84,4 +86,41 @@ export function addShapeOnPlane(
 	const lowest = shapeBounds(placed).min[2];
 	if (lowest < 0) placed.transform[14] = placed.transform[14]! - lowest;
 	return { design: { ...added.design, nodes: { ...added.design.nodes, [added.id]: placed } }, id: added.id };
+}
+
+/** Whether `standOnPlane` has something to do: exactly one shape or group is selected, and it is unlocked and not hidden. */
+export function canStandOnPlane(design: Design, selection: readonly NodeId[]): boolean {
+	const node = selection.length === 1 ? design.nodes[selection[0]!] : undefined;
+	return !!node && node.kind !== 'mesh' && !node.locked && !node.hidden;
+}
+
+/**
+ * Puts an existing shape or group on the plane, the way a new shape is put there: its base on the surface and its height going out of it, turned to
+ * match (a wall puts its up along the face's horizontal, as for a new shape), under the point where its middle is above or in front of the plane.
+ * What is lower than the workplane after that is lifted. The same design back (so nothing to undo) for an underside, a plane with no direction, a
+ * locked or hidden or missing node, and for one already there.
+ */
+export function standOnPlane(design: Design, id: NodeId, plane: WorkPlane, now?: Date): Design {
+	const node = design.nodes[id];
+	const length = Math.hypot(...plane.normal);
+	if (!node || node.locked || !(length > 1e-6) || !isUsablePlane(unit(plane.normal))) return design;
+	const around = nodeBoundsIn(design, id);
+	if (!around) return design;
+
+	const n = unit(plane.normal);
+	const middle = [0, 1, 2].map((k) => (around.min[k]! + around.max[k]!) / 2) as Vec3;
+	const away = dot([middle[0] - plane.origin[0], middle[1] - plane.origin[1], middle[2] - plane.origin[2]], n);
+	const point = middle.map((v, k) => v - away * n[k]!) as Vec3;
+
+	// the node's own base centre: a shape's is its origin, a group's the middle of its contents' footprint at their lowest
+	const inner = node.kind === 'group' ? groupLocalBounds(design, id) : null;
+	const base: Vec3 = inner ? [(inner.min[0] + inner.max[0]) / 2, (inner.min[1] + inner.max[1]) / 2, inner.min[2]] : [0, 0, 0];
+	const transform = multiplyMat4(composeTransform(point, planeFrame(n)), translation(-base[0], -base[1], -base[2])).map(tidy);
+
+	const placed = { ...node, transform };
+	const trial = { ...design, nodes: { ...design.nodes, [id]: placed } };
+	const lowest = nodeBoundsIn(trial, id)?.min[2] ?? 0;
+	if (lowest < 0) transform[14] = tidy(transform[14]! - lowest);
+	if (transform.every((v, i) => Math.abs(v - node.transform[i]!) < 1e-9)) return design;
+	return { ...trial, updatedAt: (now ?? new Date()).toISOString() };
 }

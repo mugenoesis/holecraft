@@ -51,6 +51,7 @@ import {
 	setShapeParam,
 	setShapeSize,
 	showAll,
+	standOnPlane,
 	suggestPaletteColor,
 	toggleSelection,
 	undo,
@@ -75,6 +76,8 @@ export type EditorAction =
 	| { type: 'add'; shape: ShapeType; at: [number, number] }
 	// A shape standing on the Workplane tool's plane (its base on the surface, going out of it) at a point on that plane.
 	| { type: 'addOnPlane'; shape: ShapeType; plane: WorkPlane; point: Vec3 }
+	// Put the one selected shape or group on the Workplane tool's plane (see standOnPlane).
+	| { type: 'standOnPlane'; plane: WorkPlane }
 	/** An imported model, already stored on the server (see importModel). */
 	| { type: 'addMesh'; input: MeshShapeInput; at?: [number, number] }
 	// 'down' is the pointer press; 'click' is the release when nothing was dragged.
@@ -316,6 +319,9 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 
 		case 'setPosition':
 			return commit(state, setNodePosition(design, action.id, action.at));
+
+		case 'standOnPlane':
+			return state.selection.length === 1 ? commit(state, standOnPlane(design, state.selection[0]!, action.plane)) : state;
 
 		case 'setSize':
 			return commit(state, setShapeSize(design, action.id, action.size));
