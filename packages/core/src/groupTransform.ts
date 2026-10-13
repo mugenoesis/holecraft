@@ -207,3 +207,19 @@ export function setGroupGeometry(design: Design, id: NodeId, g: ShapeGeometry, n
 	const unchanged = [0, 1, 2].every((k) => Math.abs(to.min[k]! - from.min[k]!) < 1e-9 && Math.abs(to.max[k]! - from.max[k]!) < 1e-9);
 	return unchanged ? design : { ...design, nodes, updatedAt: stamp(now) };
 }
+
+/**
+ * Sets a group's width, depth and/or height (along its own axes, in mm) by typing, keeping the middle of its footprint and its base where they
+ * are: everything inside is stretched to match, exactly as when a resize handle is dragged to that size. Refused (same design back) for
+ * anything `setGroupGeometry` refuses, and for sizes that are not above 0.
+ */
+export function setGroupSize(design: Design, id: NodeId, size: Partial<Record<'width' | 'depth' | 'height', number>>, now?: Date): Design {
+	const g = groupGeometry(design, id);
+	if (!g) return design;
+	const next = { ...g };
+	for (const key of ['width', 'depth', 'height'] as const) {
+		const v = size[key];
+		if (v !== undefined) next[key] = v;
+	}
+	return setGroupGeometry(design, id, next, now);
+}

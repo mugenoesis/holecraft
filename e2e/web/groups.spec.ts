@@ -52,11 +52,11 @@ test.describe('grouping', () => {
 		await expect(groupButton(page)).toBeDisabled();
 	});
 
-	test('a group has rotation fields, rings and resize handles, but no size fields', async ({ page }) => {
+	test('a group has rotation fields, rings, resize handles and size fields', async ({ page }) => {
 		await twoSelected(page);
 		await groupButton(page).click();
 		await expect(field(page, 'Name')).toHaveValue('Group 1');
-		await expect(properties(page).getByLabel('Width', { exact: true })).toHaveCount(0);
+		for (const name of ['Width', 'Depth', 'Height']) await expect(properties(page).getByLabel(name, { exact: true })).toBeEnabled();
 		await expect(properties(page).getByLabel('Rotate Z', { exact: true })).toBeVisible();
 		await expect(page.getByTestId('handle-corner-pp')).toBeVisible();
 		await expect(page.getByTestId('handle-height')).toBeVisible();
@@ -398,5 +398,40 @@ test.describe('solid and hole', () => {
 		await ungroupButton(page).click();
 		await expect(rows(page).nth(0)).toHaveAttribute('data-mode', 'hole');
 		await expect(rows(page).nth(1)).toHaveAttribute('data-mode', 'hole');
+	});
+});
+
+test.describe('typing a group’s size', () => {
+	test('typing a size stretches what is inside to fit, keeps the middle, and is one undo step', async ({ page }) => {
+		await twoSelected(page);
+		await groupButton(page).click();
+		const size = (name: string) => properties(page).getByLabel(name, { exact: true });
+		const [width, depth, height] = [size('Width'), size('Depth'), size('Height')] as const;
+		const before = Number(await width.inputValue());
+		const deep = await depth.inputValue();
+		await expect(height).toHaveValue('20');
+		await width.fill(String(before * 2));
+		await width.press('Enter');
+		await expect(width).toHaveValue(String(before * 2));
+		await expect(depth).toHaveValue(deep);
+		await height.fill('40');
+		await height.press('Enter');
+		await expect(height).toHaveValue('40');
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		await page.keyboard.press('Control+z');
+		await expect(height).toHaveValue('20');
+		await expect(width).toHaveValue(String(before * 2));
+		await page.keyboard.press('Control+z');
+		await expect(width).toHaveValue(String(before));
+	});
+
+	test('a group holding a thread has the size fields switched off, and says why', async ({ page }) => {
+		await page.getByRole('region', { name: 'Shapes' }).getByRole('button', { name: 'Threaded Rod', exact: true }).click();
+		await dropShape(page, 'Box', 200, 0);
+		await page.keyboard.press('Control+a');
+		await groupButton(page).click();
+		for (const name of ['Width', 'Depth', 'Height']) await expect(properties(page).getByLabel(name, { exact: true })).toBeDisabled();
+		await expect(properties(page)).toContainText('thread');
+		await expect(page.getByTestId('handle-corner-pp')).toHaveCount(0);
 	});
 });

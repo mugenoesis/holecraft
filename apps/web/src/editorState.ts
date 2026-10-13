@@ -36,6 +36,7 @@ import {
 	type SolidMode,
 	selectAll,
 	setEdgeTreatments,
+	setGroupSize,
 	setHidden,
 	setLocked,
 	setNodeColor,
@@ -116,6 +117,8 @@ export type EditorAction =
 	| { type: 'nudge'; delta: [number, number] }
 	| { type: 'setPosition'; id: NodeId; at: [number, number, number?] }
 	| { type: 'setSize'; id: NodeId; size: Partial<Record<'width' | 'depth' | 'height', number>> }
+	// A group's width, depth and/or height in mm, stretching what is inside to fit.
+	| { type: 'setGroupSize'; id: NodeId; size: Partial<Record<'width' | 'depth' | 'height', number>> }
 	// A box's or cylinder's chamfer in mm (0 removes it) and/or which edges it is on.
 	| { type: 'setChamfer'; id: NodeId; size?: number; edges?: ChamferEdges }
 	// A cylinder hole's countersink in mm (0 removes it) and/or which end it flares.
@@ -316,6 +319,9 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 
 		case 'setSize':
 			return commit(state, setShapeSize(design, action.id, action.size));
+
+		case 'setGroupSize':
+			return commit(state, setGroupSize(design, action.id, action.size));
 
 		case 'setChamfer':
 			return commit(
