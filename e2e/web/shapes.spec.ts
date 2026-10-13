@@ -29,6 +29,7 @@ const TILES = [
 	'Nut',
 	'Washer',
 	'Standoff',
+	'Text',
 ];
 const list = (page: Page) => page.getByTestId('object-list');
 const tile = (page: Page, name: string) => page.getByRole('region', { name: 'Shapes' }).getByRole('button', { name, exact: true });

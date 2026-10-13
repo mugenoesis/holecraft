@@ -5,6 +5,7 @@ import { addShape } from './ops.ts';
 import { PARAMETRIC_TYPES } from './parametricShapes.ts';
 import { getShapeDef, isShapeType, SHAPE_DEFS } from './shapes.ts';
 import { SOLID_SHAPE_TYPES } from './solidShapes.ts';
+import { defaultTextSize } from './textShape.ts';
 import { parseDesign } from './validate.ts';
 
 const NEW = [
@@ -25,6 +26,7 @@ const NEW = [
 	['nut', 'Nut'],
 	['washer', 'Washer'],
 	['standoff', 'Standoff'],
+	['text', 'Text'],
 ] as const;
 
 /** The default size of the shapes that are not 20 mm each way. */
@@ -39,6 +41,7 @@ const SIZE: Record<string, [number, number, number]> = {
 	nut: [9.237604, 8, 4],
 	washer: [10, 10, 1],
 	standoff: [9.237604, 8, 10],
+	text: defaultTextSize(),
 };
 
 describe('the basic shapes', () => {
@@ -54,9 +57,10 @@ describe('the basic shapes', () => {
 	it('builds every shape that is not a box, cylinder or sphere from a unit mesh (stretched) or from its settings (at its real size), never both', () => {
 		const builtOtherWays = new Set(['box', 'cylinder', 'sphere']);
 		const others = SHAPE_DEFS.filter((d) => !builtOtherWays.has(d.id)).map((d) => d.id);
-		expect([...others].sort()).toEqual([...SOLID_SHAPE_TYPES, ...PARAMETRIC_TYPES].sort());
+		// the text is neither: the geometry engine builds it from the outlines of its letters
+		expect([...others].sort()).toEqual([...SOLID_SHAPE_TYPES, ...PARAMETRIC_TYPES, 'text'].sort());
 		expect(SOLID_SHAPE_TYPES.filter((t) => PARAMETRIC_TYPES.includes(t))).toEqual([]);
-		for (const def of SHAPE_DEFS) expect(def.params !== undefined).toBe(PARAMETRIC_TYPES.includes(def.id));
+		for (const def of SHAPE_DEFS) if (def.id !== 'text') expect(def.params !== undefined).toBe(PARAMETRIC_TYPES.includes(def.id));
 	});
 
 	it('uses only the default palette colours, so each new shape sits in a filament slot', () => {

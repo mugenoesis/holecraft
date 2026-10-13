@@ -1,7 +1,7 @@
-import { getShapeDef, isShapeType, type ParamDef, type ShapeNode, shapeParam, shapeParamMm, typedParamMm } from '@holecraft/core';
+import { getShapeDef, isShapeType, type ParamDef, type ShapeNode, shapeParam, shapeParamMm, textOf, typedParamMm } from '@holecraft/core';
 import type { Dispatch } from 'react';
 import type { EditorAction } from './editorState.ts';
-import { NumberField } from './PropertiesPanel.tsx';
+import { NumberField, TextField } from './PropertiesPanel.tsx';
 
 const fmt = (n: number) => String(Number(n.toFixed(2)));
 
@@ -15,6 +15,9 @@ export function ShapeParamFields({ node, dispatch }: { node: ShapeNode; dispatch
 	if (!settings) return null;
 	return (
 		<>
+			{node.shapeType === 'text' && (
+				<TextField label="Text" value={textOf(node)} onCommit={(text) => dispatch({ type: 'setShapeText', id: node.id, text })} />
+			)}
 			{settings.map((p) => {
 				if (p.choices) return <ChoiceField key={p.key} node={node} setting={p} dispatch={dispatch} />;
 				const typed = typedParamMm(node, p.key);

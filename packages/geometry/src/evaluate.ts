@@ -19,6 +19,7 @@ import {
 } from '@holecraft/core';
 import type { Manifold, ManifoldToplevel } from 'manifold-3d';
 import { treatmentCuts } from './edgeCut.ts';
+import { textSolid } from './textSolid.ts';
 import type { GroupMesh } from './types.ts';
 
 /** manifold wants a 16-number tuple; a node's transform is the same column-major matrix as a plain array. */
@@ -158,6 +159,8 @@ class Evaluation {
 		switch (node.shapeType) {
 			case MESH_SHAPE_TYPE:
 				return this.track(this.imported(node).scale(size));
+			case 'text':
+				return this.track(textSolid(this.M, node)); // the letters, already at the shape's size
 			case 'cylinder':
 				return this.track(this.track(Manifold.cylinder(1, 0.5, 0.5, CYLINDER_SEGMENTS, false)).scale(size));
 			case 'sphere':
