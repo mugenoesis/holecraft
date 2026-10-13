@@ -43,6 +43,10 @@ Ships as a Docker web service and a Linux Electron app built from one codebase.
 4. Run `npm run format` (Biome: formats, sorts imports, applies safe fixes) and `scripts/check.sh` before committing (`FULL=1` when packaging, Docker, or Electron
    code changed).
 
+5. **Git hooks stand in for CI while GitHub Actions is unavailable.** Run `scripts/install-hooks.sh` once per
+   clone: `pre-commit` runs lint, knip, typecheck and unit tests; `pre-push` runs `scripts/check.sh` (`FULL=1` adds the
+   Docker and desktop jobs, `AUDIT=1` adds `scripts/audit.sh`). Don't bypass with `--no-verify` unless told to.
+
 ## Commands
 
 ```bash

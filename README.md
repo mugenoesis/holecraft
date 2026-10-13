@@ -199,6 +199,7 @@ scripts/        Repeatable dev/test/packaging tasks
 | Script | Purpose |
 |---|---|
 | `scripts/check.sh` | Pre-commit gate (`FULL=1` for packaging too) |
+| `scripts/install-hooks.sh` | Use the git hooks in `.githooks/` (pre-commit: lint, knip, typecheck, unit tests; pre-push: `scripts/check.sh`, with `FULL=1` / `AUDIT=1` for more). Stands in for CI while GitHub Actions is unavailable |
 | `scripts/e2e.sh` | Playwright tests in the Playwright Docker image |
 | `scripts/docker-smoke.sh` | Build the image, run it, verify health and non-root user |
 | `scripts/package-desktop.sh` | Build the AppImage and .deb (in a Debian container) |

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# The same gate CI runs (scripts/check.sh): lint, knip, typecheck, coverage floors, build, web e2e.
+# Set FULL=1 to also run the Docker smoke test, desktop package and desktop e2e, and AUDIT=1 for the
+# dependency audit (needs network). Skip once with `git push --no-verify`.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+scripts/check.sh
+if [[ "${AUDIT:-0}" == "1" ]]; then scripts/audit.sh; fi
