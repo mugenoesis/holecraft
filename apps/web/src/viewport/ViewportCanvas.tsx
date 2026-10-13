@@ -40,6 +40,8 @@ interface Props {
 	meshes: ReadonlyMap<string, MeshData>;
 	selection: readonly NodeId[];
 	onDropShape: (type: ShapeType, at: [number, number]) => void;
+	/** A saved shape dropped from the Mine view of the Shapes panel. */
+	onDropSaved: (id: string, where: { at: [number, number] } | { plane: WorkPlane; point: Vec3 }) => void;
 	/** The Workplane tool's plane, or null for the floor, and what to do when the tool picks one. */
 	plane: WorkPlane | null;
 	onPlane: (plane: WorkPlane | null) => void;
@@ -203,6 +205,7 @@ export function ViewportCanvas(props: Props) {
 		design.grid,
 		onDropShape,
 		props.plane && { plane: props.plane, onDrop: props.onDropOnPlane },
+		props.onDropSaved,
 	);
 
 	const { state, projection } = camera;

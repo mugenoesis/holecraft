@@ -2,6 +2,7 @@ import {
 	type Design,
 	filterShapes,
 	hasHiddenNodes,
+	type LibrarySummary,
 	type NodeId,
 	nodeBoundsIn,
 	SHAPE_CATEGORIES,
@@ -11,15 +12,24 @@ import {
 } from '@holecraft/core';
 import { type Dispatch, type DragEvent, type KeyboardEvent, useState } from 'react';
 import type { EditorAction } from './editorState.ts';
+import { matchingSaved, SavedShapes } from './SavedShapes.tsx';
 import { SHAPE_DRAG_TYPE } from './shapeDrag.ts';
 
 const fmt = (n: number) => String(Number(n.toFixed(2)));
 
-export function ShapesPanel({ onAddShape }: { onAddShape: (type: ShapeType) => void }) {
+/** The saved shapes (the library) the panel shows under Mine, and what to do with them. */
+export interface SavedShapesProps {
+	items: readonly LibrarySummary[];
+	onAdd: (id: string) => void;
+	onRename: (id: string, name: string) => void;
+	onDelete: (id: string) => void;
+}
+
+export function ShapesPanel({ onAddShape, saved }: { onAddShape: (type: ShapeType) => void; saved: SavedShapesProps }) {
 	// a search and a category narrow what is shown; nothing about them is saved
 	const [query, setQuery] = useState('');
-	const [category, setCategory] = useState<ShapeCategory | 'all'>('all');
-	const shapes = filterShapes(query, category);
+	const [category, setCategory] = useState<ShapeCategory | 'all' | 'mine'>('all');
+	const shapes = category === 'mine' ? [] : filterShapes(query, category);
 
 	const onDragStart = (e: DragEvent, type: ShapeType) => {
 		e.dataTransfer.setData(SHAPE_DRAG_TYPE, type);
@@ -47,38 +57,46 @@ export function ShapesPanel({ onAddShape }: { onAddShape: (type: ShapeType) => v
 				onKeyDown={(e) => {
 					if (e.key === 'Escape') setQuery('');
 					if (e.key === 'Enter' && shapes[0]) onAddShape(shapes[0].id);
+					if (e.key === 'Enter' && category === 'mine' && matchingSaved(saved.items, query)[0])
+						saved.onAdd(matchingSaved(saved.items, query)[0]!.id);
 				}}
 			/>
 			<div className="shape-chips" role="group" aria-label="Categories">
-				{[{ id: 'all' as const, label: 'All' }, ...SHAPE_CATEGORIES].map((c) => (
+				{[{ id: 'all' as const, label: 'All' }, ...SHAPE_CATEGORIES, { id: 'mine' as const, label: 'Mine' }].map((c) => (
 					<button key={c.id} type="button" aria-pressed={category === c.id} onClick={() => setCategory(c.id)}>
 						{c.label}
 					</button>
 				))}
 			</div>
 			<p className="muted hint">Click to add, or drag onto the plane.</p>
-			{shapes.length === 0 && (
-				<p className="muted" role="status">
-					No shape matches “{query.trim()}”
-				</p>
-			)}
-			<div className="shape-grid">
-				{shapes.map((def) => (
-					<div
-						key={def.id}
-						role="button"
-						tabIndex={0}
-						draggable
-						className="shape-tile"
-						onClick={() => onAddShape(def.id)}
-						onKeyDown={(e) => onKeyDown(e, def.id)}
-						onDragStart={(e) => onDragStart(e, def.id)}
-					>
-						<span className={`swatch ${def.id}`} style={{ backgroundColor: def.color }} aria-hidden="true" />
-						{def.name}
+			{category === 'mine' ? (
+				<SavedShapes items={saved.items} query={query} onAdd={saved.onAdd} onRename={saved.onRename} onDelete={saved.onDelete} />
+			) : (
+				<>
+					{shapes.length === 0 && (
+						<p className="muted" role="status">
+							No shape matches “{query.trim()}”
+						</p>
+					)}
+					<div className="shape-grid">
+						{shapes.map((def) => (
+							<div
+								key={def.id}
+								role="button"
+								tabIndex={0}
+								draggable
+								className="shape-tile"
+								onClick={() => onAddShape(def.id)}
+								onKeyDown={(e) => onKeyDown(e, def.id)}
+								onDragStart={(e) => onDragStart(e, def.id)}
+							>
+								<span className={`swatch ${def.id}`} style={{ backgroundColor: def.color }} aria-hidden="true" />
+								{def.name}
+							</div>
+						))}
 					</div>
-				))}
-			</div>
+				</>
+			)}
 		</section>
 	);
 }

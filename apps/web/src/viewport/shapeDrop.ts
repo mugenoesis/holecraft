@@ -9,7 +9,7 @@ import {
 	type WorkPlane,
 } from '@holecraft/core';
 import type { DragEvent, RefObject } from 'react';
-import { SHAPE_DRAG_TYPE } from '../shapeDrag.ts';
+import { LIBRARY_DRAG_TYPE, SHAPE_DRAG_TYPE } from '../shapeDrag.ts';
 import type { Viewport } from './Viewport.ts';
 
 /**
@@ -22,26 +22,34 @@ export function shapeDropHandlers(
 	onDropShape: (type: ShapeType, at: [number, number]) => void,
 	/** With a Workplane-tool plane chosen, shapes are dropped onto it instead of the floor. */
 	onPlane?: { plane: WorkPlane; onDrop: (type: ShapeType, plane: WorkPlane, point: Vec3) => void } | null,
+	/** A saved shape dropped (its library id): on the floor at a point, or on the plane. */
+	onDropSaved?: (id: string, where: { at: [number, number] } | { plane: WorkPlane; point: Vec3 }) => void,
 ): { onDragOver: (e: DragEvent) => void; onDrop: (e: DragEvent) => void } {
 	return {
 		onDragOver: (e) => {
-			if (!e.dataTransfer.types.includes(SHAPE_DRAG_TYPE)) return;
+			if (!e.dataTransfer.types.includes(SHAPE_DRAG_TYPE) && !e.dataTransfer.types.includes(LIBRARY_DRAG_TYPE)) return;
 			e.preventDefault();
 			e.dataTransfer.dropEffect = 'copy';
 		},
 		onDrop: (e) => {
 			const type = e.dataTransfer.getData(SHAPE_DRAG_TYPE);
-			if (!isShapeType(type)) return;
+			const savedId = e.dataTransfer.getData(LIBRARY_DRAG_TYPE);
+			if (!isShapeType(type) && !savedId) return;
 			e.preventDefault();
 			if (onPlane) {
 				const on = viewport.current?.pickPlane(e.clientX, e.clientY, onPlane.plane.origin, onPlane.plane.normal);
-				if (on) onPlane.onDrop(type, onPlane.plane, snapOnPlane(onPlane.plane, on, grid.snap));
+				if (!on) return;
+				const point = snapOnPlane(onPlane.plane, on, grid.snap);
+				if (isShapeType(type)) onPlane.onDrop(type, onPlane.plane, point);
+				else onDropSaved?.(savedId, { plane: onPlane.plane, point });
 				return;
 			}
 			const hit = viewport.current?.pickWorkplane(e.clientX, e.clientY);
 			if (!hit) return; // pointer is over the sky or an edge-on workplane
 			const [x, y] = clampToWorkplane(hit, grid.size);
-			onDropShape(type, [snapToGrid(x, grid.snap), snapToGrid(y, grid.snap)]);
+			const at: [number, number] = [snapToGrid(x, grid.snap), snapToGrid(y, grid.snap)];
+			if (isShapeType(type)) onDropShape(type, at);
+			else onDropSaved?.(savedId, { at });
 		},
 	};
 }

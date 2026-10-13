@@ -4,6 +4,7 @@ import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { MAX_DESIGN_BYTES, registerDesignRoutes } from './designRoutes.ts';
 import { DesignStore } from './designs.ts';
+import { LibraryStore, registerLibraryRoutes } from './library.ts';
 import { MeshStore, registerMeshRoutes } from './meshes.ts';
 import { ThumbnailStore } from './thumbnails.ts';
 
@@ -30,6 +31,7 @@ export async function createServer(opts: ServerOptions): Promise<FastifyInstance
 	const thumbnails = new ThumbnailStore(opts.dataDir);
 	await thumbnails.init();
 	registerDesignRoutes(app, new DesignStore(opts.dataDir), thumbnails);
+	registerLibraryRoutes(app, new LibraryStore(opts.dataDir));
 	const meshes = new MeshStore(opts.dataDir);
 	await meshes.init();
 	registerMeshRoutes(app, meshes);

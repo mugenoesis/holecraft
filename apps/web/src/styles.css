@@ -697,6 +697,59 @@ button.primary:disabled {
 	gap: 8px;
 }
 
+.swatch.saved {
+	border-radius: 6px;
+	clip-path: polygon(10% 25%, 50% 5%, 90% 25%, 90% 75%, 50% 95%, 10% 75%);
+}
+
+.shape-manage {
+	display: block;
+	margin-bottom: 6px;
+	font-size: 12px;
+	color: var(--muted);
+}
+
+.shape-tile.managed {
+	cursor: default;
+}
+
+.shape-tile.managed .saved-name {
+	max-width: 100%;
+	overflow-wrap: anywhere;
+}
+
+.saved-actions {
+	display: flex;
+	gap: 2px;
+}
+
+.saved-actions button {
+	padding: 0 5px;
+	font: inherit;
+	font-size: 12px;
+	color: var(--text);
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+.saved-actions button.really {
+	color: #fff;
+	background: #d1311c;
+	border-color: #d1311c;
+}
+
+.shape-rename {
+	width: 100%;
+	font: inherit;
+	font-size: 12px;
+}
+
+.save-to-library {
+	margin-top: 8px;
+}
+
 .shape-tile:hover {
 	border-color: var(--accent);
 }
