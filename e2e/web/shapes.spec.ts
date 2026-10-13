@@ -276,3 +276,85 @@ test.describe('the polygon', () => {
 		await expect(page.getByTestId('param-limited')).toContainText('Limited to 32 sides');
 	});
 });
+
+/*
+ * Threads keep their real size: the diameter comes from the chosen Size and cannot be dragged or typed, only the Length can. The
+ * export is a real thread whose volume is worked out by hand from the ISO profile, at any length.
+ */
+test.describe('threaded shapes', () => {
+	/** pi * length * mean(r^2) of the ISO profile: crest 1/8 of the pitch, root 1/4, two flanks of 5/16 (see core's threads.test.ts). */
+	const threadVolume = (diameter: number, pitch: number, length: number) => {
+		const [crest, root] = [diameter / 2, diameter / 2 - 0.5413 * pitch];
+		const flank = (crest * crest + crest * root + root * root) / 3;
+		return Math.PI * length * ((crest * crest) / 8 + (root * root) / 4 + 2 * (5 / 16) * flank);
+	};
+	const pick = async (page: Page, label: string, option: string) =>
+		properties(page).getByLabel(label, { exact: true }).selectOption({ label: option });
+
+	test('a rod has a Size choice (M5 to start); its width and depth are fixed and its height is called Length', async ({ page }) => {
+		await tile(page, 'Threaded Rod').click();
+		await row(page, 0).click();
+		await expect(field(page, 'Size')).toHaveValue('5');
+		await expect(field(page, 'Fit')).toHaveCount(0);
+		await expect(field(page, 'Width')).toBeDisabled();
+		await expect(field(page, 'Depth')).toBeDisabled();
+		await expect(field(page, 'Length')).toHaveValue('20');
+		await expect(field(page, 'Length')).toBeEnabled();
+	});
+
+	test('picking another Size changes the diameter: M8 is 8 mm across, and the export is an M8 thread', async ({ page }) => {
+		await tile(page, 'Threaded Rod').click();
+		await row(page, 0).click();
+		await pick(page, 'Size', 'M8');
+		await expect(field(page, 'Width')).toHaveValue('8');
+		await expect(field(page, 'Depth')).toHaveValue('8');
+		const stl = await exportStl(page);
+		expect(Math.abs(stl.volume - threadVolume(8, 1.25, 20)) / threadVolume(8, 1.25, 20)).toBeLessThan(0.005);
+		expect(stl.max.map((v) => Math.round(v * 100) / 100)).toEqual([4, 4, 20]);
+	});
+
+	test('a longer rod keeps its thread: Length 60 exports three times the volume of 20, not a stretched thread', async ({ page }) => {
+		await tile(page, 'Threaded Rod').click();
+		await row(page, 0).click();
+		await field(page, 'Length').fill('60');
+		await field(page, 'Length').press('Enter');
+		await expect(field(page, 'Length')).toHaveValue('60');
+		await expect(field(page, 'Width')).toHaveValue('5');
+		const stl = await exportStl(page);
+		expect(Math.abs(stl.volume - threadVolume(5, 0.8, 60)) / threadVolume(5, 0.8, 60)).toBeLessThan(0.005);
+	});
+
+	test('only the height and lift handles show: there is no way to drag a thread wider', async ({ page }) => {
+		await tile(page, 'Threaded Rod').click();
+		await row(page, 0).click();
+		await expect(page.getByTestId('handle-height')).toBeVisible();
+		await expect(page.getByTestId('handle-lift')).toBeVisible();
+		for (const id of ['corner-pp', 'corner-nn', 'side-px', 'side-ny']) await expect(page.getByTestId(`handle-${id}`)).toHaveCount(0);
+		await tile(page, 'Box').click();
+		await row(page, 1).click();
+		await expect(page.getByTestId('handle-corner-pp')).toBeVisible();
+	});
+
+	test('a threaded hole has Size and Fit (Normal to start) and is a bit wider than its screw: the fit sets how much', async ({ page }) => {
+		await tile(page, 'Threaded Hole').click();
+		await row(page, 0).click();
+		await expect(field(page, 'Fit')).toHaveValue('2');
+		await expect(field(page, 'Width')).toHaveValue('5.4');
+		await pick(page, 'Fit', 'Loose');
+		await expect(field(page, 'Width')).toHaveValue('5.8');
+		await pick(page, 'Fit', 'Tight');
+		await expect(field(page, 'Width')).toHaveValue('5.2');
+		await pick(page, 'Size', 'M10');
+		await expect(field(page, 'Width')).toHaveValue('10.2');
+	});
+
+	test('undo puts the Size back', async ({ page }) => {
+		await tile(page, 'Threaded Rod').click();
+		await row(page, 0).click();
+		await pick(page, 'Size', 'M12');
+		await expect(field(page, 'Width')).toHaveValue('12');
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		await page.keyboard.press('Control+z');
+		await expect(field(page, 'Width')).toHaveValue('5');
+	});
+});

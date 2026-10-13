@@ -19,6 +19,8 @@ interface Props {
 	geometry: ShapeGeometry;
 	/** Degrees the shape is turned about the vertical axis through its centre. */
 	yaw: number;
+	/** A thread keeps its width and depth: only the height and lift handles are offered. */
+	lengthOnly: boolean;
 	snap: number;
 	/** Looked up lazily: the Viewport is created after the first render. */
 	getViewport: () => Viewport | null;
@@ -41,7 +43,7 @@ const isVertical = (id: HandleId) => id === 'height' || id === 'lift';
  * Resize and lift handles for the selected shape, drawn as buttons over the 3D view so they
  * keep a constant size and are reachable by assistive technology. All the maths is in core.
  */
-export function HandlesOverlay({ nodeId, geometry, yaw, snap, getViewport, onStart, onGeometry, onEnd, onLabel }: Props) {
+export function HandlesOverlay({ nodeId, geometry, yaw, lengthOnly, snap, getViewport, onStart, onGeometry, onEnd, onLabel }: Props) {
 	const grab = useRef<Grab | null>(null);
 	const viewport = getViewport();
 	if (!viewport) return null;
@@ -97,7 +99,7 @@ export function HandlesOverlay({ nodeId, geometry, yaw, snap, getViewport, onSta
 
 	return (
 		<div className="handles" role="group" aria-label="Shape handles">
-			{HANDLE_IDS.map((id) => {
+			{HANDLE_IDS.filter((id) => !lengthOnly || id === 'height' || id === 'lift').map((id) => {
 				const p = viewport.project(handlePositionYawed(geometry, yaw, id));
 				if (!p) return null;
 				const y = id === 'lift' ? p.y - LIFT_OFFSET_PX : p.y;

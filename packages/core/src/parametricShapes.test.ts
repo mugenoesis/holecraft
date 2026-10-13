@@ -190,8 +190,8 @@ describe('the torus', () => {
 });
 
 describe('which shapes are built from their settings', () => {
-	it('lists the tube, the torus, the star and the polygon, and gives nothing for the others', () => {
-		expect([...PARAMETRIC_TYPES].sort()).toEqual(['polygon', 'star', 'torus', 'tube']);
+	it('lists the tube, the torus, the star, the polygon and the threads, and gives nothing for the others', () => {
+		expect([...PARAMETRIC_TYPES].sort()).toEqual(['polygon', 'star', 'threaded-hole', 'threaded-rod', 'torus', 'tube']);
 		for (const type of ['box', 'cylinder', 'cone', 'wedge', 'mesh', 'nonsense']) expect(parametricMesh(type, 20, 20, 20, {})).toBeNull();
 	});
 });

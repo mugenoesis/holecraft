@@ -581,6 +581,9 @@ button.primary:disabled {
 	grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
 	gap: 6px;
 	margin-bottom: 16px;
+	/* five rows and a peek of the sixth, then it scrolls: the library keeps growing and must not push Properties off a short screen */
+	max-height: 345px;
+	overflow-y: auto;
 }
 
 .shape-tile {
@@ -701,6 +704,20 @@ button.primary:disabled {
 
 .swatch.hexagon {
 	clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0 50%);
+}
+
+/* a screw seen from the side: a narrow bar with the slant of its thread, and the hole it goes in as the same bar cut out of a block */
+.swatch.threaded-rod {
+	clip-path: polygon(34% 0, 66% 0, 66% 100%, 34% 100%);
+	background-image: repeating-linear-gradient(-20deg, transparent 0 3px, rgb(0 0 0 / 28%) 3px 5px);
+}
+
+.swatch.threaded-hole {
+	border-radius: 4px;
+	mask:
+		linear-gradient(#000 0 0) 0 0 / 100% 100%,
+		linear-gradient(#000 0 0) 50% 50% / 32% 100% no-repeat;
+	mask-composite: exclude;
 }
 
 .swatch.polygon {
@@ -850,7 +867,8 @@ button.primary:disabled {
 	color: var(--muted);
 }
 
-.field input {
+.field input,
+.field select {
 	min-width: 0;
 	font: inherit;
 	color: var(--text);
@@ -858,6 +876,10 @@ button.primary:disabled {
 	border: 1px solid var(--border);
 	border-radius: 6px;
 	padding: 4px 8px;
+}
+
+.field input:disabled {
+	opacity: 0.6;
 }
 
 .field input[type="color"] {
@@ -1139,6 +1161,7 @@ button.primary:disabled {
 		grid-auto-flow: column;
 		grid-auto-columns: 88px;
 		overflow-x: auto;
+		max-height: none;
 		margin-bottom: 12px;
 	}
 
