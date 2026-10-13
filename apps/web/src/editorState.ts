@@ -1,6 +1,7 @@
 import {
 	type AlignEdge,
 	type Axis,
+	addLibraryShape,
 	addMeshShape,
 	addPaletteColor,
 	addShape,
@@ -76,6 +77,8 @@ export type EditorAction =
 	| { type: 'add'; shape: ShapeType; at: [number, number] }
 	// A shape standing on the Workplane tool's plane (its base on the surface, going out of it) at a point on that plane.
 	| { type: 'addOnPlane'; shape: ShapeType; plane: WorkPlane; point: Vec3 }
+	// A saved shape (see libraryShapeOf) added to the design, on the floor at `at` or on a plane at `point`; it becomes the selection.
+	| { type: 'addLibrary'; shape: Design; at?: [number, number]; plane?: WorkPlane; point?: Vec3 }
 	// Put the one selected shape or group on the Workplane tool's plane (see standOnPlane).
 	| { type: 'standOnPlane'; plane: WorkPlane }
 	/** An imported model, already stored on the server (see importModel). */
@@ -243,10 +246,9 @@ function duplicate(state: EditorState): EditorState {
 
 const sameIds = (a: readonly NodeId[], b: readonly NodeId[]) => a.length === b.length && a.every((id, i) => id === b[i]);
 
-/** Edits to the document: each is one undoable step, or nothing at all when it changes nothing. */
-function reduceEdit(state: EditorState, action: EditAction): EditorState {
+/** Adding something new: a built-in shape, a saved one, or an imported model. */
+function reduceAdd(state: EditorState, action: ActionOf<'add' | 'addOnPlane' | 'addLibrary' | 'addMesh'>): EditorState {
 	const design = state.history.present;
-
 	switch (action.type) {
 		case 'add':
 			return commit(state, addShape(design, action.shape, action.at).design);
@@ -256,10 +258,32 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 			return added.id ? commit(state, added.design) : state; // like adding on the floor, the selection is left alone
 		}
 
+		case 'addLibrary': {
+			const added = addLibraryShape(design, action.shape, {
+				...(action.at && { at: action.at }),
+				...(action.plane && { plane: action.plane }),
+				...(action.point && { point: action.point }),
+			});
+			return added.id ? commit(state, added.design, [added.id]) : state;
+		}
+
 		case 'addMesh': {
 			const added = addMeshShape(design, action.input, { at: action.at });
 			return commit(state, added.design, [added.id]);
 		}
+	}
+}
+
+/** Edits to the document: each is one undoable step, or nothing at all when it changes nothing. */
+function reduceEdit(state: EditorState, action: EditAction): EditorState {
+	const design = state.history.present;
+
+	switch (action.type) {
+		case 'add':
+		case 'addOnPlane':
+		case 'addLibrary':
+		case 'addMesh':
+			return reduceAdd(state, action);
 
 		case 'setEuler':
 			return commit(state, setNodeEuler(design, action.id, action.euler));

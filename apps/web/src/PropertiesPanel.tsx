@@ -1,6 +1,7 @@
 import {
 	canResizeGroup,
 	type Design,
+	type DesignNode,
 	descendantIds,
 	eulerOfTransform,
 	groupGeometry,
@@ -15,8 +16,10 @@ import type { Dispatch } from 'react';
 import { ChamferFields } from './ChamferFields.tsx';
 import { CountersinkFields } from './CountersinkFields.tsx';
 import type { EditorAction } from './editorState.ts';
+import { SaveToLibrary } from './SaveToLibrary.tsx';
 import { ShapeParamFields } from './ShapeParamFields.tsx';
 import { useDraft } from './useDraft.ts';
+import type { Library } from './useLibrary.ts';
 
 /** Why a group's size fields are switched off. */
 function whyNotResizable(design: Design, id: NodeId): string {
@@ -35,9 +38,25 @@ interface Props {
 	design: Design;
 	selection: readonly NodeId[];
 	dispatch: Dispatch<EditorAction>;
+	/** Keeps the selected shape or group in the library of saved shapes. */
+	library: Library;
 }
 
-export function PropertiesPanel({ design, selection, dispatch }: Props) {
+/** Save to library, for one shape or group at a time (group several first); a different selection starts the box afresh. */
+function SaveBox({ design, nodes, library }: { design: Design; nodes: readonly DesignNode[]; library: Library }) {
+	const target = nodes.length === 1 ? nodes[0] : undefined;
+	if (!target || target.kind === 'mesh') return null;
+	return (
+		<SaveToLibrary
+			key={target.id}
+			defaultName={target.name}
+			problem={library.problem}
+			onSave={(name) => library.save(design, target.id, name)}
+		/>
+	);
+}
+
+export function PropertiesPanel({ design, selection, dispatch, library }: Props) {
 	const nodes = selection.flatMap((id) => (design.nodes[id] ? [design.nodes[id]] : []));
 
 	if (nodes.length === 0) {
@@ -62,6 +81,7 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 			</button>
 		</div>
 	);
+	const saveBox = <SaveBox design={design} nodes={nodes} library={library} />;
 
 	const color = (
 		<label className="field">
@@ -105,6 +125,7 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 				{typeToggle}
 				{color}
 				{actions}
+				{saveBox}
 			</section>
 		);
 	}
@@ -146,6 +167,7 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 				{typeToggle}
 				{color}
 				{actions}
+				{saveBox}
 			</section>
 		);
 	}
@@ -209,6 +231,7 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 				</p>
 			)}
 			{actions}
+			{saveBox}
 		</section>
 	);
 }

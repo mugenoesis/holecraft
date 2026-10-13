@@ -5,12 +5,14 @@ import { describe, expect, it } from 'vitest';
 import { ShapesPanel } from './ShapesPanel.tsx';
 
 describe('the Shapes panel to start with', () => {
-	const html = renderToStaticMarkup(createElement(ShapesPanel, { onAddShape: () => {} }));
+	const html = renderToStaticMarkup(
+		createElement(ShapesPanel, { onAddShape: () => {}, saved: { items: [], onAdd: () => {}, onRename: () => {}, onDelete: () => {} } }),
+	);
 
 	it('has a search box and the category chips, with All chosen', () => {
 		expect(html).toMatch(/<input[^>]*type="search"[^>]*aria-label="Search shapes"/);
 		expect(html).toMatch(/<button[^>]*aria-pressed="true"[^>]*>All<\/button>/);
-		for (const name of ['Basic', 'Parametric', 'Fasteners'])
+		for (const name of ['Basic', 'Parametric', 'Fasteners', 'Mine'])
 			expect(html).toMatch(new RegExp(`<button[^>]*aria-pressed="false"[^>]*>${name}</button>`));
 	});
 

@@ -40,8 +40,9 @@ export class DesignStore {
 	private readonly folder: string;
 	private readonly queues = new Map<string, Promise<unknown>>();
 
-	constructor(dataDir: string) {
-		this.folder = path.join(dataDir, 'designs');
+	/** `folder` is the name of the folder under the data folder: the library of saved shapes is kept the same way as designs, in its own. */
+	constructor(dataDir: string, folder = 'designs') {
+		this.folder = path.join(dataDir, folder);
 	}
 
 	async list(): Promise<DesignSummary[]> {

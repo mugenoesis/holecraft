@@ -10,6 +10,7 @@ import { PropertiesPanel } from './PropertiesPanel.tsx';
 import { ObjectList, ShapesPanel } from './ShapesPanel.tsx';
 import { TopBar } from './TopBar.tsx';
 import { useAutosave } from './useAutosave.ts';
+import { useLibrary } from './useLibrary.ts';
 import { useMeshes } from './useMeshes.ts';
 import { ViewportCanvas } from './viewport/ViewportCanvas.tsx';
 
@@ -76,6 +77,16 @@ function EditorView({ initial }: { initial: Design }) {
 		(shape: ShapeType, onPlane: WorkPlane, point: Vec3) => dispatch({ type: 'addOnPlane', shape, plane: onPlane, point }),
 		[],
 	);
+	// The shapes saved to the library (shared by every design): adding one opens it from the server first, then it is added like any shape.
+	const library = useLibrary();
+	const openSaved = library.open;
+	const addSaved = useCallback(
+		async (id: string, where: { at: [number, number] } | { plane: WorkPlane; point: Vec3 }) => {
+			const shape = await openSaved(id);
+			if (shape) dispatch({ type: 'addLibrary', shape, ...where });
+		},
+		[openSaved],
+	);
 	const addAt = useCallback((shape: ShapeType, at: [number, number]) => dispatch({ type: 'add', shape, at }), []);
 	// A list row is a complete click: the press selects (shift toggles), and the release narrows a
 	// multi-selection down to the clicked row, which the viewport only does when nothing was dragged.
@@ -112,6 +123,7 @@ function EditorView({ initial }: { initial: Design }) {
 					onThumbnail={(picture) => uploadThumbnail(design.id, picture)}
 					selection={state.selection}
 					onDropShape={addAt}
+					onDropSaved={addSaved}
 					plane={plane}
 					onPlane={setPlane}
 					onDropOnPlane={addOnPlane}
@@ -130,8 +142,16 @@ function EditorView({ initial }: { initial: Design }) {
 					onCancelDrag={() => dispatch({ type: 'cancelDrag' })}
 				/>
 				<aside className="panel">
-					<ShapesPanel onAddShape={(shape) => (plane ? addOnPlane(shape, plane, plane.origin) : addAt(shape, [0, 0]))} />
-					<PropertiesPanel design={design} selection={state.selection} dispatch={dispatch} />
+					<ShapesPanel
+						onAddShape={(shape) => (plane ? addOnPlane(shape, plane, plane.origin) : addAt(shape, [0, 0]))}
+						saved={{
+							items: library.items,
+							onAdd: (id) => void addSaved(id, plane ? { plane, point: plane.origin } : { at: [0, 0] }),
+							onRename: (id, name) => void library.rename(id, name),
+							onDelete: (id) => void library.remove(id),
+						}}
+					/>
+					<PropertiesPanel design={design} selection={state.selection} dispatch={dispatch} library={library} />
 					<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
 					<PalettePanel design={design} selection={state.selection} dispatch={dispatch} />
 					<ObjectList design={design} selection={state.selection} onSelect={select} dispatch={dispatch} />
