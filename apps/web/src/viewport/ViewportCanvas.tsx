@@ -9,6 +9,8 @@ import {
 	type PaintFill,
 	type ShapeGeometry,
 	type ShapeType,
+	type SketchFrame,
+	type SketchOutline,
 	type Vec3,
 	type WorkPlane,
 	withSimpleThreads,
@@ -24,6 +26,7 @@ import { HandlesOverlay } from './HandlesOverlay.tsx';
 import { PaintTool } from './PaintTool.tsx';
 import { RotationRings } from './RotationRings.tsx';
 import { RulerOverlay } from './RulerOverlay.tsx';
+import { SketchTool } from './SketchTool.tsx';
 import { SkippedEdgesNotice } from './SkippedEdgesNotice.tsx';
 import { selectedHandles, selectedRings } from './selectedShape.ts';
 import { shapeDropHandlers } from './shapeDrop.ts';
@@ -79,6 +82,11 @@ interface Props {
 	onPaintStrokeEnd: () => void;
 	/** A gap fill, on the shapes it can tidy. */
 	onPaintGapFill: (ids: NodeId[], fill: PaintFill) => void;
+	/** The sketch shape being redrawn (set by its Edit sketch button), or null; the tool tells when it is done. */
+	sketchEdit: NodeId | null;
+	onSketchEditChange: (id: NodeId | null) => void;
+	/** A drawing is finished: make a new Sketch shape on the frame's plane, or redraw `editId`. */
+	onFinishSketch: (done: { outlines: SketchOutline[]; height: number; frame: SketchFrame; editId: NodeId | null }) => void;
 }
 
 /** React host for the imperative three.js viewport, plus its overlay controls. */
@@ -99,13 +107,29 @@ export function ViewportCanvas(props: Props) {
 	const [dimensionLabel, setDimensionLabel] = useState<string | null>(null);
 	const [tool, setTool] = useState<SurfaceTool | null>(null);
 	const toggleTool = (t: SurfaceTool) => setTool((now) => (now === t ? null : t));
+	// Edit sketch (in Properties) turns the Sketch tool on for that shape; leaving the tool by any way lets go of the shape
+	const { sketchEdit, onSketchEditChange } = props;
+	useEffect(() => {
+		if (sketchEdit) setTool('sketch');
+	}, [sketchEdit]);
+	const wasSketching = useRef(false);
+	useEffect(() => {
+		if (wasSketching.current && tool !== 'sketch') onSketchEditChange(null);
+		wasSketching.current = tool === 'sketch';
+	}, [tool, onSketchEditChange]);
 	const [camera, setCamera] = useState<{ state: OrbitState; projection: Projection }>({ state: HOME_VIEW, projection: 'perspective' });
 	const cameraRef = useRef(camera);
 	cameraRef.current = camera;
 
 	// While editing, threads can be drawn as plain cylinders: only the view and its geometry work use this; selection, saving and export use `design`
 	const [simpleThreads, toggleSimpleThreads] = useSimpleThreads();
-	const drawn = useMemo(() => (simpleThreads ? withSimpleThreads(design) : design), [design, simpleThreads]);
+	// the sketch shape being redrawn is left out of the view: its drawing is on screen instead
+	const sketching = tool === 'sketch' ? props.sketchEdit : null;
+	const drawn = useMemo(() => {
+		const shown = simpleThreads ? withSimpleThreads(design) : design;
+		const node = sketching ? shown.nodes[sketching] : undefined;
+		return node ? { ...shown, nodes: { ...shown.nodes, [node.id]: { ...node, hidden: true } } } : shown;
+	}, [design, simpleThreads, sketching]);
 	const drawnRef = useRef(drawn);
 	drawnRef.current = drawn;
 
@@ -312,6 +336,22 @@ export function ViewportCanvas(props: Props) {
 							onApply={() => latest.current.onMoveEnd()}
 							onCancel={() => latest.current.onCancelDrag()}
 							onClose={() => setTool(null)}
+						/>
+					)}
+					{tool === 'sketch' && (
+						<SketchTool
+							// a different sketch (or a new one) starts the tool afresh
+							key={sketchEdit ?? 'new'}
+							getViewport={getViewport}
+							design={design}
+							plane={props.plane}
+							editId={sketchEdit}
+							camera={camera}
+							onFinish={(outlines, height, frame) => {
+								latest.current.onFinishSketch({ outlines, height, frame, editId: sketchEdit });
+								setTool(null);
+							}}
+							onCancel={() => setTool(null)}
 						/>
 					)}
 					{tool === 'paint' && (

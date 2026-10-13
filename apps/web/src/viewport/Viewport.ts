@@ -2,7 +2,9 @@ import {
 	applyViewPreset,
 	type Design,
 	designBounds,
+	fitDistance,
 	fitToBounds,
+	lookAlongNormal,
 	type MeshData,
 	type NodeId,
 	type OrbitState,
@@ -98,6 +100,11 @@ export class Viewport {
 	/** While the ruler is on, the left button no longer selects or moves: clicks belong to the ruler and dragging orbits. */
 	private surfaceToolOn = false;
 	private toolPaintsOnDrag = false;
+	private lastSync: {
+		results?: ReadonlyMap<NodeId, GroupResult> | undefined;
+		failed?: ReadonlySet<NodeId> | undefined;
+		meshes?: ReadonlyMap<string, MeshData> | undefined;
+	} = {};
 	private bandMarker: THREE.Group | null = null;
 	private multiSelectOn = false;
 	private planeMarker: THREE.Object3D | null = null;
@@ -146,7 +153,31 @@ export class Viewport {
 		meshes?: ReadonlyMap<string, MeshData>,
 	): void {
 		this.design = design;
+		this.lastSync = { results, failed, meshes };
 		this.designScene.sync(design, results, failed, meshes);
+		this.requestRender();
+	}
+
+	/** Draws every shape faint (while a sketch is drawn over them), or solid again. */
+	setDimmed(on: boolean): void {
+		this.designScene.setDimmed(on);
+		if (this.design) this.designScene.sync(this.design, this.lastSync.results, this.lastSync.failed, this.lastSync.meshes);
+		this.requestRender();
+	}
+
+	/** Moves the camera to a state and projection (back to the view before a sketch took it over). */
+	goToView(state: OrbitState, projection: Projection, animate = true): void {
+		this.rig.setProjection(projection);
+		this.rig.goTo(state, { animate });
+		this.requestRender();
+	}
+
+	/** Looks straight at a plane, from its front, in orthographic projection, about `size` mm across (so a drawing on it is true to scale). */
+	lookAtPlane(plane: WorkPlane, size: number): void {
+		const aspect = this.host.clientWidth / Math.max(1, this.host.clientHeight);
+		const distance = fitDistance((size / 2) * 1.2, FOV_DEG, aspect);
+		this.rig.setProjection('orthographic');
+		this.rig.goTo(lookAlongNormal(this.rig.state, plane.normal, plane.origin, distance));
 		this.requestRender();
 	}
 

@@ -27,6 +27,7 @@ describe('shape definitions', () => {
 			'washer',
 			'standoff',
 			'text',
+			'sketch',
 		]);
 		for (const def of SHAPE_DEFS) {
 			expect(def.name.length).toBeGreaterThan(0);

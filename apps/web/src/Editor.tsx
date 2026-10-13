@@ -73,6 +73,7 @@ function EditorView({ initial }: { initial: Design }) {
 
 	// The Workplane tool's plane (not saved): new shapes stand on it instead of on the floor.
 	const [plane, setPlane] = useState<WorkPlane | null>(null);
+	const [sketchEdit, setSketchEdit] = useState<NodeId | null>(null);
 	const addOnPlane = useCallback(
 		(shape: ShapeType, onPlane: WorkPlane, point: Vec3) => dispatch({ type: 'addOnPlane', shape, plane: onPlane, point }),
 		[],
@@ -146,6 +147,15 @@ function EditorView({ initial }: { initial: Design }) {
 					onPaintStrokePreview={(id, fill) => dispatch({ type: 'previewPaint', id, fill })}
 					onPaintStrokeEnd={() => dispatch({ type: 'moveEnd' })}
 					onPaintGapFill={(ids, fill) => dispatch({ type: 'addPaintAll', ids, fill })}
+					sketchEdit={sketchEdit}
+					onSketchEditChange={setSketchEdit}
+					onFinishSketch={({ outlines, height, frame, editId }) =>
+						dispatch(
+							editId
+								? { type: 'setSketch', id: editId, outlines, height }
+								: { type: 'addSketch', plane: { origin: frame.origin, normal: frame.normal }, outlines, height },
+						)
+					}
 				/>
 				<aside className="panel">
 					<ShapesPanel
@@ -157,7 +167,7 @@ function EditorView({ initial }: { initial: Design }) {
 							onDelete: (id) => void library.remove(id),
 						}}
 					/>
-					<PropertiesPanel design={design} selection={state.selection} dispatch={dispatch} library={library} />
+					<PropertiesPanel design={design} selection={state.selection} dispatch={dispatch} library={library} onEditSketch={setSketchEdit} />
 					<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
 					<PalettePanel design={design} selection={state.selection} dispatch={dispatch} />
 					<ObjectList design={design} selection={state.selection} onSelect={select} dispatch={dispatch} />

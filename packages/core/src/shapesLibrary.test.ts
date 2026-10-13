@@ -27,6 +27,7 @@ const NEW = [
 	['washer', 'Washer'],
 	['standoff', 'Standoff'],
 	['text', 'Text'],
+	['sketch', 'Sketch'],
 ] as const;
 
 /** The default size of the shapes that are not 20 mm each way. */
@@ -42,6 +43,7 @@ const SIZE: Record<string, [number, number, number]> = {
 	washer: [10, 10, 1],
 	standoff: [9.237604, 8, 10],
 	text: defaultTextSize(),
+	sketch: [20, 20, 10],
 };
 
 describe('the basic shapes', () => {
@@ -58,9 +60,10 @@ describe('the basic shapes', () => {
 		const builtOtherWays = new Set(['box', 'cylinder', 'sphere']);
 		const others = SHAPE_DEFS.filter((d) => !builtOtherWays.has(d.id)).map((d) => d.id);
 		// the text is neither: the geometry engine builds it from the outlines of its letters
-		expect([...others].sort()).toEqual([...SOLID_SHAPE_TYPES, ...PARAMETRIC_TYPES, 'text'].sort());
+		expect([...others].sort()).toEqual([...SOLID_SHAPE_TYPES, ...PARAMETRIC_TYPES, 'text', 'sketch'].sort());
 		expect(SOLID_SHAPE_TYPES.filter((t) => PARAMETRIC_TYPES.includes(t))).toEqual([]);
-		for (const def of SHAPE_DEFS) if (def.id !== 'text') expect(def.params !== undefined).toBe(PARAMETRIC_TYPES.includes(def.id));
+		for (const def of SHAPE_DEFS)
+			if (def.id !== 'text' && def.id !== 'sketch') expect(def.params !== undefined).toBe(PARAMETRIC_TYPES.includes(def.id));
 	});
 
 	it('uses only the default palette colours, so each new shape sits in a filament slot', () => {
@@ -68,7 +71,8 @@ describe('the basic shapes', () => {
 		for (const def of SHAPE_DEFS) expect(palette.has(def.color)).toBe(true);
 	});
 
-	for (const [id, name] of NEW) {
+	// a sketch has a drawing to save, so it is tested in sketchShape.test.ts
+	for (const [id, name] of NEW.filter(([id]) => id !== 'sketch')) {
 		it(`adds a ${name}, numbers copies of it, and keeps it through saving`, () => {
 			let { design } = addShape(createEmptyDesign('d'), id, [0, 0], { id: 'a' });
 			expect((design.nodes.a as ShapeNode).name).toBe(`${name} 1`);

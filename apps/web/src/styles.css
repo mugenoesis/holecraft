@@ -514,8 +514,13 @@ button.primary:disabled {
 	background: transparent;
 	border: 1px solid transparent;
 	border-radius: 6px;
-	padding: 4px;
+	padding: 4px 3px;
 	cursor: pointer;
+}
+
+/* the views menu shows only "View…", so it need not be as wide as its longest entry (this keeps the toolbar on one line on a 4:3 tablet) */
+.viewport-toolbar select {
+	width: 4.6em;
 }
 
 .viewport-toolbar button:hover,
@@ -1598,4 +1603,77 @@ button.primary:disabled {
 .brush-cursor circle.dot {
 	fill: #fff;
 	stroke: none;
+}
+
+.sketch-bar {
+	min-width: min(640px, calc(100% - 24px));
+}
+.sketch-tools {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px;
+}
+.sketch-tools button {
+	padding: 4px 10px;
+	color: #fff;
+	background: rgb(255 255 255 / 10%);
+	border: 1px solid rgb(255 255 255 / 25%);
+	border-radius: 6px;
+	cursor: pointer;
+}
+.sketch-tools button[aria-pressed="true"] {
+	background: var(--accent);
+	border-color: #fff;
+}
+.sketch-bar input[type="text"],
+.sketch-bar input[type="number"] {
+	width: 5em;
+}
+.sketch-overlay {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	overflow: visible;
+	pointer-events: none;
+}
+.sketch-fill {
+	fill: var(--accent);
+	fill-opacity: 0.4;
+	stroke: var(--accent);
+	stroke-width: 2.5;
+}
+.sketch-draft {
+	fill: var(--accent);
+	fill-opacity: 0.2;
+	stroke: var(--accent);
+	stroke-width: 2;
+	stroke-dasharray: 6 4;
+}
+.sketch-handle {
+	fill: #fff;
+	stroke: var(--accent);
+	stroke-width: 2;
+}
+.sketch-handle.selected {
+	fill: var(--accent);
+	stroke: #fff;
+}
+.sketch-line {
+	fill: none;
+	stroke: #e8a317;
+	stroke-width: 2.5;
+}
+.sketch-rubber {
+	stroke: #e8a317;
+	stroke-width: 1.5;
+	stroke-dasharray: 6 5;
+}
+.sketch-point {
+	fill: #fff;
+	stroke: #e8a317;
+	stroke-width: 2;
+}
+.sketch-point.closable {
+	fill: #e8a317;
 }

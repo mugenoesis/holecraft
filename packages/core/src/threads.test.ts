@@ -92,7 +92,8 @@ describe('the inch sizes (unified coarse, UNC)', () => {
 		expect(choices.map((c) => c.group)).toEqual([...THREAD_SIZES.map(() => 'Metric'), ...IMPERIAL_SIZES.map(() => 'Inch (UNC)')]);
 		expect(choices.map((c) => c.value)).toEqual([2, 3, 4, 5, 6, 8, 10, 12, 101, 102, 103, 104, 105, 106, 107, 108]);
 		expect(shapeParam(nodeOf(made('threaded-rod', { size: 105 })), 'size')).toBe(105);
-		expect(setShapeParam(made('threaded-rod'), 'a', 'size', 7)).toEqual(made('threaded-rod')); // still no M7
+		const rod = made('threaded-rod');
+		expect(setShapeParam(rod, 'a', 'size', 7)).toBe(rod); // still no M7
 	});
 
 	it('set the footprint of a rod from the inch diameter: a 1/4-20 is 6.35 mm across', () => {

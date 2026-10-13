@@ -9,9 +9,10 @@ describe('the shape categories', () => {
 		expect(SHAPE_CATEGORIES.map((c) => c.label)).toEqual(['Basic', 'Parametric', 'Fasteners']);
 		const known = new Set(SHAPE_CATEGORIES.map((c) => c.id));
 		for (const def of SHAPE_DEFS) expect(known.has(def.category)).toBe(true);
-		const counts = SHAPE_CATEGORIES.map((c) => SHAPE_DEFS.filter((d) => d.category === c.id).length);
+		const tiles = SHAPE_DEFS.filter((d) => !d.noTile); // a sketch is drawn, not picked from the panel
+		const counts = SHAPE_CATEGORIES.map((c) => tiles.filter((d) => d.category === c.id).length);
 		expect(counts).toEqual([10, 5, 6]);
-		expect(counts.reduce((a, b) => a + b, 0)).toBe(SHAPE_DEFS.length);
+		expect(counts.reduce((a, b) => a + b, 0)).toBe(tiles.length);
 	});
 
 	it('hold the shapes you would expect', () => {
@@ -34,8 +35,9 @@ describe('the shape categories', () => {
 
 describe('filterShapes', () => {
 	it('gives every shape, in the panel’s order, for no search in All', () => {
-		expect(ids('')).toEqual(SHAPE_DEFS.map((d) => d.id));
-		expect(ids('   ')).toEqual(SHAPE_DEFS.map((d) => d.id));
+		const tiles = SHAPE_DEFS.filter((d) => !d.noTile).map((d) => d.id);
+		expect(ids('')).toEqual(tiles);
+		expect(ids('   ')).toEqual(tiles);
 	});
 
 	it('finds a shape by its name, ignoring case and spaces round the search', () => {

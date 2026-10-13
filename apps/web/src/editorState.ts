@@ -7,6 +7,7 @@ import {
 	addPaletteColor,
 	addShape,
 	addShapeOnPlane,
+	addSketchShape,
 	alignNodes,
 	type ChamferEdges,
 	type CountersinkEnd,
@@ -38,6 +39,7 @@ import {
 	replacePresent,
 	type ShapeGeometry,
 	type ShapeType,
+	type SketchOutline,
 	type SolidMode,
 	selectAll,
 	setEdgeTreatments,
@@ -55,6 +57,7 @@ import {
 	setShapeGeometry,
 	setShapeParam,
 	setShapeSize,
+	setShapeSketch,
 	setShapeText,
 	showAll,
 	standOnPlane,
@@ -83,6 +86,9 @@ export type EditorAction =
 	// A shape standing on the Workplane tool's plane (its base on the surface, going out of it) at a point on that plane.
 	| { type: 'addOnPlane'; shape: ShapeType; plane: WorkPlane; point: Vec3 }
 	// A saved shape (see libraryShapeOf) added to the design, on the floor at `at` or on a plane at `point`; it becomes the selection.
+	// The Sketch tool: a new Sketch shape from a drawing made on a plane, or a sketch shape redrawn (outlines in its own frame), by `height` thick
+	| { type: 'addSketch'; plane: WorkPlane; outlines: SketchOutline[]; height: number }
+	| { type: 'setSketch'; id: NodeId; outlines: SketchOutline[]; height: number }
 	| { type: 'addLibrary'; shape: Design; at?: [number, number]; plane?: WorkPlane; point?: Vec3 }
 	// Put the one selected shape or group on the Workplane tool's plane (see standOnPlane).
 	| { type: 'standOnPlane'; plane: WorkPlane }
@@ -268,7 +274,7 @@ function duplicate(state: EditorState): EditorState {
 const sameIds = (a: readonly NodeId[], b: readonly NodeId[]) => a.length === b.length && a.every((id, i) => id === b[i]);
 
 /** Adding something new: a built-in shape, a saved one, or an imported model. */
-function reduceAdd(state: EditorState, action: ActionOf<'add' | 'addOnPlane' | 'addLibrary' | 'addMesh'>): EditorState {
+function reduceAdd(state: EditorState, action: ActionOf<'add' | 'addOnPlane' | 'addLibrary' | 'addMesh' | 'addSketch'>): EditorState {
 	const design = state.history.present;
 	switch (action.type) {
 		case 'add':
@@ -292,6 +298,11 @@ function reduceAdd(state: EditorState, action: ActionOf<'add' | 'addOnPlane' | '
 			const added = addMeshShape(design, action.input, { at: action.at });
 			return commit(state, added.design, [added.id]);
 		}
+
+		case 'addSketch': {
+			const added = addSketchShape(design, action.plane, action.outlines, action.height);
+			return added.id ? commit(state, added.design, [added.id]) : state;
+		}
 	}
 }
 
@@ -304,7 +315,11 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 		case 'addOnPlane':
 		case 'addLibrary':
 		case 'addMesh':
+		case 'addSketch':
 			return reduceAdd(state, action);
+
+		case 'setSketch':
+			return commit(state, setShapeSketch(design, action.id, action.outlines, { height: action.height }));
 
 		case 'setEuler':
 			return commit(state, setNodeEuler(design, action.id, action.euler));

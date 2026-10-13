@@ -29,7 +29,7 @@ function rank(def: ShapeDef, word: string): number | null {
  */
 export function filterShapes(query: string, category: ShapeCategory | 'all'): ShapeDef[] {
 	const wanted = words(query);
-	const scored = SHAPE_DEFS.flatMap((def, order) => {
+	const scored = SHAPE_DEFS.filter((def) => !def.noTile).flatMap((def, order) => {
 		if (category !== 'all' && def.category !== category) return [];
 		const ranks = wanted.map((w) => rank(def, w));
 		if (ranks.some((r) => r === null)) return [];

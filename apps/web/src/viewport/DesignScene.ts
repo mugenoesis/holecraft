@@ -30,6 +30,8 @@ const OUTLINE_COLOR = 0x0f766e;
 /** Holes are drawn as pale, see-through ghosts, whatever colour the shape itself has. */
 const HOLE_COLOR = 0x8fa1b0;
 const HOLE_OPACITY = 0.35;
+/** How faint everything is while a sketch is being drawn (the next sync draws it so). */
+const DIMMED_OPACITY = 0.25;
 
 /** Unit-sized geometry resting on z=0, scaled per shape by its width/depth/height. */
 function createUnitGeometry(type: ShapeType): THREE.BufferGeometry {
@@ -115,7 +117,10 @@ function realSizeMesh(node: ShapeNode): { key: string; build: () => MeshData } |
 		return { key, build: () => chamferedMesh(node.shapeType as 'box' | 'cylinder', width, depth, height, chamfer.size, chamfer.edges) };
 	}
 	// text has settings but no mesh of its own here: its letters come from the geometry engine, so a box stands in until they arrive
-	const settings = isShapeType(node.shapeType) && node.shapeType !== 'text' ? getShapeDef(node.shapeType).params : undefined;
+	const settings =
+		isShapeType(node.shapeType) && node.shapeType !== 'text' && node.shapeType !== 'sketch'
+			? getShapeDef(node.shapeType).params
+			: undefined;
 	if (settings)
 		return {
 			key: [
@@ -156,6 +161,7 @@ export class DesignScene {
 	private readonly chamferGeometries = new Map<NodeId, { key: string; geometry: THREE.BufferGeometry }>();
 	private readonly outlineGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5));
 	/** `paintedOn` is the shape colour the vertex colours were made against (null when the mesh is not painted). */
+	private dimmed = false;
 	private readonly resultMeshes = new Map<NodeId, { mesh: THREE.Mesh; source: GroupMesh | null; paintedOn: string | null }>();
 	private selection = new Set<NodeId>();
 
@@ -464,12 +470,18 @@ export class DesignScene {
 	}
 
 	private applyLook(material: THREE.MeshStandardMaterial, color: string, hole: boolean): void {
-		if (material.transparent !== hole) material.needsUpdate = true;
-		material.transparent = hole;
-		material.opacity = hole ? HOLE_OPACITY : 1;
-		material.depthWrite = !hole;
+		const seeThrough = hole || this.dimmed;
+		if (material.transparent !== seeThrough) material.needsUpdate = true;
+		material.transparent = seeThrough;
+		material.opacity = hole ? HOLE_OPACITY : this.dimmed ? DIMMED_OPACITY : 1;
+		material.depthWrite = !seeThrough;
 		if (hole) material.color.setHex(HOLE_COLOR);
 		else material.color.set(color);
+	}
+
+	/** Draws everything faint (while a sketch is drawn over it) from the next `sync`, or solid again. */
+	setDimmed(on: boolean): void {
+		this.dimmed = on;
 	}
 
 	private applySelection(mesh: THREE.Mesh): void {
@@ -509,7 +521,7 @@ export class DesignScene {
 	}
 
 	private geometryForNode(node: ShapeNode, meshes: ReadonlyMap<string, MeshData>): THREE.BufferGeometry {
-		if (node.shapeType === 'text') return this.geometryFor('box'); // stand-in until the letters arrive
+		if (node.shapeType === 'text' || node.shapeType === 'sketch') return this.geometryFor('box'); // stand-in until the letters or the drawing arrive
 		if (node.shapeType !== MESH_SHAPE_TYPE) return this.geometryFor(node.shapeType as ShapeType);
 		const ref = String(node.params.mesh);
 		const data = meshes.get(ref);
