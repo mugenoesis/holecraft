@@ -6,6 +6,7 @@ import {
 	type MeshData,
 	type NodeId,
 	type OrbitState,
+	type PaintFill,
 	type ShapeGeometry,
 	type ShapeType,
 	type Vec3,
@@ -20,6 +21,7 @@ import { ThumbnailScheduler } from '../thumbnailScheduler.ts';
 import type { Projection } from './CameraRig.ts';
 import { EdgeTool } from './EdgeTool.tsx';
 import { HandlesOverlay } from './HandlesOverlay.tsx';
+import { PaintTool } from './PaintTool.tsx';
 import { RotationRings } from './RotationRings.tsx';
 import { RulerOverlay } from './RulerOverlay.tsx';
 import { SkippedEdgesNotice } from './SkippedEdgesNotice.tsx';
@@ -68,6 +70,9 @@ interface Props {
 	/** The Edge tool previews a node's treatments between onMoveStart and onMoveEnd (Apply), or onCancelDrag (Cancel). */
 	onPreviewEdges: (id: NodeId, edges: EdgeTreatment[]) => void;
 	onCancelDrag: () => void;
+	/** The Paint tool put a fill on an object, or erased all the paint on some. */
+	onPaint: (id: NodeId, fill: PaintFill) => void;
+	onErasePaint: (ids: NodeId[]) => void;
 }
 
 /** React host for the imperative three.js viewport, plus its overlay controls. */
@@ -300,6 +305,16 @@ export function ViewportCanvas(props: Props) {
 							onPreview={(id, edges) => latest.current.onPreviewEdges(id, edges)}
 							onApply={() => latest.current.onMoveEnd()}
 							onCancel={() => latest.current.onCancelDrag()}
+							onClose={() => setTool(null)}
+						/>
+					)}
+					{tool === 'paint' && (
+						<PaintTool
+							getViewport={getViewport}
+							design={design}
+							selection={selection}
+							onPaint={(id, fill) => latest.current.onPaint(id, fill)}
+							onEraseAll={(ids) => latest.current.onErasePaint(ids)}
 							onClose={() => setTool(null)}
 						/>
 					)}

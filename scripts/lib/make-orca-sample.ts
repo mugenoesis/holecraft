@@ -4,7 +4,7 @@
 // scripts/update-orca-filament-defaults.sh, which have OrcaSlicer's engine read them.
 
 import { writeFileSync } from 'node:fs';
-import { addPaletteColor, addShape, createEmptyDesign, type Design, setNodeColor } from '@holecraft/core';
+import { addPaint, addPaletteColor, addShape, createEmptyDesign, type Design, setNodeColor } from '@holecraft/core';
 import { collectBodies, loadManifold, write3mf, writeStl } from '@holecraft/geometry';
 
 let d: Design = createEmptyDesign('d', 'Colours');
@@ -16,10 +16,20 @@ d = setNodeColor(d, ['sph'], '#8d99ae'); // the fourth palette colour: filament 
 let sixteen = d;
 for (let i = 0; sixteen.palette.length < 16; i++) sixteen = addPaletteColor(sixteen, `#${(i * 13 + 20).toString(16).padStart(2, '0')}60a0`);
 
-const bodies = collectBodies(await loadManifold(), d);
+const manifold = await loadManifold();
+const bodies = collectBodies(manifold, d);
 const out = process.argv[2]!;
 writeFileSync(`${out}/orca.3mf`, write3mf(bodies, { filaments: d.palette }));
 writeFileSync(`${out}/orca16.3mf`, write3mf(bodies, { filaments: sixteen.palette }));
+// the box with its top face painted in the second filament (two triangles), for scripts/verify-orca-export.sh's paint check
+const paintedBox = addPaint(addShape(createEmptyDesign('p', 'Paint'), 'box', [0, 0], { id: 'box' }).design, 'box', {
+	id: 'top',
+	kind: 'region',
+	color: '#2a9d8f',
+	point: [0, 0, 20],
+	normal: [0, 0, 1],
+});
+writeFileSync(`${out}/paint.3mf`, write3mf(collectBodies(manifold, paintedBox), { filaments: paintedBox.palette }));
 writeFileSync(`${out}/plain.3mf`, write3mf(bodies));
 writeFileSync(`${out}/plain.stl`, writeStl(bodies));
 console.log(`wrote ${bodies.length} bodies; palettes of ${d.palette.length} and ${sixteen.palette.length} colours`);

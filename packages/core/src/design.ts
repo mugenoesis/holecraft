@@ -5,7 +5,7 @@ import { DEFAULT_PALETTE } from './palette.ts';
 import type { Units } from './units.ts';
 
 /** Bump when the on-disk design format changes, and add a migration. */
-export const DESIGN_FORMAT_VERSION = 3;
+export const DESIGN_FORMAT_VERSION = 4;
 
 /** What the designs list shows about each saved design. */
 export interface DesignSummary {
@@ -49,6 +49,21 @@ export interface EdgeTreatment {
 	normals: [Vec3, Vec3][];
 }
 
+/**
+ * A fill of paint on a solid's surface (the Paint tool). Like an edge treatment it is geometry in the node's own frame, never triangle
+ * numbers, so it survives moving, turning, saving and re-meshing: it is applied to whatever the surface looks like now, and a fill that
+ * no longer touches the surface paints nothing. Fills apply in order, a later one over an earlier one.
+ */
+export type PaintFill =
+	/**
+	 * The connected piece of surface at `point`, whose outward direction there is `normal`. `color` null takes the paint off (erase). A smart
+	 * fill (the default) spreads over neighbouring faces that turn no more than `angle` degrees (30 if absent); a bucket fill spreads over
+	 * everything joined to it that is currently the same colour, whatever the angle.
+	 */
+	| { id: string; kind: 'region'; color: string | null; point: Vec3; normal: Vec3; spread?: 'smart' | 'bucket'; angle?: number }
+	/** The whole surface (it also covers everything painted before). */
+	| { id: string; kind: 'body'; color: string };
+
 export interface BaseNode {
 	id: NodeId;
 	name: string;
@@ -59,6 +74,8 @@ export interface BaseNode {
 	locked: boolean;
 	/** Chamfers and rounds on chosen edges, applied after the node is built (and, for a group, after its holes are cut). */
 	edges?: EdgeTreatment[];
+	/** Paint on the finished surface of a top-level node, in order (see PaintFill). */
+	paint?: PaintFill[];
 }
 
 /** A parametric primitive (box, cylinder, text, ...) built by the geometry worker. */

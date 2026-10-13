@@ -8,6 +8,7 @@ import { newId } from './ids.ts';
 import { MAX_SHAPE_SIZE } from './limits.ts';
 import { MESH_SHAPE_TYPE } from './meshShape.ts';
 import { nodeBoundsIn, shapeBounds, translationOf } from './ops.ts';
+import { stretchPaint } from './paintEdits.ts';
 import type { ShapeGeometry } from './resize.ts';
 import { composeTransform, eulerToMatrix, shapeCenter } from './rotation.ts';
 import { getShapeDef, type ShapeType } from './shapes.ts';
@@ -128,9 +129,10 @@ export function setNodeEuler(design: Design, id: NodeId, degrees: readonly [numb
  * on its edges (they are stored in the shape's own frame, base centre at the origin).
  */
 function withStretchedEdges(node: ShapeNode, before: ShapeNode['params'], after: ShapeNode['params']): ShapeNode {
-	if (!node.edges) return node;
+	if (!node.edges && !node.paint) return node;
 	const ratio = (['width', 'depth', 'height'] as const).map((k) => Number(after[k]) / Number(before[k])) as Vec3;
-	return { ...node, edges: stretchTreatments(node.edges, ratio, null)! };
+	const [edges, paint] = [stretchTreatments(node.edges, ratio, null), stretchPaint(node.paint, ratio, null)];
+	return { ...node, ...(edges && { edges }), ...(paint && { paint }) };
 }
 
 /** A thread keeps its real width and depth (from its size, fit and head), and a bolt at least its head and a pitch of shank: whatever was asked is put right. */

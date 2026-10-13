@@ -140,6 +140,8 @@ function EditorView({ initial }: { initial: Design }) {
 					onToggleMultiSelect={() => setMultiSelect((on) => !on)}
 					onPreviewEdges={(id, edges) => dispatch({ type: 'previewEdges', id, edges })}
 					onCancelDrag={() => dispatch({ type: 'cancelDrag' })}
+					onPaint={(id, fill) => dispatch({ type: 'addPaint', id, fill })}
+					onErasePaint={(ids) => dispatch({ type: 'clearPaint', ids })}
 				/>
 				<aside className="panel">
 					<ShapesPanel

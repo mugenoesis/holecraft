@@ -1,10 +1,12 @@
-import type { Vec3 } from '@holecraft/core';
+import type { NodeId, Vec3 } from '@holecraft/core';
 import { useEffect, useRef } from 'react';
 import type { Viewport } from './Viewport.ts';
 
 interface SurfaceHit {
 	point: Vec3;
 	normal: Vec3;
+	/** The top-level object hit; absent for the bare floor. */
+	id?: NodeId;
 }
 
 /** A pointer position in pixels within the view. */
@@ -16,8 +18,8 @@ interface ViewPoint {
 interface Handlers {
 	/** The surface under the pointer while it moves with no button down (null over the sky, or once it leaves the view). */
 	onHover?: (hit: SurfaceHit | null) => void;
-	/** A click (press and release in the same place) on a surface. Dragging orbits and never counts. */
-	onClick?: (hit: SurfaceHit) => void;
+	/** A click (press and release in the same place) on a surface, and whether Shift was held. Dragging orbits and never counts. */
+	onClick?: (hit: SurfaceHit, shift: boolean) => void;
 	/** Like onHover, but where the pointer is on screen, for tools that pick what is drawn there (the Edge tool). */
 	onHoverAt?: (at: ViewPoint | null) => void;
 	/** Like onClick, but anywhere, with where it was on screen. `add` is true with Shift, and for every touch (which has no Shift). */
@@ -68,7 +70,7 @@ export function useSurfaceTool(getViewport: () => Viewport | null, handlers: Han
 			onClickAt?.(at(e), e.shiftKey || e.pointerType === 'touch');
 			if (!onClick) return;
 			const hit = viewport.pickSurface(e.clientX, e.clientY);
-			if (hit) onClick(hit);
+			if (hit) onClick(hit, e.shiftKey);
 		};
 		// Escape belongs to the tool: heard before the editor's own shortcuts (capture) and kept from them, which would otherwise
 		// deselect first and, for the Edge tool, unmount it before it could hear the key.

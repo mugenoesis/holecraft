@@ -11,6 +11,8 @@ import {
 	type MeshData,
 	mirrorMeshX,
 	type NodeId,
+	type PaintFill,
+	paintTriangles,
 	parametricShape,
 	type ShapeNode,
 	sharpEdges,
@@ -82,11 +84,20 @@ class Evaluation {
 
 	run(rootId: NodeId, placeRoot: boolean): GroupMesh | null {
 		const root = this.design.nodes[rootId];
-		let result: Manifold | null = null;
-		if (root?.kind === 'group') result = placeRoot ? this.placed(rootId) : this.contents(rootId);
-		else if (root?.kind === 'shape') result = placeRoot ? this.shape(root) : this.treated(this.primitive(root), root.edges);
-		const mesh = result && !result.isEmpty() ? toGroupMesh(result) : null;
+		// A painted node is built in its own frame (that is where the paint is stored) and placed afterwards by hand, so the triangles keep their order.
+		const fills = root && root.kind !== 'mesh' && root.mode === 'solid' ? root.paint : undefined;
+		const painted = (fills?.length ?? 0) > 0;
+		const result = this.built(root, placeRoot && !painted);
+		const built = result && !result.isEmpty() ? toGroupMesh(result) : null;
+		const mesh = built && painted ? paintedMesh(built, fills!, placeRoot ? root!.transform : null) : built;
 		return mesh && this.skipped.length ? { ...mesh, skippedEdges: [...this.skipped] } : mesh;
+	}
+
+	/** The manifold of a top-level node, placed where it is or in its own frame. */
+	private built(root: DesignNode | undefined, place: boolean): Manifold | null {
+		if (root?.kind === 'group') return place ? this.placed(root.id) : this.contents(root.id);
+		if (root?.kind === 'shape') return place ? this.shape(root) : this.treated(this.primitive(root), root.edges);
+		return null;
 	}
 
 	free(): void {
@@ -252,6 +263,23 @@ class Evaluation {
 		const inner = this.contents(id);
 		return inner ? this.track(inner.transform(asMat4(this.design.nodes[id]!.transform))) : null;
 	}
+}
+
+/** `mesh` with its paint worked out (in its own frame) and then, if `transform` is given, placed by hand so the triangles keep their order. */
+function paintedMesh(mesh: GroupMesh, fills: readonly PaintFill[], transform: readonly number[] | null): GroupMesh {
+	const paint = paintTriangles(mesh, fills);
+	const withPaint = paint ? { ...mesh, paint } : mesh;
+	return transform ? { ...withPaint, positions: transformPositions(mesh.positions, transform) } : withPaint;
+}
+
+/** `positions` moved by a column-major 4x4 transform (rotation and position only, so the triangles keep their winding). */
+function transformPositions(positions: Float32Array, m: readonly number[]): Float32Array {
+	const out = new Float32Array(positions.length);
+	for (let i = 0; i < positions.length; i += 3) {
+		const [x, y, z] = [positions[i]!, positions[i + 1]!, positions[i + 2]!];
+		for (let r = 0; r < 3; r++) out[i + r] = m[r]! * x + m[4 + r]! * y + m[8 + r]! * z + m[12 + r]!;
+	}
+	return out;
 }
 
 /** The positions and triangles of a built manifold, or null if it has no triangles. */

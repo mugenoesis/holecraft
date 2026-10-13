@@ -7,6 +7,7 @@ import {
 	type GroupNode,
 	MAX_NAME_LENGTH,
 	type NodeId,
+	type PaintFill,
 	type ShapeNode,
 	type SolidMode,
 } from './design.ts';
@@ -124,6 +125,42 @@ function parseTreatments(raw: unknown, path: string): EdgeTreatment[] | undefine
 	return list.length ? list : undefined;
 }
 
+const MAX_PAINT_FILLS = 1000;
+
+function parsePaintFill(raw: unknown, path: string): PaintFill {
+	if (!isRecord(raw)) fail(path, 'must be an object');
+	const id = str(raw.id, `${path}.id`, MAX_TREATMENT_ID);
+	const colorOf = (allowNone: boolean): string | null => {
+		if (allowNone && raw.color === null) return null;
+		if (typeof raw.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(raw.color)) fail(`${path}.color`, 'must be a #rrggbb colour');
+		return raw.color.toLowerCase();
+	};
+	if (raw.kind === 'body') return { id, kind: 'body', color: colorOf(false)! };
+	if (raw.kind !== 'region') fail(`${path}.kind`, 'must be "region" or "body"');
+	const color = colorOf(true);
+	const { spread, angle } = raw;
+	if (spread !== undefined && spread !== 'smart' && spread !== 'bucket') fail(`${path}.spread`, 'must be "smart" or "bucket"');
+	if (angle !== undefined && !(isFiniteNumber(angle) && angle >= 0 && angle <= 90)) fail(`${path}.angle`, 'must be a number from 0 to 90');
+	return {
+		id,
+		kind: 'region',
+		color,
+		point: parsePoint(raw.point, `${path}.point`),
+		normal: parseDirection(raw.normal, `${path}.normal`),
+		...(spread !== undefined && { spread }),
+		...(angle !== undefined && { angle }),
+	};
+}
+
+/** A node's paint, or undefined for none (the field is then left out). */
+function parsePaint(raw: unknown, path: string): PaintFill[] | undefined {
+	if (raw === undefined) return undefined;
+	if (!Array.isArray(raw) || raw.length > MAX_PAINT_FILLS) fail(`${path}.paint`, `must be a list of up to ${MAX_PAINT_FILLS} paint fills`);
+	const list = raw.map((f, i) => parsePaintFill(f, `${path}.paint.${i}`));
+	if (new Set(list.map((f) => f.id)).size !== list.length) fail(`${path}.paint`, 'each fill needs its own id');
+	return list.length ? list : undefined;
+}
+
 /** The fields every node has, whatever its kind. */
 function parseBase(key: string, raw: Raw, path: string): BaseNode {
 	if (raw.id !== key) fail(`${path}.id`, `must match the key "${key}"`);
@@ -132,6 +169,7 @@ function parseBase(key: string, raw: Raw, path: string): BaseNode {
 	if (typeof raw.color !== 'string' || !/^#[0-9a-f]{6}$/i.test(raw.color)) fail(`${path}.color`, 'must be a #rrggbb colour');
 
 	const edges = parseTreatments(raw.edges, path);
+	const paint = parsePaint(raw.paint, path);
 	return {
 		id: key,
 		name: str(raw.name, `${path}.name`, MAX_STORED_NAME),
@@ -141,6 +179,7 @@ function parseBase(key: string, raw: Raw, path: string): BaseNode {
 		hidden: bool(raw.hidden, `${path}.hidden`),
 		locked: bool(raw.locked, `${path}.locked`),
 		...(edges && { edges }),
+		...(paint && { paint }),
 	};
 }
 
@@ -208,6 +247,8 @@ const MIGRATIONS: Record<number, (design: Record<string, unknown>) => Record<str
 	1: (design) => ({ ...design, palette: [...DEFAULT_PALETTE] }),
 	// 2 -> 3: nodes may carry edge treatments (chamfers and rounds on chosen edges). Nothing to change in older files.
 	2: (design) => design,
+	// 3 -> 4: nodes may carry paint (fills on the surface). Nothing to change in older files.
+	3: (design) => design,
 };
 
 function migrate(raw: Record<string, unknown>): Record<string, unknown> {

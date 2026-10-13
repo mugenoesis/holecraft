@@ -5,6 +5,7 @@ import { stretchTreatments } from './edgeEdits.ts';
 import { MAX_SHAPE_SIZE } from './limits.ts';
 import { rigidInverse, transformPoint } from './mat4.ts';
 import { nodeBoundsIn } from './ops.ts';
+import { stretchPaint } from './paintEdits.ts';
 import type { ShapeGeometry } from './resize.ts';
 import { isUpright, type Mat3, multiplyMat3, rotationOfTransform } from './rotation.ts';
 import { isThreadedType } from './threadStandards.ts';
@@ -164,8 +165,9 @@ function stretched(
 		const transform = place(node.transform, factors, offset);
 		// chamfers and rounds are stored in the node's own frame, which is stretched by `own`: they move with their edges
 		const edges = stretchTreatments(node.edges, own, null);
+		const paint = stretchPaint(node.paint, own, null);
 		if (node.kind === 'group') {
-			nodes[nodeId] = { ...node, transform, ...(edges && { edges }) };
+			nodes[nodeId] = { ...node, transform, ...(edges && { edges }), ...(paint && { paint }) };
 			for (const c of node.children) visit(c, own, null);
 			return;
 		}
@@ -176,7 +178,7 @@ function stretched(
 			if (!(size >= MIN_PART && size <= MAX_SHAPE_SIZE)) ok = false;
 			params[name] = size;
 		});
-		nodes[nodeId] = { ...node, transform, params, ...(edges && { edges }) };
+		nodes[nodeId] = { ...node, transform, params, ...(edges && { edges }), ...(paint && { paint }) };
 	};
 
 	const group = design.nodes[id];
@@ -184,7 +186,8 @@ function stretched(
 	for (const c of group.children) visit(c, f, shift);
 	// the group's own treatments are in the frame its children are placed in, which is stretched by f and moved by shift
 	const own = stretchTreatments(group.edges, f, shift);
-	if (own) nodes[id] = { ...group, edges: own };
+	const ownPaint = stretchPaint(group.paint, f, shift);
+	if (own || ownPaint) nodes[id] = { ...group, ...(own && { edges: own }), ...(ownPaint && { paint: ownPaint }) };
 	return ok ? nodes : null;
 }
 

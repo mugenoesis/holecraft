@@ -23,6 +23,7 @@ import type { GroupMesh } from '@holecraft/geometry';
 import * as THREE from 'three';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { GroupResult } from '../geometry/GeometryService.ts';
+import { paintVertexColors } from './paintColors.ts';
 
 const SELECTED_TINT = 0x1f6f8b;
 const OUTLINE_COLOR = 0x0f766e;
@@ -154,7 +155,8 @@ export class DesignScene {
 	/** A chamfered shape is built at its real size (the chamfer is in mm, so it can't be a stretched unit shape): one geometry each. */
 	private readonly chamferGeometries = new Map<NodeId, { key: string; geometry: THREE.BufferGeometry }>();
 	private readonly outlineGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5));
-	private readonly resultMeshes = new Map<NodeId, { mesh: THREE.Mesh; source: GroupMesh | null }>();
+	/** `paintedOn` is the shape colour the vertex colours were made against (null when the mesh is not painted). */
+	private readonly resultMeshes = new Map<NodeId, { mesh: THREE.Mesh; source: GroupMesh | null; paintedOn: string | null }>();
 	private selection = new Set<NodeId>();
 
 	constructor() {
@@ -383,7 +385,7 @@ export class DesignScene {
 			const outline = new THREE.LineSegments(this.outlineGeometry, new THREE.LineBasicMaterial({ color: OUTLINE_COLOR }));
 			outline.name = 'selection-outline';
 			mesh.add(outline);
-			entry = { mesh, source: null };
+			entry = { mesh, source: null, paintedOn: null };
 			this.resultMeshes.set(id, entry);
 		}
 
@@ -399,6 +401,8 @@ export class DesignScene {
 			outline.position.set((box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, box.min.z);
 		}
 
+		this.applyPaint(entry, result.mesh, color, hole);
+
 		if (placement) this.applyTransform(entry.mesh, placement);
 		else {
 			entry.mesh.position.set(0, 0, 0);
@@ -406,9 +410,38 @@ export class DesignScene {
 			entry.mesh.scale.set(1, 1, 1);
 		}
 		this.applyLook(entry.mesh.material as THREE.MeshStandardMaterial, color, hole); // a hole is a pale ghost, whatever its colour
+		if (entry.paintedOn !== null) this.setVertexColors(entry.mesh, true);
 		entry.mesh.visible = true;
 		if (entry.mesh.parent !== groupObject) groupObject.add(entry.mesh);
 		this.applySelection(entry.mesh);
+	}
+
+	/**
+	 * Gives a computed mesh its triangles' paint as vertex colours (the unpainted ones in the shape's colour, so they follow it when it
+	 * changes), or takes them off. A hole is a see-through ghost and shows no paint.
+	 */
+	private applyPaint(entry: { mesh: THREE.Mesh; paintedOn: string | null }, mesh: GroupMesh, color: string, hole: boolean): void {
+		const colors = hole ? null : paintVertexColors(mesh.paint, color);
+		const geometry = entry.mesh.geometry;
+		if (!colors) {
+			if (entry.paintedOn !== null) {
+				geometry.deleteAttribute('color');
+				this.setVertexColors(entry.mesh, false);
+				entry.paintedOn = null;
+			}
+			return;
+		}
+		if (entry.paintedOn === color && geometry.getAttribute('color')) return;
+		geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+		entry.paintedOn = color;
+	}
+
+	/** Draws with the geometry's own colours (white material, so they are not tinted twice) or with the material's. */
+	private setVertexColors(mesh: THREE.Mesh, on: boolean): void {
+		const material = mesh.material as THREE.MeshStandardMaterial;
+		if (material.vertexColors !== on) material.needsUpdate = true;
+		material.vertexColors = on;
+		if (on) material.color.set(0xffffff);
 	}
 
 	private disposeResult(entry: { mesh: THREE.Mesh }): void {

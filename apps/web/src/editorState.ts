@@ -3,6 +3,7 @@ import {
 	type Axis,
 	addLibraryShape,
 	addMeshShape,
+	addPaint,
 	addPaletteColor,
 	addShape,
 	addShapeOnPlane,
@@ -10,6 +11,7 @@ import {
 	type ChamferEdges,
 	type CountersinkEnd,
 	canUndo,
+	clearPaint,
 	createHistory,
 	type Design,
 	deleteNodes,
@@ -23,6 +25,7 @@ import {
 	moveNodes,
 	moveSelection,
 	type NodeId,
+	type PaintFill,
 	pruneSelection,
 	pushHistory,
 	redo,
@@ -133,6 +136,8 @@ export type EditorAction =
 	// One of a shape's own settings in mm (a tube's wall, a ring's thickness).
 	| { type: 'setShapeParam'; id: NodeId; key: string; value: number }
 	| { type: 'setShapeText'; id: NodeId; text: string }
+	| { type: 'addPaint'; id: NodeId; fill: PaintFill }
+	| { type: 'clearPaint'; ids: NodeId[] }
 	| { type: 'rename'; id: NodeId; name: string }
 	| { type: 'setColor'; ids: NodeId[]; color: string }
 	/** Adds a filament colour to the palette (a suggested one when none is given). */
@@ -366,6 +371,15 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 
 		case 'setShapeParam':
 			return commit(state, setShapeParam(design, action.id, action.key, action.value));
+
+		case 'addPaint':
+			return commit(state, addPaint(design, action.id, action.fill));
+
+		case 'clearPaint':
+			return commit(
+				state,
+				action.ids.reduce((d, id) => clearPaint(d, id), design),
+			);
 
 		case 'setShapeText':
 			return commit(state, setShapeText(design, action.id, action.text));
