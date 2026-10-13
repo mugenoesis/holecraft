@@ -30,7 +30,7 @@ interface Targets {
 	camera: RefObject<{ state: OrbitState }>;
 	/** The latest design and nudge handler (read at the time of the key press). */
 	latest: RefObject<{ design: Design; onNudge: (delta: [number, number]) => void }>;
-	/** R, W and E: turn the ruler, the Workplane tool or the Edge tool on or off. */
+	/** R, W, E and N: turn the ruler, the Workplane tool, the Edge tool or the Paint tool on or off. */
 	onToggleTool: (tool: SurfaceTool) => void;
 }
 
@@ -42,6 +42,7 @@ function viewCommand(key: string, viewport: Viewport | null, onToggleTool: (tool
 		r: () => onToggleTool('ruler'),
 		w: () => onToggleTool('workplane'),
 		e: () => onToggleTool('edges'),
+		n: () => onToggleTool('paint'),
 	};
 	return Object.hasOwn(commands, key.toLowerCase()) ? commands[key.toLowerCase()] : undefined;
 }

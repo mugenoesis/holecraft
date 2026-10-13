@@ -1,4 +1,5 @@
 import type { Design, NodeId } from './design.ts';
+import { recolourPaint } from './paintEdits.ts';
 
 /** The most colours (filaments) a design's palette can hold: what a Bambu printer can address. */
 export const MAX_PALETTE_SIZE = 16;
@@ -47,7 +48,9 @@ export function setPaletteColor(design: Design, slot: number, color: string, now
 
 	const nodes: Design['nodes'] = {};
 	for (const [id, node] of Object.entries(design.nodes) as [NodeId, Design['nodes'][NodeId]][]) {
-		nodes[id] = node.color === old ? { ...node, color: next } : node;
+		const paint = recolourPaint(node.paint, old, next);
+		nodes[id] =
+			node.color === old || paint !== node.paint ? { ...node, ...(node.color === old && { color: next }), ...(paint && { paint }) } : node;
 	}
 	const palette = design.palette.map((c, i) => (i === slot ? next : c));
 	return { ...design, palette, nodes, updatedAt: stamp(now) };

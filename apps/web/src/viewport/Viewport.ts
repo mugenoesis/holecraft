@@ -314,10 +314,10 @@ export class Viewport {
 	 * The surface under a screen position and which way it faces: a shape's face, else the workplane
 	 * (inside its edges), else null. This is what the ruler measures between.
 	 */
-	pickSurface(clientX: number, clientY: number): { point: Vec3; normal: Vec3 } | null {
+	pickSurface(clientX: number, clientY: number): { point: Vec3; normal: Vec3; id?: NodeId } | null {
 		if (!this.aim(clientX, clientY)) return null;
 		const hit = this.designScene.pickHit(this.raycaster);
-		if (hit) return { point: hit.point, normal: hit.normal };
+		if (hit) return { point: hit.point, normal: hit.normal, id: hit.id };
 		const { origin, direction } = this.raycaster.ray;
 		const ground = rayPlaneIntersection([origin.x, origin.y, origin.z], [direction.x, direction.y, direction.z], 0);
 		const [w, d] = [this.opts.workplaneWidth / 2, this.opts.workplaneDepth / 2];

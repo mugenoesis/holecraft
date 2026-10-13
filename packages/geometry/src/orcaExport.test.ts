@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ExportBody } from './export.ts';
 import { ORCA_FILAMENT_DEFAULTS } from './formats/orcaFilamentDefaults.ts';
-import { readStoredZip, write3mf } from './index.ts';
+import { orcaPaintCode, readStoredZip, write3mf } from './index.ts';
 
 const tetra = {
 	positions: new Float32Array([0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0, 10]),
@@ -157,5 +157,52 @@ describe('write3mf for OrcaSlicer (with a palette)', () => {
 
 	it('refuses an empty palette', () => {
 		expect(() => write3mf([body('A', '#f28c28')], { filaments: [] })).toThrow(/palette|filament/i);
+	});
+});
+
+describe('paint in the 3MF for OrcaSlicer', () => {
+	const painted = (colors: string[], triangle: number[], palette: string[] = PALETTE): string => {
+		const mesh = { ...tetra, paint: { colors, triangle: Uint16Array.from(triangle) } };
+		const zip = readStoredZip(write3mf([{ name: 'A', color: '#f28c28', mesh }], { filaments: palette }));
+		return text(zip, '3D/3dmodel.model');
+	};
+	const attrs = (model: string) =>
+		[...model.matchAll(/<triangle v1="\d+" v2="\d+" v3="\d+"( paint_color="[0-9A-F]+")?\/>/g)].map((m) => m[1]?.slice(14, -1) ?? null);
+
+	describe('orcaPaintCode: the text OrcaSlicer reads for a triangle painted in one filament (its TriangleSelector encoding)', () => {
+		it('is one digit for filaments 1 and 2: the state in the two upper bits, no split', () => {
+			expect(orcaPaintCode(1)).toBe('4');
+			expect(orcaPaintCode(2)).toBe('8');
+		});
+
+		it('is two digits from filament 3: the prefix 11 and then the state less 3, written last digit first', () => {
+			expect(orcaPaintCode(3)).toBe('0C');
+			expect(orcaPaintCode(4)).toBe('1C');
+			expect(orcaPaintCode(9)).toBe('6C');
+			expect(orcaPaintCode(16)).toBe('DC');
+		});
+
+		it('goes on with a second digit group past 17 (Orca allows more filaments than a palette does)', () => {
+			expect(orcaPaintCode(17)).toBe('EC');
+			expect(orcaPaintCode(18)).toBe('0FC');
+			expect(orcaPaintCode(20)).toBe('2FC');
+		});
+	});
+
+	it('marks only the painted triangles, with the filament slot of their colour (the nearest palette colour if it is not there)', () => {
+		expect(attrs(painted(['#2a9d8f'], [0, 1, 0, 0]))).toEqual([null, '8', null, null]);
+		expect(attrs(painted(['#e76f51', '#8d99ae'], [1, 2, 0, 1]))).toEqual(['0C', '1C', null, '0C']);
+		expect(attrs(painted(['#2b9e90'], [1, 1, 1, 1]))).toEqual(['8', '8', '8', '8']);
+	});
+
+	it('is written only for an Orca export: an ordinary 3MF, and a body with no paint, are as before', () => {
+		const mesh = { ...tetra, paint: { colors: ['#2a9d8f'], triangle: Uint16Array.from([1, 1, 1, 1]) } };
+		const plain = text(readStoredZip(write3mf([{ name: 'A', color: '#f28c28', mesh }])), '3D/3dmodel.model');
+		expect(plain).not.toContain('paint_color');
+		expect(painted([], [0, 0, 0, 0])).not.toContain('paint_color');
+	});
+
+	it('stays well-formed: attributes sit inside the triangle element, quoted', () => {
+		expect(painted(['#2a9d8f'], [1, 0, 0, 0])).toContain('<triangle v1="0" v2="2" v3="1" paint_color="8"/>');
 	});
 });

@@ -497,8 +497,8 @@ button.primary:disabled {
 	display: flex;
 	/* wraps onto more rows rather than running under the view cube on narrow screens */
 	flex-wrap: wrap;
-	max-width: calc(100% - 112px);
-	/* tight, so all the controls fit on one line on a 4:3 tablet (fourThree.spec.ts) */
+	max-width: calc(100% - 104px);
+	/* tight, so all the controls fit on one line on a 4:3 tablet (fourThree.spec.ts), which ends 8px before the view cube */
 	gap: 2px;
 	padding: 4px;
 	background: var(--surface);
@@ -514,7 +514,7 @@ button.primary:disabled {
 	background: transparent;
 	border: 1px solid transparent;
 	border-radius: 6px;
-	padding: 4px 5px;
+	padding: 4px;
 	cursor: pointer;
 }
 
@@ -1559,4 +1559,29 @@ button.primary:disabled {
 }
 .edge-size input[type="range"] {
 	width: 120px;
+}
+
+.paint-tool {
+	min-width: min(520px, calc(100% - 24px));
+}
+.paint-swatches {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+.paint-tool .palette-tile {
+	border-color: rgb(255 255 255 / 35%);
+}
+.paint-tool .palette-tile[aria-pressed="true"] {
+	border-color: #fff;
+	box-shadow:
+		0 0 0 2px rgb(20 30 36),
+		0 0 0 4px var(--accent);
+}
+.paint-hint {
+	color: rgb(255 255 255 / 70%);
+	font-size: 12px;
+}
+.paint-tool .soon {
+	opacity: 0.5;
 }

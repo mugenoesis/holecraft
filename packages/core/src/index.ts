@@ -16,6 +16,8 @@ export * from './libraryShape.ts';
 export * from './mat4.ts';
 export * from './meshShape.ts';
 export * from './ops.ts';
+export * from './paintEdits.ts';
+export * from './paintRegions.ts';
 export * from './palette.ts';
 export * from './parametricShapes.ts';
 export * from './picking.ts';

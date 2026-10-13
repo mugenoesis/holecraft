@@ -278,7 +278,7 @@ describe('parseDesign: edge treatments (chamfers and rounds on chosen edges)', (
 		old.formatVersion = 2;
 		const loaded = parseDesign(old);
 		expect(loaded.formatVersion).toBe(DESIGN_FORMAT_VERSION);
-		expect(DESIGN_FORMAT_VERSION).toBe(3);
+		expect(DESIGN_FORMAT_VERSION).toBe(4);
 	});
 });
 

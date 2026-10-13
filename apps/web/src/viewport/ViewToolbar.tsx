@@ -98,6 +98,15 @@ export function ViewToolbar({
 			>
 				Edges
 			</button>
+			<button
+				type="button"
+				aria-pressed={tool === 'paint'}
+				aria-label="Paint"
+				title="Paint faces in the design's filament colours: click a face (N)"
+				onClick={() => onToggleTool('paint')}
+			>
+				Paint
+			</button>
 			{hasThreads && (
 				<button
 					type="button"

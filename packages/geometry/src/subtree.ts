@@ -2,7 +2,7 @@ import { type Design, type DesignNode, descendantIds, MESH_SHAPE_TYPE, type Node
 import type { Subtree } from './types.ts';
 
 /** Bump when evaluation changes what a given subtree produces, so cached results are not reused. */
-const FORMAT = 'v5'; // v2: edge treatments; v3: single shapes as roots; v4: smooth cuts along curved edges; v5: hidden parts are left out
+const FORMAT = 'v6'; // v2: edge treatments; v3: single shapes as roots; v4: smooth cuts along curved edges; v5: hidden parts are left out; v6: paint
 
 /**
  * The top-level nodes drawn as one computed mesh: groups (their holes cut), shapes with treated edges (their chamfers and
@@ -13,7 +13,10 @@ export function rootComputedNodes(design: Design): NodeId[] {
 	return design.roots.filter((id) => {
 		const node = design.nodes[id];
 		if (!node || node.hidden) return false;
-		return node.kind === 'group' || (node.kind === 'shape' && (node.shapeType === 'text' || (node.edges?.length ?? 0) > 0));
+		return (
+			node.kind === 'group' ||
+			(node.kind === 'shape' && (node.shapeType === 'text' || (node.edges?.length ?? 0) > 0 || (node.paint?.length ?? 0) > 0))
+		);
 	});
 }
 
@@ -27,13 +30,20 @@ export function subtreeOf(design: { nodes: Record<NodeId, DesignNode> }, groupId
 	return { rootId: groupId, nodes };
 }
 
+/** The paint that shows on a root (a hole's or a nested node's does not), without the fills' ids, which are not geometry. */
+function paintOf(node: DesignNode): unknown {
+	if (node.kind === 'mesh' || node.mode !== 'solid') return null;
+	return node.paint?.map(({ id: _id, ...fill }) => fill) ?? null;
+}
+
 /** Everything about a node that affects the shape it produces, and nothing that doesn't (names, colours). */
 function describe(nodes: Record<NodeId, DesignNode>, id: NodeId, isRoot: boolean): unknown {
 	const node = nodes[id];
 	if (!node || node.kind === 'mesh') return null;
 	if (node.kind === 'shape') {
 		// A shape worked out on its own is in its own frame, so where it is doesn't matter to its shape.
-		if (isRoot) return ['s', node.shapeType, Object.entries(node.params).sort(([a], [b]) => a.localeCompare(b)), node.edges ?? null];
+		if (isRoot)
+			return ['s', node.shapeType, Object.entries(node.params).sort(([a], [b]) => a.localeCompare(b)), node.edges ?? null, paintOf(node)];
 		return [
 			's',
 			node.shapeType,
@@ -45,7 +55,9 @@ function describe(nodes: Record<NodeId, DesignNode>, id: NodeId, isRoot: boolean
 	}
 	const children = node.children.filter((c) => !nodes[c]?.hidden).map((c) => describe(nodes, c, false)); // a hidden part is not part of the shape
 	// The root group's own transform and mode only matter to whoever places it, not to its shape.
-	return isRoot ? ['g', node.op, children, node.edges ?? null] : ['g', node.mode, node.transform, node.op, children, node.edges ?? null];
+	return isRoot
+		? ['g', node.op, children, node.edges ?? null, paintOf(node)]
+		: ['g', node.mode, node.transform, node.op, children, node.edges ?? null];
 }
 
 /** cyrb53: a fast, well-spread 53-bit string hash. Collisions are not a practical concern here. */

@@ -45,4 +45,15 @@ for sample in "orca.3mf 4" "orca16.3mf 16"; do
   echo "what the engine kept:"
   python_in_image /checks/verify-orca-export.py "/files/engine-$file" "$colours" filaments-only
 done
-echo "OK: OrcaSlicer's engine loads the export and keeps every object's filament and the whole palette"
+echo "== paint.3mf (a box with its top face painted in filament 2) =="
+echo "what we wrote:"
+python_in_image /checks/verify-orca-paint.py /files/paint.3mf 2 2
+echo "the OrcaSlicer engine:"
+docker run --rm --entrypoint /bin/bash -v "$OUT:/files" -v "$ROOT/scripts/lib:/checks:ro" "$IMAGE" /checks/orca-engine-check.sh paint.3mf engine-paint.3mf | grep -E "engine exit|wrote no"
+if [ ! -f "$OUT/engine-paint.3mf" ]; then
+  echo "FAIL: the OrcaSlicer engine could not load paint.3mf" >&2
+  exit 1
+fi
+echo "what the engine kept:"
+python_in_image /checks/verify-orca-paint.py /files/engine-paint.3mf 2 2
+echo "OK: OrcaSlicer's engine loads the export and keeps every object's filament, the whole palette and the painted faces"

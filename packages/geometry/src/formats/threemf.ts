@@ -1,5 +1,6 @@
 import { paletteSlotOf } from '@holecraft/core';
 import type { ExportBody } from '../export.ts';
+import type { GroupMesh } from '../types.ts';
 import { ORCA_FILAMENT_DEFAULTS } from './orcaFilamentDefaults.ts';
 import { formatNumber, oneLine, requireBodies } from './shared.ts';
 import { writeStoredZip } from './zip.ts';
@@ -29,6 +30,27 @@ export interface ThreeMfOptions {
 	 * assigned the filament nearest its colour, and the filament list is stored with the file.
 	 */
 	filaments?: readonly string[];
+}
+
+const HEX_DIGITS = '0123456789ABCDEF';
+
+/**
+ * The `paint_color` text OrcaSlicer reads for a whole triangle painted in filament `slot` (from 1), as its TriangleSelector writes it for a
+ * triangle that is not split. The state is the filament number: 1 and 2 are two bits, written after the two zero "not split" bits, so a
+ * single digit; from 3 the two bits are 11 and a digit of (state - 3) follows, from 18 an F and a digit of (state - 18). The digits are
+ * written last first.
+ */
+export function orcaPaintCode(slot: number): string {
+	if (slot < 3) return HEX_DIGITS[slot << 2]!;
+	if (slot < 18) return `${HEX_DIGITS[slot - 3]}C`;
+	if (slot > 33) throw new Error(`OrcaSlicer has no filament ${slot}`);
+	return `${HEX_DIGITS[slot - 18]}FC`;
+}
+
+/** The attribute for triangle `t` of a body, if it is painted: its colour's filament in the palette. */
+function paintAttribute(mesh: GroupMesh, t: number, slots: readonly number[]): string {
+	const colour = mesh.paint?.triangle[t];
+	return colour ? ` paint_color="${orcaPaintCode(slots[colour - 1]!)}"` : '';
 }
 
 /** OrcaSlicer's object settings: per object its name and 1-based filament, and everything on the first plate. */
@@ -82,6 +104,8 @@ export function write3mf(bodies: readonly ExportBody[], options: ThreeMfOptions 
 	out.push('</basematerials>');
 
 	bodies.forEach(({ name, mesh }, index) => {
+		// only an Orca export carries paint (the plain formats have no place for it), as the filament of each painted colour
+		const slots = filaments ? (mesh.paint?.colors ?? []).map((c) => paletteSlotOf(filaments, c)) : [];
 		out.push(
 			`<object id="${MATERIALS_ID + 1 + index}" type="model" name="${escapeXml(oneLine(name, 'body'))}" pid="${MATERIALS_ID}" pindex="${index}"><mesh><vertices>`,
 		);
@@ -90,7 +114,8 @@ export function write3mf(bodies: readonly ExportBody[], options: ThreeMfOptions 
 			out.push(`<vertex x="${formatNumber(p[i]!)}" y="${formatNumber(p[i + 1]!)}" z="${formatNumber(p[i + 2]!)}"/>`);
 		out.push('</vertices><triangles>');
 		for (let t = 0; t < mesh.indices.length; t += 3) {
-			out.push(`<triangle v1="${mesh.indices[t]}" v2="${mesh.indices[t + 1]}" v3="${mesh.indices[t + 2]}"/>`);
+			const paint = filaments ? paintAttribute(mesh, t / 3, slots) : '';
+			out.push(`<triangle v1="${mesh.indices[t]}" v2="${mesh.indices[t + 1]}" v3="${mesh.indices[t + 2]}"${paint}/>`);
 		}
 		out.push('</triangles></mesh></object>');
 	});
