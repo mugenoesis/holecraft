@@ -226,3 +226,24 @@ export function parametricMesh(
 	const node = { shapeType: type, params: { width, depth, height, ...params } } as unknown as ShapeNode;
 	return parametricShape(node);
 }
+
+/** Whether any shape in the design is a thread (a rod, hole, bolt or nut). */
+export function hasThreads(design: Design): boolean {
+	return Object.values(design.nodes).some((n) => n.kind === 'shape' && isThreadedType(n.shapeType));
+}
+
+/**
+ * The design with every thread marked to be drawn as a plain cylinder at its pitch diameter (the same length, head and hex, a tiny fraction of the
+ * triangles). It is for drawing and working out the view while editing; it is never saved or exported, which always use the real thread. The same
+ * design back when it has no threads.
+ */
+export function withSimpleThreads(design: Design): Design {
+	if (!hasThreads(design)) return design;
+	const nodes = Object.fromEntries(
+		Object.entries(design.nodes).map(([id, n]) => [
+			id,
+			n.kind === 'shape' && isThreadedType(n.shapeType) ? { ...n, params: { ...n.params, simple: 1 } } : n,
+		]),
+	);
+	return { ...design, nodes };
+}

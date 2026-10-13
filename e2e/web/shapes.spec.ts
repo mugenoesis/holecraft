@@ -440,3 +440,39 @@ test.describe('bolts and nuts', () => {
 		await expect(page.getByTestId('handle-height')).toBeVisible();
 	});
 });
+
+/*
+ * Simple threads: while editing, threads can be drawn as plain cylinders (a fraction of the triangles); the export is always the real thread.
+ */
+test.describe('the thread detail switch', () => {
+	const toggle = (page: Page) => page.getByRole('toolbar', { name: 'View controls' }).getByRole('button', { name: 'Simple threads' });
+
+	test('is only offered once there is a thread, and starts off', async ({ page }) => {
+		await tile(page, 'Box').click();
+		await expect(toggle(page)).toHaveCount(0);
+		await tile(page, 'Threaded Rod').click();
+		await expect(toggle(page)).toBeVisible();
+		await expect(toggle(page)).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	test('turns on and off, and is remembered after a reload', async ({ page }) => {
+		await tile(page, 'Bolt').click();
+		await toggle(page).click();
+		await expect(toggle(page)).toHaveAttribute('aria-pressed', 'true');
+		await page.getByText('Saved', { exact: true }).waitFor();
+		await page.reload();
+		await expect(toggle(page)).toHaveAttribute('aria-pressed', 'true');
+		await toggle(page).click();
+		await expect(toggle(page)).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	test('the export is the real thread whichever is showing, and the typed values are untouched', async ({ page }) => {
+		await tile(page, 'Threaded Rod').click();
+		const real = (await exportStl(page)).volume;
+		await toggle(page).click();
+		await expect(toggle(page)).toHaveAttribute('aria-pressed', 'true');
+		expect((await exportStl(page)).volume).toBeCloseTo(real, 6);
+		await row(page, 0).click();
+		await expect(field(page, 'Length')).toHaveValue('20');
+	});
+});

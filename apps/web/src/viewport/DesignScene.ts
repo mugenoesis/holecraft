@@ -114,7 +114,15 @@ function realSizeMesh(node: ShapeNode): { key: string; build: () => MeshData } |
 	const settings = isShapeType(node.shapeType) ? getShapeDef(node.shapeType).params : undefined;
 	if (settings)
 		return {
-			key: ['settings', node.shapeType, width, depth, height, ...settings.map((p) => shapeParam(node, p.key))].join('|'),
+			key: [
+				'settings',
+				node.shapeType,
+				width,
+				depth,
+				height,
+				node.params.simple ?? 0,
+				...settings.map((p) => shapeParam(node, p.key)),
+			].join('|'),
 			build: () => parametricShape(node)!,
 		};
 	return null;

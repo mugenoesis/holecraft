@@ -96,7 +96,12 @@ function hexagon(flats: number): Point[] {
  * as it goes anticlockwise. A ring is a row of the surface a 48th of a pitch up (the last is wherever the length falls); a band between
  * neighbouring rings along the helix is exactly the profile.
  */
-function threadRings(mesh: Mesh, length: number, crest: number, depth: number, pitch: number): Ring[] {
+function threadRings(mesh: Mesh, length: number, crest: number, depth: number, pitch: number, simple: boolean): Ring[] {
+	if (simple) {
+		// a plain cylinder at the pitch diameter (d - 0.6495 p): the same length, nothing like the cost
+		const round = circle(2 * (crest - PITCH_RADIUS_BELOW_CREST * pitch));
+		return [mesh.ring(round, 0), mesh.ring(round, length)];
+	}
 	const step = pitch / FACETS;
 	const rows = Math.ceil(length / step - 1e-9) + 1;
 	return Array.from({ length: rows }, (_, j) => {
@@ -111,15 +116,18 @@ function threadRings(mesh: Mesh, length: number, crest: number, depth: number, p
 	});
 }
 
+/** How far the pitch circle of an ISO thread is below its crest, in pitches: (d - d2) / 2 = 0.6495 p / 2. */
+const PITCH_RADIUS_BELOW_CREST = 0.6495 / 2;
+
 /** The thread's surface, a band from each ring to the next. */
 const wrap = (mesh: Mesh, rings: readonly Ring[]) => {
 	for (let j = 0; j + 1 < rings.length; j++) mesh.band(rings[j]!, rings[j + 1]!);
 };
 
 /** A rod: the thread, closed with a flat end at each end. */
-function rod(length: number, crest: number, depth: number, pitch: number): MeshData {
+function rod(length: number, crest: number, depth: number, pitch: number, simple: boolean): MeshData {
 	const mesh = new Mesh();
-	const rings = threadRings(mesh, length, crest, depth, pitch);
+	const rings = threadRings(mesh, length, crest, depth, pitch, simple);
 	wrap(mesh, rings);
 	mesh.fan(mesh.point(0, 0, 0), rings[0]!, false);
 	mesh.fan(mesh.point(0, 0, length), rings[rings.length - 1]!, true);
@@ -130,7 +138,7 @@ function rod(length: number, crest: number, depth: number, pitch: number): MeshD
 function bolt(node: ShapeNode, length: number): MeshData {
 	const { size, head } = threadSettings(node.shapeType, node.params);
 	const mesh = new Mesh();
-	const rings = threadRings(mesh, length, size.diameter / 2, THREAD_DEPTH * size.pitch, size.pitch);
+	const rings = threadRings(mesh, length, size.diameter / 2, THREAD_DEPTH * size.pitch, size.pitch, isSimple(node));
 	wrap(mesh, rings);
 	mesh.fan(mesh.point(0, 0, 0), rings[0]!, false);
 	const [under, top] = [length, length + lengthOffset(node.shapeType, node.params)];
@@ -156,7 +164,7 @@ function bolt(node: ShapeNode, length: number): MeshData {
 function nut(node: ShapeNode, height: number): MeshData {
 	const { size, clearance } = threadSettings(node.shapeType, node.params);
 	const mesh = new Mesh();
-	const rings = threadRings(mesh, height, size.diameter / 2 + clearance, THREAD_DEPTH * size.pitch, size.pitch);
+	const rings = threadRings(mesh, height, size.diameter / 2 + clearance, THREAD_DEPTH * size.pitch, size.pitch, isSimple(node));
 	for (let j = 0; j + 1 < rings.length; j++) mesh.band(rings[j + 1]!, rings[j]!, true); // the hole's wall, facing the axis
 	const [low, high] = [mesh.ring(hexagon(size.flats), 0), mesh.ring(hexagon(size.flats), height)];
 	mesh.band(low, high);
@@ -165,6 +173,9 @@ function nut(node: ShapeNode, height: number): MeshData {
 	return mesh.done();
 }
 
+/** Whether to draw the thread as a plain cylinder (see `withSimpleThreads`). */
+const isSimple = (node: ShapeNode): boolean => node.params.simple === 1;
+
 /** The mesh of a threaded shape at its real size, with its base centre at the origin and standing on z = 0. */
 export function threadedMesh(node: ShapeNode): MeshData {
 	const height = Number(node.params.height);
@@ -172,5 +183,5 @@ export function threadedMesh(node: ShapeNode): MeshData {
 	const kind = threadKind(node.shapeType);
 	if (kind === 'bolt') return bolt(node, height - lengthOffset(node.shapeType, node.params));
 	if (kind === 'nut') return nut(node, height);
-	return rod(height, size.diameter / 2 + clearance, THREAD_DEPTH * size.pitch, size.pitch);
+	return rod(height, size.diameter / 2 + clearance, THREAD_DEPTH * size.pitch, size.pitch, isSimple(node));
 }

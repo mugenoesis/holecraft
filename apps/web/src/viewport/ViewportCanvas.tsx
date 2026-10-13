@@ -2,6 +2,7 @@ import {
 	type Design,
 	type EdgeTreatment,
 	HOME_VIEW,
+	hasThreads,
 	type MeshData,
 	type NodeId,
 	type OrbitState,
@@ -9,9 +10,10 @@ import {
 	type ShapeType,
 	type Vec3,
 	type WorkPlane,
+	withSimpleThreads,
 } from '@holecraft/core';
 import { meshRefsIn, type Subtree } from '@holecraft/geometry';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GeometryService } from '../geometry/GeometryService.ts';
 import { createWorkerEvaluator, type WorkerEvaluator } from '../geometry/workerEvaluator.ts';
 import { ThumbnailScheduler } from '../thumbnailScheduler.ts';
@@ -25,6 +27,7 @@ import { selectedHandles, selectedRings } from './selectedShape.ts';
 import { shapeDropHandlers } from './shapeDrop.ts';
 import { skippedEdgeNotices } from './skippedEdges.ts';
 import type { SurfaceTool } from './surfaceTool.ts';
+import { useSimpleThreads } from './useSimpleThreads.ts';
 import { ViewCube } from './ViewCube.tsx';
 import { type PixelRect, Viewport } from './Viewport.ts';
 import { ViewToolbar } from './ViewToolbar.tsx';
@@ -87,6 +90,12 @@ export function ViewportCanvas(props: Props) {
 	const cameraRef = useRef(camera);
 	cameraRef.current = camera;
 
+	// While editing, threads can be drawn as plain cylinders: only the view and its geometry work use this; selection, saving and export use `design`
+	const [simpleThreads, toggleSimpleThreads] = useSimpleThreads();
+	const drawn = useMemo(() => (simpleThreads ? withSimpleThreads(design) : design), [design, simpleThreads]);
+	const drawnRef = useRef(drawn);
+	drawnRef.current = drawn;
+
 	const [width, depth] = design.grid.size;
 
 	useEffect(() => {
@@ -113,7 +122,7 @@ export function ViewportCanvas(props: Props) {
 		}
 		setFailed(false);
 		const service = serviceRef.current;
-		viewport.setDesign(latest.current.design, service?.results(), service?.failed(), latest.current.meshes);
+		viewport.setDesign(drawnRef.current, service?.results(), service?.failed(), latest.current.meshes);
 		viewport.setSelection(latest.current.selection);
 		viewportRef.current = viewport;
 		return () => {
@@ -129,7 +138,7 @@ export function ViewportCanvas(props: Props) {
 		evaluatorRef.current = evaluator;
 		const service = new GeometryService(evaluator.evaluate, () => setResultVersion((v) => v + 1));
 		serviceRef.current = service;
-		service.update(latest.current.design, latest.current.meshes);
+		service.update(drawnRef.current, latest.current.meshes);
 		return () => {
 			serviceRef.current = null;
 			evaluatorRef.current = null;
@@ -141,9 +150,9 @@ export function ViewportCanvas(props: Props) {
 	// biome-ignore lint/correctness/useExhaustiveDependencies: `resultVersion` is bumped when a group's computed shape arrives, to bring the scene up to date
 	useEffect(() => {
 		const service = serviceRef.current;
-		service?.update(design, meshes);
-		viewportRef.current?.setDesign(design, service?.results(), service?.failed(), meshes);
-	}, [design, meshes, resultVersion]);
+		service?.update(drawn, meshes);
+		viewportRef.current?.setDesign(drawn, service?.results(), service?.failed(), meshes);
+	}, [drawn, meshes, resultVersion]);
 
 	// A picture of the design for the designs list, taken once it is saved and its shapes are worked out.
 	const schedulerRef = useRef<ThumbnailScheduler | null>(null);
@@ -239,6 +248,9 @@ export function ViewportCanvas(props: Props) {
 						onToggleTool={toggleTool}
 						planeActive={props.plane !== null}
 						onResetPlane={() => props.onPlane(null)}
+						hasThreads={hasThreads(design)}
+						simpleThreads={simpleThreads}
+						onToggleSimpleThreads={toggleSimpleThreads}
 					/>
 					<ViewCube camera={state} onSelect={(view) => viewportRef.current?.setView(view)} />
 					{!tool && handles && (
