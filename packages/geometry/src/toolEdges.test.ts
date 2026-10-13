@@ -116,3 +116,19 @@ describe('a shape already cut up by many treatments', () => {
 		expect(countSegments(toolEdges(M, treatedThenWrapped(), 'outer'))).toBeLessThan(MAX_OFFERED_SEGMENTS);
 	});
 });
+
+describe('the edges of the finished shape', () => {
+	it('include its own chamfers and rounds when asked (the ruler snaps to what is there), which the Edge tool leaves out', () => {
+		const d = withEdges(box(), 'a', [TOP_FRONT]);
+		const [offered, finished] = [toolEdges(M, d, 'a'), toolEdges(M, d, 'a', undefined, { treated: true })];
+		expect(offered).toHaveLength(12); // a box's twelve edges, the chamfered one still offered whole
+		expect(finished.length).toBeGreaterThan(offered.length); // the chamfer's two edges instead of the one it replaced
+		expect(finished.some((e) => e.points.some((p) => Math.abs(p[2]! - 18) < 1e-6))).toBe(true); // an edge 2 mm below the top: where the chamfer ends
+	});
+
+	it('are asked for with a different key, so the two answers are never mixed up', () => {
+		const d = withEdges(box(), 'a', [TOP_FRONT]);
+		expect(toolEdgesKey(d, 'a', { treated: true })).not.toBe(toolEdgesKey(d, 'a'));
+		expect(toolEdgesKey(box(), 'a', { treated: true })).toBe(toolEdgesKey(box(), 'a', { treated: true }));
+	});
+});

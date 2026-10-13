@@ -5,8 +5,8 @@ import type { WorkerRequest, WorkerResponse } from './geometry.worker.ts';
 
 export interface WorkerEvaluator {
 	evaluate: Evaluator;
-	/** The edges the Edge tool offers on the subtree's root (see `toolEdges`). */
-	edges(subtree: Subtree, meshes: ReadonlyMap<string, MeshData>): Promise<MeshEdge[]>;
+	/** The edges the Edge tool offers on the subtree's root (see `toolEdges`), or with `treated`, those of its finished shape. */
+	edges(subtree: Subtree, meshes: ReadonlyMap<string, MeshData>, treated?: boolean): Promise<MeshEdge[]>;
 	dispose(): void;
 }
 
@@ -60,8 +60,8 @@ export function createWorkerEvaluator(): WorkerEvaluator {
 			if (!('mesh' in reply)) throw unexpected();
 			return reply.mesh satisfies GroupMesh | null;
 		},
-		edges: async (subtree, meshes) => {
-			const reply = await ask((id) => ({ kind: 'edges', id, subtree, meshes }));
+		edges: async (subtree, meshes, treated) => {
+			const reply = await ask((id) => ({ kind: 'edges', id, subtree, meshes, ...(treated ? { treated } : {}) }));
 			if (!('edges' in reply)) throw unexpected();
 			return reply.edges;
 		},

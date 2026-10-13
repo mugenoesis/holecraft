@@ -8,7 +8,7 @@ import wasmUrl from 'manifold-3d/manifold.wasm?url';
 
 export type WorkerRequest =
 	| { kind: 'group'; id: number; subtree: Subtree; meshes: ReadonlyMap<string, MeshData> }
-	| { kind: 'edges'; id: number; subtree: Subtree; meshes: ReadonlyMap<string, MeshData> }
+	| { kind: 'edges'; id: number; subtree: Subtree; meshes: ReadonlyMap<string, MeshData>; treated?: boolean }
 	| { kind: 'export'; id: number; design: Pick<Design, 'nodes' | 'roots'>; meshes: ReadonlyMap<string, MeshData> };
 
 export type WorkerResponse =
@@ -40,7 +40,10 @@ scope.onmessage = async ({ data }) => {
 		}
 
 		if (data.kind === 'edges') {
-			scope.postMessage({ id: data.id, edges: toolEdges(manifold, data.subtree, data.subtree.rootId, data.meshes) });
+			scope.postMessage({
+				id: data.id,
+				edges: toolEdges(manifold, data.subtree, data.subtree.rootId, data.meshes, data.treated ? { treated: true } : {}),
+			});
 			return;
 		}
 

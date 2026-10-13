@@ -1331,6 +1331,18 @@ button.primary:disabled {
 	stroke: #fff;
 	stroke-width: 2;
 }
+.ruler-lines .ruler-snap {
+	fill: none;
+	stroke: #ffd24a;
+	stroke-width: 3;
+}
+.ruler-snap-toggle {
+	margin-top: 4px;
+	font-size: 12px;
+	opacity: 0.85;
+	pointer-events: auto;
+	cursor: pointer;
+}
 .ruler-readout {
 	position: absolute;
 	bottom: 16px;

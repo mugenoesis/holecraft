@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { cameraSettled, center, dropShape, newDesign, selectedNames, selectView, viewport } from './helpers.ts';
+import { cameraSettled, center, dropShape, field, newDesign, selectedNames, selectView, viewport } from './helpers.ts';
 
 const rulerButton = (page: Page) => page.getByRole('button', { name: 'Ruler', exact: true });
 const readout = (page: Page) => page.getByTestId('ruler-readout');
@@ -83,5 +83,67 @@ test.describe('ruler', () => {
 		await rulerButton(page).click();
 		await clickAt(page, 0);
 		expect(await selectedNames(page)).toEqual(['Box 1']);
+	});
+});
+
+/*
+ * Snapping: within a few pixels of a sharp corner, an edge's middle or an edge, the ruler point jumps onto it exactly. A box 20 mm each way
+ * seen from above is about 54 px across (2.7 px per mm), its top-face corners about 27 px from the middle of the view.
+ */
+test.describe('ruler snapping', () => {
+	const marker = (page: Page) => page.getByTestId('ruler-snap');
+	const snapBox = (page: Page) => readout(page).getByRole('checkbox', { name: /Snap/ });
+
+	test.beforeEach(async ({ page }) => {
+		await dropShape(page, 'Box');
+		await topView(page);
+		await rulerButton(page).click();
+	});
+
+	test('catches a corner a few pixels away and measures corner to corner exactly: 20 across and 20 deep is 28.28 mm', async ({ page }) => {
+		await hoverAt(page, 31, 23);
+		await expect(marker(page)).toHaveAttribute('data-kind', 'corner');
+		await clickAt(page, 31, 23);
+		await hoverAt(page, -31, -23);
+		await expect(marker(page)).toHaveAttribute('data-kind', 'corner');
+		await clickAt(page, -31, -23);
+		await expect(readout(page).locator('strong')).toHaveText('28.28 mm');
+		await expect(readout(page)).toContainText('X -20 mm');
+		await expect(readout(page)).toContainText('Y 20 mm');
+		await expect(readout(page)).toContainText('Z 0 mm');
+	});
+
+	test('with Snap switched off the same clicks only land near the corners, and nothing is marked', async ({ page }) => {
+		await snapBox(page).uncheck();
+		await hoverAt(page, 31, 23);
+		await expect(marker(page)).toHaveCount(0);
+		await clickAt(page, 31, 23);
+		await clickAt(page, -31, -23);
+		await expect(readout(page).locator('strong')).not.toHaveText('28.28 mm');
+	});
+
+	test('the middle of a long edge and the edge itself are caught too, each marked differently', async ({ page }) => {
+		await page.keyboard.press('Escape'); // off, to widen the box
+		await page.getByTestId('object-list').locator('li').first().locator('button').first().click();
+		await field(page, 'Width').fill('100');
+		await field(page, 'Width').press('Enter');
+		await rulerButton(page).click();
+		await hoverAt(page, 3, 30); // the middle of the front edge (the box is now 270 px wide)
+		await expect(marker(page)).toHaveAttribute('data-kind', 'middle');
+		await hoverAt(page, 80, 30); // further along the same edge
+		await expect(marker(page)).toHaveAttribute('data-kind', 'edge');
+		await hoverAt(page, 133, 29); // a corner
+		await expect(marker(page)).toHaveAttribute('data-kind', 'corner');
+		await hoverAt(page, 60, 0); // the middle of the top face, a long way from any edge
+		await expect(marker(page)).toHaveCount(0);
+	});
+
+	test('is on to start, and the choice is remembered', async ({ page }) => {
+		await expect(snapBox(page)).toBeChecked();
+		await snapBox(page).uncheck();
+		await page.getByText('Saved', { exact: true }).waitFor();
+		await page.reload();
+		await rulerButton(page).click();
+		await expect(snapBox(page)).not.toBeChecked();
 	});
 });
