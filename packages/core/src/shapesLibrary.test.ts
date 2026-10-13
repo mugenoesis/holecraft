@@ -23,6 +23,8 @@ const NEW = [
 	['threaded-hole', 'Threaded Hole'],
 	['bolt', 'Bolt'],
 	['nut', 'Nut'],
+	['washer', 'Washer'],
+	['standoff', 'Standoff'],
 ] as const;
 
 /** The default size of the shapes that are not 20 mm each way. */
@@ -35,6 +37,8 @@ const SIZE: Record<string, [number, number, number]> = {
 	'threaded-hole': [5.4, 5.4, 10],
 	bolt: [9.237604, 8, 23.5],
 	nut: [9.237604, 8, 4],
+	washer: [10, 10, 1],
+	standoff: [9.237604, 8, 10],
 };
 
 describe('the basic shapes', () => {

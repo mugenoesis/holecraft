@@ -4,7 +4,7 @@ import type { MeshData } from './meshShape.ts';
 import { getShapeDef, isShapeType, type ParamDef } from './shapes.ts';
 import { outwards } from './solidShapes.ts';
 import { threadedMesh } from './threadMesh.ts';
-import { followSettings, isThreadedType } from './threadStandards.ts';
+import { followSettings, hasThread, isThreadedType } from './threadStandards.ts';
 
 /**
  * Shapes built from their settings (the tube's wall, the torus's ring).
@@ -204,6 +204,8 @@ const BUILDERS: Record<string, (w: number, d: number, h: number, node: ShapeNode
 	'threaded-hole': (_w, _d, _h, node) => threadedMesh(node),
 	bolt: (_w, _d, _h, node) => threadedMesh(node),
 	nut: (_w, _d, _h, node) => threadedMesh(node),
+	washer: (_w, _d, _h, node) => threadedMesh(node),
+	standoff: (_w, _d, _h, node) => threadedMesh(node),
 };
 
 /** The shape types built from their settings. */
@@ -227,9 +229,9 @@ export function parametricMesh(
 	return parametricShape(node);
 }
 
-/** Whether any shape in the design is a thread (a rod, hole, bolt or nut). */
+/** Whether any shape in the design has a thread in it (a rod, hole, bolt, nut or standoff: not a washer). */
 export function hasThreads(design: Design): boolean {
-	return Object.values(design.nodes).some((n) => n.kind === 'shape' && isThreadedType(n.shapeType));
+	return Object.values(design.nodes).some((n) => n.kind === 'shape' && hasThread(n.shapeType));
 }
 
 /**
@@ -242,7 +244,7 @@ export function withSimpleThreads(design: Design): Design {
 	const nodes = Object.fromEntries(
 		Object.entries(design.nodes).map(([id, n]) => [
 			id,
-			n.kind === 'shape' && isThreadedType(n.shapeType) ? { ...n, params: { ...n.params, simple: 1 } } : n,
+			n.kind === 'shape' && hasThread(n.shapeType) ? { ...n, params: { ...n.params, simple: 1 } } : n,
 		]),
 	);
 	return { ...design, nodes };

@@ -25,7 +25,7 @@ function whyNotResizable(design: Design, id: NodeId): string {
 		return n?.kind === 'shape' && isThreadedType(n.shapeType);
 	});
 	return thread
-		? 'It holds a thread, which keeps its real size, so the group cannot be resized.'
+		? 'It holds a thread, nut, washer or standoff, which keeps its real size, so the group cannot be resized.'
 		: 'Resizing needs every shape inside turned in quarter turns (0, 90, 180, 270 degrees).';
 }
 

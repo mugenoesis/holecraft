@@ -133,3 +133,46 @@ describe('the simple thread detail in the CSG engine', () => {
 		expect(head(withSimpleThreads(d)).volume()).toBeCloseTo(head(d).volume(), 3);
 	});
 });
+
+describe('a standoff and what goes in it', () => {
+	const standoff = (settings: Record<string, number>, body: number): Design => {
+		let d = addShape(createEmptyDesign('d'), 'standoff', [0, 0], { id: 'a' }).design;
+		for (const [key, value] of Object.entries(settings)) d = setShapeParam(d, 'a', key, value);
+		const offset = Number((d.nodes.a as ShapeNode).params.height) - 10;
+		return setShapeSize(d, 'a', { height: body + offset });
+	};
+
+	it('a bolt screws right through a female standoff, a whole number of pitches up, without touching it', () => {
+		const bolt = (() => {
+			let d = addShape(createEmptyDesign('d'), 'bolt', [0, 0], { id: 'a' }).design;
+			d = setShapeSize(d, 'a', { height: 3.5 + 30 });
+			return asManifold(evaluateNode(M, d, 'a')!);
+		})();
+		const body = asManifold(evaluateNode(M, standoff({}, 20), 'a')!).translate([0, 0, 0.8 * 8]);
+		expect(bolt.intersect(body).volume()).toBeLessThan(body.volume() * 1e-4);
+	});
+
+	it('a threaded rod seats in a male standoff’s blind hole: wholly inside it, from the hole’s floor, without touching', () => {
+		// M5 male standoff, 20 mm body on a 10 mm stud: the blind thread starts 10 + 15 = 25 mm up from the base
+		const body = asManifold(evaluateNode(M, standoff({ type: 2 }, 20), 'a')!);
+		const rod = asManifold(evaluateNode(M, threaded('threaded-rod', {}, 15), 'a')!).translate([0, 0, 10 + 20 - 15]);
+		expect(body.intersect(rod).volume()).toBeLessThan(rod.volume() * 1e-4);
+	});
+
+	it('a male standoff’s stud takes a nut: it is the bolt’s thread, so the two do not touch', () => {
+		const stud = asManifold(evaluateNode(M, standoff({ type: 2 }, 20), 'a')!);
+		const nut = (() => {
+			const d = addShape(createEmptyDesign('d'), 'nut', [0, 0], { id: 'a' }).design;
+			return asManifold(evaluateNode(M, d, 'a')!).translate([0, 0, 0.8 * 3]);
+		})();
+		expect(stud.intersect(nut).volume()).toBeLessThan(nut.volume() * 1e-4 + 1e-3);
+	});
+
+	it('a washer sits round a bolt’s shank with room to spare', () => {
+		let bolt = addShape(createEmptyDesign('d'), 'bolt', [0, 0], { id: 'a' }).design;
+		bolt = setShapeSize(bolt, 'a', { height: 3.5 + 30 });
+		const washer = addShape(createEmptyDesign('d'), 'washer', [0, 0], { id: 'a' }).design;
+		const [b, w] = [asManifold(evaluateNode(M, bolt, 'a')!), asManifold(evaluateNode(M, washer, 'a')!).translate([0, 0, 5])];
+		expect(b.intersect(w).volume()).toBe(0);
+	});
+});

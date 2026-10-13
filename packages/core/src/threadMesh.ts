@@ -1,7 +1,7 @@
 import type { ShapeNode } from './design.ts';
 import type { MeshData } from './meshShape.ts';
 import { outwards } from './solidShapes.ts';
-import { lengthOffset, threadKind, threadSettings } from './threadStandards.ts';
+import { lengthOffset, studLength, threadKind, threadSettings } from './threadStandards.ts';
 
 /**
  * The meshes of the threaded shapes: a rod, a hole's cutter, a bolt (thread and head) and a nut. All are built at their real size from
@@ -96,11 +96,11 @@ function hexagon(flats: number): Point[] {
  * as it goes anticlockwise. A ring is a row of the surface a 48th of a pitch up (the last is wherever the length falls); a band between
  * neighbouring rings along the helix is exactly the profile.
  */
-function threadRings(mesh: Mesh, length: number, crest: number, depth: number, pitch: number, simple: boolean): Ring[] {
+function threadRings(mesh: Mesh, length: number, crest: number, depth: number, pitch: number, simple: boolean, zOffset = 0): Ring[] {
 	if (simple) {
 		// a plain cylinder at the pitch diameter (d - 0.6495 p): the same length, nothing like the cost
 		const round = circle(2 * (crest - PITCH_RADIUS_BELOW_CREST * pitch));
-		return [mesh.ring(round, 0), mesh.ring(round, length)];
+		return [mesh.ring(round, zOffset), mesh.ring(round, zOffset + length)];
 	}
 	const step = pitch / FACETS;
 	const rows = Math.ceil(length / step - 1e-9) + 1;
@@ -111,7 +111,7 @@ function threadRings(mesh: Mesh, length: number, crest: number, depth: number, p
 				const r = crest - depth * (1 - profile(z / step - i));
 				return [r * Math.cos(angleOf(i)), r * Math.sin(angleOf(i))] as const;
 			}),
-			z,
+			z + zOffset,
 		);
 	});
 }
@@ -173,6 +173,51 @@ function nut(node: ShapeNode, height: number): MeshData {
 	return mesh.done();
 }
 
+/** A washer: a flat ring between a circle of its outside diameter and one of its hole's. */
+function washer(node: ShapeNode): MeshData {
+	const { size } = threadSettings(node.shapeType, node.params);
+	const height = Number(node.params.height);
+	const mesh = new Mesh();
+	const [outerLow, outerHigh] = [mesh.ring(circle(size.washerOuter), 0), mesh.ring(circle(size.washerOuter), height)];
+	const [innerLow, innerHigh] = [mesh.ring(circle(size.washerInner), 0), mesh.ring(circle(size.washerInner), height)];
+	mesh.band(outerLow, outerHigh);
+	mesh.band(outerHigh, innerHigh); // the top, looking up
+	mesh.band(innerHigh, innerLow); // the hole's wall, facing the axis
+	mesh.band(innerLow, outerLow); // the bottom, looking down
+	return mesh.done();
+}
+
+/**
+ * A standoff: a hex body with a thread in its top. Female, the thread goes right through (a long nut); male, a stud (a bolt's thread) stands
+ * under the body and the thread goes down into the body only as far as a diameter above its bottom, ending in a flat floor.
+ */
+function standoff(node: ShapeNode, body: number): MeshData {
+	const { size, clearance, standoffType } = threadSettings(node.shapeType, node.params);
+	if (standoffType === 1) return nut(node, body);
+	const [stud, simple] = [studLength(size), isSimple(node)];
+	const mesh = new Mesh();
+	const studRings = threadRings(mesh, stud, size.diameter / 2, THREAD_DEPTH * size.pitch, size.pitch, simple);
+	wrap(mesh, studRings);
+	mesh.fan(mesh.point(0, 0, 0), studRings[0]!, false);
+	const [low, high] = [mesh.ring(hexagon(size.flats), stud), mesh.ring(hexagon(size.flats), stud + body)];
+	mesh.band(studRings[studRings.length - 1]!, low); // the body's underside, looking down
+	mesh.band(low, high);
+	const depth = body - size.diameter;
+	const holeRings = threadRings(
+		mesh,
+		depth,
+		size.diameter / 2 + clearance,
+		THREAD_DEPTH * size.pitch,
+		size.pitch,
+		simple,
+		stud + body - depth,
+	);
+	mesh.band(high, holeRings[holeRings.length - 1]!); // the top, looking up
+	for (let j = 0; j + 1 < holeRings.length; j++) mesh.band(holeRings[j + 1]!, holeRings[j]!, true);
+	mesh.fan(mesh.point(0, 0, stud + body - depth), holeRings[0]!, true); // the floor of the hole
+	return mesh.done();
+}
+
 /** Whether to draw the thread as a plain cylinder (see `withSimpleThreads`). */
 const isSimple = (node: ShapeNode): boolean => node.params.simple === 1;
 
@@ -183,5 +228,7 @@ export function threadedMesh(node: ShapeNode): MeshData {
 	const kind = threadKind(node.shapeType);
 	if (kind === 'bolt') return bolt(node, height - lengthOffset(node.shapeType, node.params));
 	if (kind === 'nut') return nut(node, height);
+	if (kind === 'washer') return washer(node);
+	if (kind === 'standoff') return standoff(node, height - lengthOffset(node.shapeType, node.params));
 	return rod(height, size.diameter / 2 + clearance, THREAD_DEPTH * size.pitch, size.pitch, isSimple(node));
 }

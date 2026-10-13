@@ -24,6 +24,8 @@ describe('shape definitions', () => {
 			'threaded-hole',
 			'bolt',
 			'nut',
+			'washer',
+			'standoff',
 		]);
 		for (const def of SHAPE_DEFS) {
 			expect(def.name.length).toBeGreaterThan(0);

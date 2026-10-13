@@ -752,6 +752,20 @@ button.primary:disabled {
 	mask: radial-gradient(circle, transparent 28%, #000 30%);
 }
 
+/* a washer: a flat ring seen from above; a standoff: a tall hex with a hole down it */
+.swatch.washer {
+	border-radius: 50%;
+	mask: radial-gradient(circle, transparent 30%, #000 33%);
+}
+
+.swatch.standoff {
+	clip-path: polygon(22% 0, 78% 0, 78% 100%, 22% 100%);
+	mask:
+		linear-gradient(#000 0 0),
+		linear-gradient(#000 0 0) 50% 0 / 28% 100% no-repeat;
+	mask-composite: exclude;
+}
+
 .swatch.polygon {
 	clip-path: polygon(50% 0, 98% 36%, 80% 94%, 20% 94%, 2% 36%);
 }
