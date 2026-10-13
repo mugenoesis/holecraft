@@ -1,10 +1,12 @@
-import type { BrushShape, Design, NodeId, PaintFill } from '@holecraft/core';
+import type { Design, NodeId, PaintFill } from '@holecraft/core';
 import { useEffect, useState } from 'react';
 import { isTextEntry } from '../keyboard.ts';
+import { BandCursor } from './BandCursor.tsx';
 import { BrushCursor } from './BrushCursor.tsx';
 import { PaintPanel } from './PaintPanel.tsx';
-import { BRUSH_SIZE, DEFAULT_PAINT_SETTINGS, filamentForKey, fillFor, type PaintSettings } from './paintTool.ts';
+import { filamentForKey, fillFor, gapFillFor, type PaintSettings } from './paintTool.ts';
 import { useBrushStroke } from './useBrushStroke.ts';
+import { usePaintSettings } from './usePaintSettings.ts';
 import { useSurfaceTool } from './useSurfaceTool.ts';
 import type { Viewport } from './Viewport.ts';
 
@@ -17,6 +19,8 @@ interface Props {
 	onStrokeStart: (id: NodeId) => void;
 	onStrokePreview: (id: NodeId, fill: PaintFill) => void;
 	onStrokeEnd: () => void;
+	/** A gap fill on the shapes it can tidy, as one undo step. */
+	onGapFill: (ids: NodeId[], fill: PaintFill) => void;
 	onEraseAll: (ids: NodeId[]) => void;
 	onClose: () => void;
 }
@@ -34,20 +38,19 @@ export function PaintTool({
 	onStrokeStart,
 	onStrokePreview,
 	onStrokeEnd,
+	onGapFill,
 	onEraseAll,
 	onClose,
 }: Props) {
 	const [filament, setFilament] = useState(0);
-	const [tool, setTool] = useState<PaintSettings['tool']>(DEFAULT_PAINT_SETTINGS.tool);
-	const [angle, setAngle] = useState(DEFAULT_PAINT_SETTINGS.angle);
-	const [shape, setShape] = useState<BrushShape>(DEFAULT_PAINT_SETTINGS.shape);
-	const [size, setSize] = useState(DEFAULT_PAINT_SETTINGS.size);
+	const paint = usePaintSettings(getViewport);
+	const { tool, angle, shape, size, height, gapArea } = paint;
 	const [status, setStatus] = useState<string | null>(null);
 	const { palette } = design;
 	const chosen = Math.min(filament, palette.length - 1);
 
 	const color = palette[chosen] ?? null;
-	const settings: PaintSettings = { color, tool, angle, shape, size };
+	const settings: PaintSettings = { color, tool, angle, shape, size, height, gapArea };
 	const brushing = tool === 'brush';
 
 	// the brush paints as it is dragged; the other tools paint on a click
@@ -63,7 +66,7 @@ export function PaintTool({
 		getViewport,
 		{
 			onClick: (hit, shift) => {
-				if (brushing) return;
+				if (brushing || tool === 'gaps') return;
 				const made = fillFor(design, hit, { ...settings, color: shift ? null : color });
 				if ('problem' in made) return setStatus(made.problem);
 				setStatus(null);
@@ -87,26 +90,17 @@ export function PaintTool({
 		return () => window.removeEventListener('keydown', onKey);
 	}, [palette.length]);
 
-	// Ctrl + wheel changes the smart fill angle (or the brush size) instead of zooming (heard before the view's own wheel handler).
-	useEffect(() => {
-		const el = getViewport()?.element;
-		if (!el) return;
-		const onWheel = (e: WheelEvent) => {
-			if (!e.ctrlKey) return;
-			e.preventDefault();
-			e.stopImmediatePropagation();
-			const up = e.deltaY < 0 ? 1 : -1;
-			if (brushing) setSize((n) => Math.max(BRUSH_SIZE.min, Math.min(BRUSH_SIZE.max, n + up * BRUSH_SIZE.step)));
-			else setAngle((a) => Math.max(0, Math.min(90, a + up * 2)));
-		};
-		el.addEventListener('wheel', onWheel, { capture: true, passive: false });
-		return () => el.removeEventListener('wheel', onWheel, { capture: true });
-	}, [getViewport, brushing]);
-
 	const painted = selection.filter((id) => design.nodes[id]?.paint);
+	const gapFill = () => {
+		const made = gapFillFor(design, selection, settings);
+		if ('problem' in made) return setStatus(made.problem);
+		setStatus(null);
+		onGapFill(made.ids, made.fill);
+	};
 	return (
 		<>
 			{brushing && shape !== 'triangle' && <BrushCursor getViewport={getViewport} size={size} />}
+			{tool === 'height' && <BandCursor getViewport={getViewport} design={design} height={height} />}
 			<PaintPanel
 				palette={palette}
 				filament={chosen}
@@ -114,13 +108,19 @@ export function PaintTool({
 				angle={angle}
 				shape={shape}
 				size={size}
+				height={height}
+				gapArea={gapArea}
+				canGapFill={'ids' in gapFillFor(design, selection, settings)}
 				status={status}
 				canErase={painted.length > 0}
 				onFilament={setFilament}
-				onTool={setTool}
-				onAngle={setAngle}
-				onShape={setShape}
-				onSize={setSize}
+				onTool={paint.setTool}
+				onAngle={paint.setAngle}
+				onShape={paint.setShape}
+				onSize={paint.setSize}
+				onHeight={paint.setHeight}
+				onGapArea={paint.setGapArea}
+				onGapFill={gapFill}
 				onEraseAll={() => onEraseAll(painted)}
 				onDone={onClose}
 			/>

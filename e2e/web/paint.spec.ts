@@ -294,3 +294,144 @@ test.describe('the brush', () => {
 		expect(all).toBeGreaterThan(painted + 10);
 	});
 });
+
+test.describe('height range and gap fill', () => {
+	const tool = (page: Page, name: string) => panel(page).getByRole('radio', { name, exact: true });
+
+	test('are tools in the bar, each with its own slider while it is chosen', async ({ page }) => {
+		await ready(page);
+		for (const name of ['Height range', 'Gap fill']) await expect(tool(page, name)).toBeVisible();
+		await expect(panel(page).getByRole('slider', { name: 'Height range value' })).toHaveCount(0);
+		await tool(page, 'Height range').check();
+		await expect(panel(page).getByRole('slider', { name: 'Height range value' })).toBeVisible();
+		await tool(page, 'Gap fill').check();
+		await expect(panel(page).getByRole('slider', { name: 'Gap area' })).toBeVisible();
+		await expect(panel(page).getByRole('button', { name: 'Apply' })).toBeDisabled(); // nothing is selected, and nothing is painted
+	});
+
+	test('Height range paints a band round the shape at the height clicked, as tall as the setting: front, then the side too', async ({
+		page,
+	}) => {
+		await ready(page);
+		await selectView(page, 'front');
+		await cameraSettled(page);
+		await tool(page, 'Height range').check();
+		await panel(page).getByRole('slider', { name: 'Height range value' }).fill('4');
+		await expect(panel(page)).toContainText('4 mm');
+		const { x, y } = await centre(page);
+		await page.mouse.click(x, y - 27); // about 10 mm up the front of the box
+		await page.mouse.move(x + 200, y + 150);
+		await expect.poll(async () => isTeal(await colourAtCentre(page, 0, -32))).toBe(true); // 10 to 14 mm
+		expect(isOrange(await colourAtCentre(page, 0, -8))).toBe(true); // 3 mm up: below the band
+		expect(isOrange(await colourAtCentre(page, 0, -48))).toBe(true); // 18 mm up: above it
+		await panel(page).getByRole('button', { name: 'Done' }).click();
+		await selectView(page, 'right');
+		await cameraSettled(page);
+		await expect.poll(async () => isTeal(await colourAtCentre(page, 0, -32))).toBe(true); // it goes right round
+	});
+
+	test('Shift+click with Height range erases the band', async ({ page }) => {
+		await ready(page);
+		await selectView(page, 'front');
+		await cameraSettled(page);
+		await tool(page, 'Height range').check();
+		const { x, y } = await centre(page);
+		await page.mouse.click(x, y - 27);
+		await page.mouse.move(x + 200, y + 150);
+		await expect.poll(async () => isTeal(await colourAtCentre(page, 0, -30))).toBe(true);
+		await click(page, 0, -27, true);
+		await page.mouse.move(x + 200, y + 150);
+		await expect.poll(async () => isOrange(await colourAtCentre(page, 0, -30))).toBe(true);
+	});
+
+	test('Ctrl+wheel changes the band height', async ({ page }) => {
+		await ready(page);
+		await tool(page, 'Height range').check();
+		const slider = panel(page).getByRole('slider', { name: 'Height range value' });
+		const before = Number(await slider.inputValue());
+		const { x, y } = await centre(page);
+		await page.mouse.move(x, y);
+		await page.keyboard.down('Control');
+		await page.mouse.wheel(0, -100);
+		await page.keyboard.up('Control');
+		await expect.poll(async () => Number(await slider.inputValue())).toBeGreaterThan(before);
+	});
+
+	test('Gap fill merges a small speck into the paint round it: a bare spot in a painted top is filled by Apply, and undone in one step', async ({
+		page,
+	}) => {
+		await ready(page);
+		await tool(page, 'Brush').check();
+		await panel(page).getByRole('slider', { name: 'Brush size' }).fill('20');
+		const { x, y } = await centre(page);
+		await page.mouse.move(x - 20, y);
+		await page.mouse.down();
+		await page.mouse.move(x + 20, y, { steps: 10 });
+		await page.mouse.up();
+		await panel(page).getByRole('slider', { name: 'Brush size' }).fill('2');
+		await page.keyboard.down('Shift');
+		await page.mouse.click(x, y); // a speck of the paint taken off again, about 3 mm2
+		await page.keyboard.up('Shift');
+		await page.mouse.move(x + 200, y + 150);
+		await expect.poll(async () => isOrange(await colourAtCentre(page))).toBe(true);
+		expect(isTeal(await colourAtCentre(page, 12, 0))).toBe(true);
+
+		await tool(page, 'Gap fill').check();
+		await panel(page).getByRole('slider', { name: 'Gap area' }).fill('5');
+		await page
+			.getByTestId('object-list')
+			.getByRole('button', { name: /^Box 1 / })
+			.click();
+		await panel(page).getByRole('button', { name: 'Apply' }).click();
+		await expect.poll(async () => isTeal(await colourAtCentre(page))).toBe(true);
+
+		await page.keyboard.press('Control+z');
+		await expect.poll(async () => isOrange(await colourAtCentre(page))).toBe(true);
+	});
+
+	test('Gap fill with a smaller area than the speck leaves it alone', async ({ page }) => {
+		await ready(page);
+		await tool(page, 'Brush').check();
+		await panel(page).getByRole('slider', { name: 'Brush size' }).fill('20');
+		const { x, y } = await centre(page);
+		await page.mouse.move(x - 20, y);
+		await page.mouse.down();
+		await page.mouse.move(x + 20, y, { steps: 10 });
+		await page.mouse.up();
+		await panel(page).getByRole('slider', { name: 'Brush size' }).fill('4');
+		await page.keyboard.down('Shift');
+		await page.mouse.click(x, y); // about 12 mm2
+		await page.keyboard.up('Shift');
+		await page.mouse.move(x + 200, y + 150);
+		await tool(page, 'Gap fill').check();
+		await panel(page).getByRole('slider', { name: 'Gap area' }).fill('1');
+		await page
+			.getByTestId('object-list')
+			.getByRole('button', { name: /^Box 1 / })
+			.click();
+		await panel(page).getByRole('button', { name: 'Apply' }).click();
+		await page.waitForTimeout(800);
+		expect(isOrange(await colourAtCentre(page))).toBe(true);
+	});
+
+	test('the 3MF for OrcaSlicer has the band’s triangles painted', async ({ page }) => {
+		await ready(page);
+		await selectView(page, 'front');
+		await cameraSettled(page);
+		await tool(page, 'Height range').check();
+		const { x, y } = await centre(page);
+		await page.mouse.click(x, y - 27);
+		await page.mouse.move(x + 200, y + 150);
+		await expect.poll(async () => isTeal(await colourAtCentre(page, 0, -30))).toBe(true);
+		await panel(page).getByRole('button', { name: 'Done' }).click();
+		await page.getByRole('button', { name: 'Export', exact: true }).click();
+		const [download] = await Promise.all([
+			page.waitForEvent('download', { timeout: 30_000 }),
+			page.getByRole('menuitem', { name: 'Export as 3MF for OrcaSlicer' }).click(),
+		]);
+		const model = read3mf(await readFile(await download.path()))['3D/3dmodel.model']!;
+		const painted = model.match(/paint_color="8"/g)?.length ?? 0;
+		expect(painted).toBeGreaterThanOrEqual(8); // at least two triangles on each of four walls
+		expect(model.match(/<triangle /g)?.length ?? 0).toBeGreaterThan(painted + 4);
+	});
+});

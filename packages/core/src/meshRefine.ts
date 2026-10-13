@@ -160,6 +160,47 @@ function roundOfCuts(points: Vec3[], tris: Tri[], grid: RegionGrid): Tri[] | nul
 	return tris.flatMap((t) => cutTriangle(t, (a, b) => mids.get(edgeKey(a, b))));
 }
 
+/** A flat cut through space: the points where `normal` . p = `offset`. */
+export interface CutPlane {
+	normal: Vec3;
+	offset: number;
+}
+
+/** A corner this close (mm) to a plane is on it, so an edge only ends there rather than being cut. */
+const ON_PLANE = 1e-6;
+
+/** One plane's cut: each edge with corners strictly on opposite sides gets a new corner where it crosses, shared by the triangles on both sides. */
+function cutAlong(points: Vec3[], tris: Tri[], plane: CutPlane): Tri[] {
+	const distance = points.map((p) => plane.normal[0] * p[0] + plane.normal[1] * p[1] + plane.normal[2] * p[2] - plane.offset);
+	const side = (i: number) => (distance[i]! > ON_PLANE ? 1 : distance[i]! < -ON_PLANE ? -1 : 0);
+	const crossings = new Map<string, number>();
+	for (const t of tris) {
+		for (let k = 0; k < 3; k++) {
+			const [a, b] = [t[k]!, t[(k + 1) % 3]!];
+			const key = edgeKey(a, b);
+			if (side(a) * side(b) >= 0 || crossings.has(key)) continue;
+			const along = distance[a]! / (distance[a]! - distance[b]!);
+			crossings.set(key, points.length);
+			points.push([0, 1, 2].map((q) => points[a]![q]! + (points[b]![q]! - points[a]![q]!) * along) as Vec3);
+		}
+	}
+	return crossings.size === 0 ? tris : tris.flatMap((t) => cutTriangle(t, (a, b) => crossings.get(edgeKey(a, b))));
+}
+
+const flatten = (points: Vec3[], tris: Tri[]): MeshData => {
+	const positions = new Float32Array(points.length * 3);
+	for (const [i, p] of points.entries()) positions.set(p, i * 3);
+	return { positions, indices: Uint32Array.from(tris.flat()) };
+};
+
+/** `mesh` cut straight along each plane where it crosses, so no triangle has both sides of a plane. The surface stays closed. */
+export function cutByPlanes(mesh: MeshData, planes: readonly CutPlane[]): MeshData {
+	const { points, tris: first } = weld(mesh);
+	let tris = first;
+	for (const plane of planes) tris = cutAlong(points, tris, plane);
+	return flatten(points, tris);
+}
+
 /** `mesh` cut finer where the regions' edges cross it. The same closed surface, with the same area and volume. */
 export function refineMesh(mesh: MeshData, regions: readonly BrushRegion[]): MeshData {
 	let { points, tris } = weld(mesh);
@@ -169,7 +210,5 @@ export function refineMesh(mesh: MeshData, regions: readonly BrushRegion[]): Mes
 		if (!next) break;
 		tris = next;
 	}
-	const positions = new Float32Array(points.length * 3);
-	for (const [i, p] of points.entries()) positions.set(p, i * 3);
-	return { positions, indices: Uint32Array.from(tris.flat()) };
+	return flatten(points, tris);
 }

@@ -16,6 +16,7 @@ import {
 } from '@holecraft/core';
 import * as THREE from 'three';
 import type { GroupResult } from '../geometry/GeometryService.ts';
+import { createBandMarker } from './bandMarker.ts';
 import { CameraRig, FOV_DEG, type Projection } from './CameraRig.ts';
 import { DesignScene } from './DesignScene.ts';
 import { createPlaneMarker } from './planeMarker.ts';
@@ -97,6 +98,7 @@ export class Viewport {
 	/** While the ruler is on, the left button no longer selects or moves: clicks belong to the ruler and dragging orbits. */
 	private surfaceToolOn = false;
 	private toolPaintsOnDrag = false;
+	private bandMarker: THREE.Group | null = null;
 	private multiSelectOn = false;
 	private planeMarker: THREE.Object3D | null = null;
 
@@ -295,6 +297,25 @@ export class Viewport {
 	/** While the Select toggle is on, every press adds to (or takes from) the selection, and a finger on empty space draws the selection box. */
 	setMultiSelect(on: boolean): void {
 		this.multiSelectOn = on;
+	}
+
+	/** Shows the Height range tool's band as a translucent slab across an object, or removes it. */
+	setBandMarker(band: { bounds: { min: Vec3; max: Vec3 }; z0: number; z1: number } | null): void {
+		if (this.bandMarker) {
+			this.scene.remove(this.bandMarker);
+			this.bandMarker.traverse((o) => {
+				if (o instanceof THREE.Mesh) {
+					o.geometry.dispose();
+					(o.material as THREE.Material).dispose();
+				}
+			});
+			this.bandMarker = null;
+		}
+		if (band) {
+			this.bandMarker = createBandMarker(band.bounds, band.z0, band.z1);
+			this.scene.add(this.bandMarker);
+		}
+		this.requestRender();
 	}
 
 	/** Shows the Workplane tool's plane as a gridded square on the surface, or removes it. */

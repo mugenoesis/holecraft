@@ -69,7 +69,18 @@ export type PaintFill =
 	 * reach through a plate), and a `triangle` paints just the one triangle under the dab. The surface is cut finer under the brush so the paint
 	 * follows its edge. `color` null erases.
 	 */
-	| { id: string; kind: 'brush'; color: string | null; shape: BrushShape; radius: number; dabs: BrushDab[] };
+	| { id: string; kind: 'brush'; color: string | null; shape: BrushShape; radius: number; dabs: BrushDab[] }
+	/**
+	 * Height range: everything within `height` mm of `origin` along `up` (a unit direction; the world's up when it was made, in the node's
+	 * own frame), a flat band across the whole surface. The surface is cut along the band's two planes so its edges are straight.
+	 * `color` null erases.
+	 */
+	| { id: string; kind: 'band'; color: string | null; origin: Vec3; up: Vec3; height: number }
+	/**
+	 * Gap fill: tidies the paint laid so far. Each connected patch of one colour (or none) smaller than `area` mm2 that touches another
+	 * is merged into the neighbour it shares the most edge with, so no specks and slivers are left. It has no colour of its own (null).
+	 */
+	| { id: string; kind: 'gaps'; color: null; area: number };
 
 export type BrushShape = 'circle' | 'sphere' | 'triangle';
 

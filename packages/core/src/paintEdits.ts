@@ -21,6 +21,9 @@ export function canPaint(design: Design, id: NodeId): boolean {
 /** Longest brush stroke and biggest brush. */
 export const MAX_BRUSH_DABS = 300;
 export const MAX_BRUSH_RADIUS = 500;
+/** Tallest height range band, and the largest area a gap fill may merge (mm2). */
+export const MAX_BAND_HEIGHT = 1000;
+export const MAX_GAP_AREA = 1000;
 
 const direction = (v: Vec3) => finite(v) && Math.abs(Math.hypot(...v) - 1) < 1e-3;
 const usableDab = (d: BrushDab) => finite(d.point) && direction(d.normal);
@@ -28,8 +31,10 @@ const usableDab = (d: BrushDab) => finite(d.point) && direction(d.normal);
 function usable(fill: PaintFill): boolean {
 	if (fill.id.length === 0) return false;
 	if (fill.kind === 'body') return isHexColor(fill.color);
+	if (fill.kind === 'gaps') return fill.color === null && fill.area >= 0 && fill.area <= MAX_GAP_AREA;
 	if (fill.color !== null && !isHexColor(fill.color)) return false;
 	if (fill.kind === 'brush') return usableBrush(fill);
+	if (fill.kind === 'band') return finite(fill.origin) && direction(fill.up) && fill.height > 0 && fill.height <= MAX_BAND_HEIGHT;
 	if (fill.spread !== undefined && fill.spread !== 'smart' && fill.spread !== 'bucket') return false;
 	if (fill.angle !== undefined && !(fill.angle >= 0 && fill.angle <= MAX_FILL_ANGLE)) return false;
 	return finite(fill.point) && direction(fill.normal);
@@ -51,7 +56,7 @@ const sameFill = (a: PaintFill, b: PaintFill) => JSON.stringify(a) === JSON.stri
 export function addPaint(design: Design, id: NodeId, fill: PaintFill, now?: Date): Design {
 	const node = design.nodes[id];
 	if (!node || !canPaint(design, id) || !usable(fill)) return design;
-	const next = { ...fill, ...(fill.color !== null && { color: fill.color.toLowerCase() }) } as PaintFill;
+	const next = { ...fill, ...(typeof fill.color === 'string' && { color: fill.color.toLowerCase() }) } as PaintFill;
 	const before = node.paint ?? [];
 	const last = before[before.length - 1];
 	if (last && sameFill(last, next)) return design;
@@ -82,6 +87,13 @@ function stretchedDab(dab: BrushDab, factors: Vec3, shift: Vec3 | null): BrushDa
 	return { point, normal: raw.map((v) => v / length) as Vec3 };
 }
 
+/** A band after a stretch: its plane goes where the surface does, and its height shrinks or grows with the stretch along its direction. */
+function stretchedBand(band: Extract<PaintFill, { kind: 'band' }>, factors: Vec3, shift: Vec3 | null): PaintFill {
+	const { point: origin, normal: up } = stretchedDab({ point: band.origin, normal: band.up }, factors, shift);
+	const along = Math.hypot(...([0, 1, 2].map((k) => band.up[k]! / factors[k]!) as [number, number, number]));
+	return { ...band, origin, up, height: band.height / along };
+}
+
 /**
  * The fills after the node they are on is stretched by `factors` along its axes (and moved by `shift`, if given): the points go where the
  * stretched surface is, and the directions turn as a stretched surface's do (by the inverse of the stretch, back to length 1), the same
@@ -93,6 +105,8 @@ export function stretchPaint(fills: readonly PaintFill[] | undefined, factors: V
 	if (!moves && factors.every((f) => f === 1)) return fills as PaintFill[];
 	return fills.map((fill) => {
 		if (fill.kind === 'body') return fill;
+		if (fill.kind === 'gaps') return { ...fill, area: fill.area * Math.cbrt(factors[0] * factors[1] * factors[2]) ** 2 };
+		if (fill.kind === 'band') return stretchedBand(fill, factors, shift);
 		if (fill.kind === 'brush') {
 			// a brush stays round, so its radius follows the average stretch (the cube root of the volume's)
 			const radius = fill.radius * Math.cbrt(factors[0] * factors[1] * factors[2]);

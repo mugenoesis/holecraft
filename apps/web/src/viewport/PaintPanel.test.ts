@@ -14,6 +14,9 @@ const render = (over: Partial<Parameters<typeof PaintPanel>[0]> = {}) =>
 			angle: 30,
 			shape: 'circle',
 			size: 6,
+			height: 2,
+			gapArea: 1,
+			canGapFill: true,
 			status: null,
 			canErase: true,
 			onFilament: noop,
@@ -21,6 +24,9 @@ const render = (over: Partial<Parameters<typeof PaintPanel>[0]> = {}) =>
 			onAngle: noop,
 			onShape: noop,
 			onSize: noop,
+			onHeight: noop,
+			onGapArea: noop,
+			onGapFill: noop,
 			onEraseAll: noop,
 			onDone: noop,
 			...over,
@@ -98,5 +104,37 @@ describe('the Paint panel’s brush', () => {
 
 	it('does not offer the smart fill angle for the brush (it is not used)', () => {
 		expect(brush()).toMatch(/aria-label="Smart fill angle"[^>]*disabled=""/);
+	});
+});
+
+describe('the Paint panel’s height range and gap fill', () => {
+	it('offers Height range and Gap fill as tools, with the one in use checked', () => {
+		for (const [tool, label] of [
+			['height', 'Height range'],
+			['gaps', 'Gap fill'],
+		] as const) {
+			expect(render({ tool })).toMatch(new RegExp(`aria-label="${label}"[^>]*checked=""`));
+		}
+		expect(render()).toMatch(/aria-label="Height range"/);
+		expect(render()).not.toMatch(/aria-label="Height range"[^>]*checked=""/);
+	});
+
+	it('shows the Height range slider (0.1 to 50 mm) only for that tool, with its value in mm', () => {
+		expect(render()).not.toContain('id="paint-height"');
+		const html = render({ tool: 'height', height: 2.5 });
+		expect(html).toMatch(/id="paint-height"/);
+		expect(html).toMatch(/aria-label="Height range value"[^>]*max="50"|max="50"[^>]*aria-label="Height range value"/);
+		expect(html).toContain('2.5 mm');
+		expect(html).toMatch(/Click to paint a band/);
+	});
+
+	it('shows the Gap area slider (0 to 5) and an Apply button for Gap fill, the button off when nothing can be tidied', () => {
+		const html = render({ tool: 'gaps', gapArea: 1.2 });
+		expect(html).toMatch(/aria-label="Gap area"[^>]*max="5"|max="5"[^>]*aria-label="Gap area"/);
+		expect(html).toContain('1.2 mm²');
+		expect(html).toMatch(/<button[^>]*>Apply<\/button>/);
+		expect(html).not.toMatch(/<button[^>]*disabled=""[^>]*>Apply<\/button>/);
+		expect(render({ tool: 'gaps', canGapFill: false })).toMatch(/<button[^>]*disabled=""[^>]*>Apply<\/button>/);
+		expect(render()).not.toContain('Gap area');
 	});
 });

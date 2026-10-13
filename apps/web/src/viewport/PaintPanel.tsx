@@ -1,5 +1,5 @@
 import { type BrushShape, MAX_FILL_ANGLE } from '@holecraft/core';
-import { BRUSH_SIZE, type PaintSettings } from './paintTool.ts';
+import { BRUSH_SIZE, GAP_AREA, HEIGHT_RANGE, type PaintSettings } from './paintTool.ts';
 
 interface Props {
 	palette: readonly string[];
@@ -10,6 +10,11 @@ interface Props {
 	/** The brush's shape and size (its diameter, mm). */
 	shape: BrushShape;
 	size: number;
+	/** The height range band's height (mm) and the gap fill's area (mm2). */
+	height: number;
+	gapArea: number;
+	/** Whether the selection has paint a gap fill could tidy. */
+	canGapFill: boolean;
 	/** A problem with the last click, shown in place of the hint. */
 	status: string | null;
 	/** Whether anything selected has paint to erase. */
@@ -19,6 +24,9 @@ interface Props {
 	onAngle: (degrees: number) => void;
 	onShape: (shape: BrushShape) => void;
 	onSize: (mm: number) => void;
+	onHeight: (mm: number) => void;
+	onGapArea: (mm2: number) => void;
+	onGapFill: () => void;
 	onEraseAll: () => void;
 	onDone: () => void;
 }
@@ -29,10 +37,14 @@ const SHAPES: readonly (readonly [BrushShape, string])[] = [
 	['triangle', 'Triangles'],
 ];
 
-const hintFor = (tool: PaintSettings['tool']) =>
-	tool === 'brush'
-		? 'Drag to paint · Shift to erase · Ctrl+wheel changes the brush size'
-		: 'Click a face to paint it · Shift+click to erase · Ctrl+wheel changes the angle';
+const HINTS: Record<PaintSettings['tool'], string> = {
+	smart: 'Click a face to paint it · Shift+click to erase · Ctrl+wheel changes the angle',
+	bucket: 'Click to fill everything joined that is the same colour · Shift+click to erase',
+	brush: 'Drag to paint · Shift to erase · Ctrl+wheel changes the brush size',
+	height: 'Click to paint a band round the shape at that height · Shift+click to erase · Ctrl+wheel changes the height',
+	gaps: 'Select the shapes, then Apply to merge small patches of paint into their neighbours · Ctrl+wheel changes the area',
+};
+const hintFor = (tool: PaintSettings['tool']) => HINTS[tool];
 
 /**
  * The bar at the bottom of the view while the Paint tool is on, laid out like OrcaSlicer's colour painting: the filaments (numbered, and
@@ -81,6 +93,20 @@ export function PaintPanel(p: Props) {
 						<input type="radio" name="paint-tool" aria-label="Brush" checked={p.tool === 'brush'} onChange={() => p.onTool('brush')} />
 						Brush
 					</label>
+					<label>
+						<input
+							type="radio"
+							name="paint-tool"
+							aria-label="Height range"
+							checked={p.tool === 'height'}
+							onChange={() => p.onTool('height')}
+						/>
+						Height range
+					</label>
+					<label>
+						<input type="radio" name="paint-tool" aria-label="Gap fill" checked={p.tool === 'gaps'} onChange={() => p.onTool('gaps')} />
+						Gap fill
+					</label>
 				</fieldset>
 			</div>
 			{p.tool === 'brush' && (
@@ -114,6 +140,50 @@ export function PaintPanel(p: Props) {
 						</span>
 					</div>
 				</>
+			)}
+			{p.tool === 'height' && (
+				<div className="edge-tool-row">
+					<span className="edge-size">
+						<label htmlFor="paint-height">Height range</label>
+						<input
+							id="paint-height"
+							type="range"
+							aria-label="Height range value"
+							min={HEIGHT_RANGE.min}
+							max={HEIGHT_RANGE.max}
+							step={HEIGHT_RANGE.step}
+							value={p.height}
+							onChange={(e) => p.onHeight(Number(e.target.value))}
+						/>
+						<output>{p.height} mm</output>
+					</span>
+				</div>
+			)}
+			{p.tool === 'gaps' && (
+				<div className="edge-tool-row">
+					<span className="edge-size">
+						<label htmlFor="paint-gap">Gap area</label>
+						<input
+							id="paint-gap"
+							type="range"
+							aria-label="Gap area"
+							min={GAP_AREA.min}
+							max={GAP_AREA.max}
+							step={GAP_AREA.step}
+							value={p.gapArea}
+							onChange={(e) => p.onGapArea(Number(e.target.value))}
+						/>
+						<output>{p.gapArea} mm²</output>
+					</span>
+					<button
+						type="button"
+						onClick={p.onGapFill}
+						disabled={!p.canGapFill}
+						title="Merge patches smaller than this into the paint round them, on the selected shapes"
+					>
+						Apply
+					</button>
+				</div>
 			)}
 			<div className="edge-tool-row">
 				<span className="edge-size">

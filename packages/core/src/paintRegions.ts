@@ -1,8 +1,10 @@
 import type { Vec3 } from './camera.ts';
 import type { BrushDab, PaintFill } from './design.ts';
-import { type BrushRegion, refineMesh } from './meshRefine.ts';
+import { type BrushRegion, type CutPlane, cutByPlanes, refineMesh } from './meshRefine.ts';
 import type { MeshData } from './meshShape.ts';
-import { closestOnTriangle, cross, dot, len, scale, sub } from './vec3.ts';
+import { mergeGaps } from './paintGaps.ts';
+import { type Surface, surfaceOf } from './paintSurface.ts';
+import { closestOnTriangle, dot, len, scale, sub } from './vec3.ts';
 
 /**
  * Where paint lands on a finished surface (the Paint tool). A fill is stored as geometry in the node's own frame, so it is looked up on
@@ -18,9 +20,6 @@ const MIN_ALIGNMENT = Math.cos((45 * Math.PI) / 180);
 export const DEFAULT_FILL_ANGLE = 30;
 /** The largest smart fill angle: at 90 it crosses the edges of a box. */
 export const MAX_FILL_ANGLE = 90;
-/** Points this close (mm) are the same point. */
-const WELD = 1e-5;
-
 export interface PaintedMesh {
 	/** The colours used (#rrggbb), in the order of the fills that still show. */
 	colors: string[];
@@ -28,62 +27,6 @@ export interface PaintedMesh {
 	triangle: Uint16Array;
 	/** The mesh the triangles belong to when it had to be cut finer for a brush; absent when it is the one given. */
 	mesh?: MeshData;
-}
-
-interface Surface {
-	corners: Vec3[][];
-	normals: (Vec3 | null)[];
-	/** Triangles sharing an edge with each triangle. */
-	neighbours: number[][];
-}
-
-/** The corners of each triangle, and the same corners as ids shared by every point that coincides (within WELD). */
-function weldedCorners(mesh: MeshData): { corners: Vec3[][]; ids: number[][] } {
-	const known = new Map<string, number>();
-	const idOf = (i: number) => {
-		const key = [0, 1, 2].map((a) => Math.round(mesh.positions[i * 3 + a]! / WELD)).join(',');
-		const id = known.get(key) ?? known.size;
-		known.set(key, id);
-		return id;
-	};
-	const corners: Vec3[][] = [];
-	const ids: number[][] = [];
-	for (let t = 0; t < Math.floor(mesh.indices.length / 3); t++) {
-		const idx = [0, 1, 2].map((k) => mesh.indices[t * 3 + k]!);
-		corners.push(idx.map((i) => [mesh.positions[i * 3]!, mesh.positions[i * 3 + 1]!, mesh.positions[i * 3 + 2]!] as Vec3));
-		ids.push(idx.map(idOf));
-	}
-	return { corners, ids };
-}
-
-/** The unit normal of a triangle, or null if it has no area or two corners coincide. */
-function unitNormal(points: Vec3[], welded: number[]): Vec3 | null {
-	if (new Set(welded).size < 3) return null;
-	const n = cross(sub(points[1]!, points[0]!), sub(points[2]!, points[0]!));
-	const length = len(n);
-	return length > 1e-12 ? scale(n, 1 / length) : null;
-}
-
-/** For each triangle, the others that share an edge with it (a degenerate triangle has none and is nobody's neighbour). */
-function neighboursOf(ids: number[][], normals: (Vec3 | null)[]): number[][] {
-	const owners = new Map<string, number[]>();
-	ids.forEach((welded, t) => {
-		if (!normals[t]) return;
-		for (let k = 0; k < 3; k++) {
-			const [a, b] = [welded[k]!, welded[(k + 1) % 3]!];
-			const key = a < b ? `${a}|${b}` : `${b}|${a}`;
-			owners.set(key, [...(owners.get(key) ?? []), t]);
-		}
-	});
-	const neighbours: number[][] = ids.map(() => []);
-	for (const tris of owners.values()) for (const a of tris) for (const b of tris) if (a !== b) neighbours[a]!.push(b);
-	return neighbours;
-}
-
-function surfaceOf(mesh: MeshData): Surface {
-	const { corners, ids } = weldedCorners(mesh);
-	const normals = corners.map((points, t) => unitNormal(points, ids[t]!));
-	return { corners, normals, neighbours: neighboursOf(ids, normals) };
 }
 
 /** The triangle a region fill starts from: the nearest one within reach that faces the way the fill does, or -1. */
@@ -135,6 +78,28 @@ function regionOf(shape: 'circle' | 'sphere', radius: number, dab: BrushDab): Br
 		},
 	};
 }
+
+type Band = Extract<PaintFill, { kind: 'band' }>;
+/** A band's two planes: where it starts and where it ends along its direction. */
+const planesOf = (band: Band): CutPlane[] => {
+	const start = dot(band.up, band.origin);
+	return [
+		{ normal: band.up, offset: start },
+		{ normal: band.up, offset: start + band.height },
+	];
+};
+
+/** The triangles inside a band: after the cut each is wholly inside or outside, so its middle says which (a face on an edge counts). */
+function bandTriangles(surface: Surface, band: Band): number[] {
+	const start = dot(band.up, band.origin);
+	return surface.corners.flatMap((points, t) => {
+		if (!surface.normals[t]) return [];
+		const along = points.reduce((sum, p) => sum + dot(band.up, p), 0) / 3 - start;
+		return along >= -ON_EDGE && along <= band.height + ON_EDGE ? [t] : [];
+	});
+}
+/** A face this close (mm) to a band's edge is on it. */
+const ON_EDGE = 1e-5;
 
 type Brush = Extract<PaintFill, { kind: 'brush' }>;
 const regionsOf = (brush: Brush): BrushRegion[] =>
@@ -192,6 +157,8 @@ function brushTriangles(surface: Surface, brush: Brush, grid: CentreGrid): numbe
 function trianglesFor(surface: Surface, fill: PaintFill, colourOf: (t: number) => string | null, grid: CentreGrid): number[] {
 	if (fill.kind === 'body') return surface.normals.flatMap((n, t) => (n ? [t] : []));
 	if (fill.kind === 'brush') return brushTriangles(surface, fill, grid);
+	if (fill.kind === 'band') return bandTriangles(surface, fill);
+	if (fill.kind === 'gaps') return [];
 	const seed = seedOf(surface, fill);
 	if (seed < 0) return [];
 	const reach = Math.cos(((fill.angle ?? DEFAULT_FILL_ANGLE) * Math.PI) / 180) - 1e-9;
@@ -206,15 +173,18 @@ function trianglesFor(surface: Surface, fill: PaintFill, colourOf: (t: number) =
 /** Which triangles of `mesh` each fill paints, applied in order. Null if nothing ends up painted. */
 export function paintTriangles(mesh: MeshData, fills: readonly PaintFill[]): PaintedMesh | null {
 	if (fills.length === 0) return null;
-	// brushes cut the surface finer where their edges cross it, all together, before any paint is laid
+	// bands are cut straight along their planes, then brushes cut the surface finer where their edges cross it, all before any paint is laid
+	const planes = fills.flatMap((f) => (f.kind === 'band' ? planesOf(f) : []));
 	const regions = fills.flatMap((f) => (f.kind === 'brush' ? regionsOf(f) : []));
-	const refined = regions.length > 0 ? refineMesh(mesh, regions) : null;
+	const straight = planes.length > 0 ? cutByPlanes(mesh, planes) : null;
+	const refined = regions.length > 0 ? refineMesh(straight ?? mesh, regions) : straight;
 	const surface = surfaceOf(refined ?? mesh);
 	const grid = new CentreGrid(surface, Math.max(1, ...fills.map((f) => (f.kind === 'brush' ? f.radius : 0))));
 	const owner = new Int32Array(surface.corners.length).fill(-1); // the fill that shows on each triangle
 	const colourOf = (t: number) => (owner[t]! >= 0 ? fills[owner[t]!]!.color : null);
 	fills.forEach((fill, f) => {
-		for (const t of trianglesFor(surface, fill, colourOf, grid)) owner[t] = fill.color === null ? -1 : f;
+		if (fill.kind === 'gaps') mergeGaps(surface, owner, colourOf, fill.area);
+		else for (const t of trianglesFor(surface, fill, colourOf, grid)) owner[t] = fill.color === null ? -1 : f;
 	});
 	const showing = [...new Set(owner)].filter((f) => f >= 0).sort((a, b) => a - b);
 	if (showing.length === 0) return null;

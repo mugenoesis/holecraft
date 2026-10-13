@@ -68,4 +68,16 @@ if [ ! -f "$OUT/engine-brush.3mf" ]; then
 fi
 echo "what the engine kept:"
 python_in_image /checks/verify-orca-paint.py /files/engine-brush.3mf "$PAINTED" 2
+echo "== band.3mf (a height range band round the walls, the surface cut straight along it, in filament 2) =="
+PAINTED="$(cat "$OUT/band.count")"
+echo "what we wrote ($PAINTED painted triangles):"
+python_in_image /checks/verify-orca-paint.py /files/band.3mf "$PAINTED" 2
+echo "the OrcaSlicer engine:"
+docker run --rm --entrypoint /bin/bash -v "$OUT:/files" -v "$ROOT/scripts/lib:/checks:ro" "$IMAGE" /checks/orca-engine-check.sh band.3mf engine-band.3mf | grep -E "engine exit|wrote no"
+if [ ! -f "$OUT/engine-band.3mf" ]; then
+  echo "FAIL: the OrcaSlicer engine could not load band.3mf" >&2
+  exit 1
+fi
+echo "what the engine kept:"
+python_in_image /checks/verify-orca-paint.py /files/engine-band.3mf "$PAINTED" 2
 echo "OK: OrcaSlicer's engine loads the export and keeps every object's filament, the whole palette and the painted faces"

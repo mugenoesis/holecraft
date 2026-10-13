@@ -1,6 +1,6 @@
-import { addShape, createEmptyDesign, groupNodes, setLocked, setNodeEuler, setNodeMode } from '@holecraft/core';
+import { addPaint, addShape, createEmptyDesign, groupNodes, setLocked, setNodeEuler, setNodeMode } from '@holecraft/core';
 import { describe, expect, it } from 'vitest';
-import { filamentForKey, fillFor, type PaintSettings, startStroke } from './paintTool.ts';
+import { filamentForKey, fillFor, gapFillFor, type PaintSettings, startStroke } from './paintTool.ts';
 
 const settings = (over: Partial<PaintSettings> = {}): PaintSettings => ({
 	color: '#2a9d8f',
@@ -8,6 +8,8 @@ const settings = (over: Partial<PaintSettings> = {}): PaintSettings => ({
 	angle: 30,
 	shape: 'circle',
 	size: 6,
+	height: 2,
+	gapArea: 1,
 	...over,
 });
 const box = (at: [number, number] = [0, 0]) => addShape(createEmptyDesign('d'), 'box', at, { id: 'a' }).design;
@@ -146,5 +148,55 @@ describe('brush strokes', () => {
 	it('says why not, as a click does: a locked shape, the floor', () => {
 		expect(startStroke(setLocked(box(), ['a'], true), at(0), brush())).toEqual({ problem: expect.stringMatching(/locked/) });
 		expect(startStroke(box(), { point: [0, 0, 0], normal: [0, 0, 1] }, brush())).toEqual({ problem: expect.stringMatching(/shape/) });
+	});
+});
+
+describe('height range bands', () => {
+	const height = (over: Partial<PaintSettings> = {}) => settings({ tool: 'height', ...over });
+	const made = (design: ReturnType<typeof box>, hit: Parameters<typeof fillFor>[1], over: Partial<PaintSettings> = {}) => {
+		const r = fillFor(design, hit, height(over));
+		if ('problem' in r) throw new Error(r.problem);
+		return r.fill as unknown as { kind: string; origin: number[]; up: number[]; height: number; color: string | null };
+	};
+
+	it('is a band from the height of the click up by the height setting, along the world’s up', () => {
+		const f = made(box(), { id: 'a', point: [3, 4, 7.5], normal: [1, 0, 0] }, { height: 2.5 });
+		expect(f.kind).toBe('band');
+		near(f.origin, [3, 4, 7.5]);
+		near(f.up, [0, 0, 1]);
+		expect(f.height).toBe(2.5);
+		expect(f.color).toBe('#2a9d8f');
+	});
+
+	it('keeps the world’s up when the shape is turned: for a quarter about X the world’s up is the shape’s own +y', () => {
+		const turned = setNodeEuler(box(), 'a', [90, 0, 0]);
+		const f = made(turned, { id: 'a', point: [0, 0, 7], normal: [0, -1, 0] });
+		near(f.up, [0, 1, 0]);
+	});
+
+	it('moves the origin back by where the shape stands, and erases with no colour', () => {
+		const f = made(box([30, 0]), { id: 'a', point: [33, 4, 7.5], normal: [1, 0, 0] }, { color: null });
+		near(f.origin, [3, 4, 7.5]);
+		expect(f.color).toBeNull();
+	});
+});
+
+describe('gapFillFor', () => {
+	const gaps = (d: ReturnType<typeof box>, ids: string[], over: Partial<PaintSettings> = {}) =>
+		gapFillFor(d, ids, settings({ tool: 'gaps', ...over }));
+	const painted = () => addPaint(box(), 'a', { id: 'f', kind: 'region', color: '#2a9d8f', point: [0, 0, 20], normal: [0, 0, 1] });
+
+	it('is one fill, with the area, for the selected shapes that can be painted and have paint to tidy', () => {
+		const r = gaps(painted(), ['a'], { gapArea: 2.4 });
+		if ('problem' in r) throw new Error(r.problem);
+		expect(r.ids).toEqual(['a']);
+		expect(r.fill).toMatchObject({ kind: 'gaps', color: null, area: 2.4 });
+		expect(r.fill.id.length).toBeGreaterThan(0);
+	});
+
+	it('leaves out shapes that are locked or have no paint, and says why when there is nothing to do', () => {
+		expect(gaps(box(), ['a'])).toEqual({ problem: expect.stringMatching(/paint/) });
+		expect(gaps(box(), [])).toEqual({ problem: expect.stringMatching(/Select/) });
+		expect(gaps(setLocked(painted(), ['a'], true), ['a'])).toEqual({ problem: expect.stringMatching(/paint/) });
 	});
 });
