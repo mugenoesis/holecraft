@@ -63,16 +63,24 @@ function weld(mesh: MeshData): { points: Vec3[]; tris: [number, number, number][
 			slot = (slot + 1) & (size - 1);
 		}
 	}
+	// Corners are numbered in the order the triangles first meet them (a degenerate triangle's too), which fixes where each edge starts and
+	// which way it runs: the same answer, in the same order, as the string-keyed version gave.
+	const renumbered = new Int32Array(points.length).fill(-1);
+	const ordered: Vec3[] = [];
+	const idOf = (vertex: number) => {
+		const welded = idOfVertex[vertex]!;
+		if (renumbered[welded]! < 0) {
+			renumbered[welded] = ordered.length;
+			ordered.push(points[welded]!);
+		}
+		return renumbered[welded]!;
+	};
 	const tris: [number, number, number][] = [];
 	for (let i = 0; i + 2 < mesh.indices.length; i += 3) {
-		const t: [number, number, number] = [
-			idOfVertex[mesh.indices[i]!]!,
-			idOfVertex[mesh.indices[i + 1]!]!,
-			idOfVertex[mesh.indices[i + 2]!]!,
-		];
+		const t: [number, number, number] = [idOf(mesh.indices[i]!), idOf(mesh.indices[i + 1]!), idOf(mesh.indices[i + 2]!)];
 		if (t[0] !== t[1] && t[1] !== t[2] && t[0] !== t[2]) tris.push(t);
 	}
-	return { points, tris };
+	return { points: ordered, tris };
 }
 
 interface Segment {
@@ -94,6 +102,8 @@ class SideTable {
 	private readonly table: Int32Array;
 	private readonly second: Int32Array;
 	private readonly owners: Uint8Array;
+	/** Whether half-edge h was the first to reach its side (sides are listed in the order they were first met). */
+	private readonly first: Uint8Array;
 
 	constructor(private readonly tris: [number, number, number][]) {
 		const halves = tris.length * 3;
@@ -101,6 +111,7 @@ class SideTable {
 		this.table = new Int32Array(this.size).fill(-1);
 		this.second = new Int32Array(halves).fill(-1);
 		this.owners = new Uint8Array(halves);
+		this.first = new Uint8Array(halves);
 		for (let h = 0; h < halves; h++) this.add(h);
 	}
 
@@ -119,6 +130,7 @@ class SideTable {
 			if (found < 0) {
 				this.table[slot] = h;
 				this.owners[h] = 1;
+				this.first[h] = 1;
 				return;
 			}
 			const [fp, fq] = this.ends(found);
@@ -133,8 +145,8 @@ class SideTable {
 
 	/** Every side shared by exactly two triangles: the first one's half-edge, and the other triangle. */
 	*pairs(): Generator<{ half: number; other: number }> {
-		for (const half of this.table) {
-			if (half >= 0 && this.owners[half] === 2) yield { half, other: (this.second[half]! / 3) | 0 };
+		for (let half = 0; half < this.first.length; half++) {
+			if (this.first[half] === 1 && this.owners[half] === 2) yield { half, other: (this.second[half]! / 3) | 0 };
 		}
 	}
 }
@@ -148,7 +160,8 @@ function sharpSegments(points: Vec3[], tris: [number, number, number][], limit: 
 	for (const { half, other } of sides.pairs()) {
 		const [n1, n2] = [normals[(half / 3) | 0]!, normals[other]!];
 		if (!(dot(n1, n2) < cosSharp)) continue;
-		const [a, b] = sides.ends(half);
+		const [p, q] = sides.ends(half);
+		const [a, b] = p < q ? [p, q] : [q, p]; // lower corner first, as the side is keyed
 		// convex when the second face's far corner lies below the first face
 		const far = tris[other]!.find((v) => v !== a && v !== b)!;
 		if (dot(sub(points[far]!, points[a]!), n1) >= -1e-9) continue;

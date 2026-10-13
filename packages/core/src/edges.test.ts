@@ -150,3 +150,30 @@ describe('sharpEdges with a limit', () => {
 		expect(() => sharpEdges(box, 11)).toThrow(TooManyEdges);
 	});
 });
+
+describe('the order and direction edges come in', () => {
+	it('is fixed by the mesh (the first triangles first, each edge running from its lower numbered corner), since the Edge tool names edges by their ends', () => {
+		const box = boxMesh(20, 20, 20);
+		const firstFour = sharpEdges(box)
+			.slice(0, 4)
+			.map((e) => e.points);
+		expect(firstFour).toEqual([
+			[
+				[10, 10, 0],
+				[10, -10, 0],
+			],
+			[
+				[-10, -10, 0],
+				[10, -10, 0],
+			],
+			[
+				[-10, -10, 0],
+				[-10, 10, 0],
+			],
+			[
+				[10, 10, 0],
+				[-10, 10, 0],
+			],
+		]);
+	});
+});
