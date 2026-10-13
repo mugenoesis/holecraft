@@ -12,11 +12,15 @@ const render = (over: Partial<Parameters<typeof PaintPanel>[0]> = {}) =>
 			filament: 1,
 			tool: 'smart',
 			angle: 30,
+			shape: 'circle',
+			size: 6,
 			status: null,
 			canErase: true,
 			onFilament: noop,
 			onTool: noop,
 			onAngle: noop,
+			onShape: noop,
+			onSize: noop,
 			onEraseAll: noop,
 			onDone: noop,
 			...over,
@@ -38,7 +42,8 @@ describe('the Paint panel', () => {
 		expect(smart).toMatch(/aria-label="Smart fill"[^>]*checked=""/);
 		expect(bucket).toMatch(/aria-label="Bucket fill"[^>]*checked=""/);
 		expect(bucket).not.toMatch(/aria-label="Smart fill"[^>]*checked=""/);
-		expect(smart).toMatch(/aria-label="Brush"[^>]*disabled=""/);
+		expect(smart).not.toMatch(/aria-label="Brush"[^>]*disabled/);
+		expect(render({ tool: 'brush' })).toMatch(/aria-label="Brush"[^>]*checked=""/);
 	});
 
 	it('has a Smart fill angle slider from 0 to 90 showing the angle, which a bucket fill does not use', () => {
@@ -56,5 +61,42 @@ describe('the Paint panel', () => {
 		expect(render({ canErase: false })).toMatch(/<button[^>]*disabled=""[^>]*>Erase all<\/button>/);
 		expect(render()).not.toMatch(/<button[^>]*disabled=""[^>]*>Erase all<\/button>/);
 		expect(render()).toMatch(/<button[^>]*class="primary"[^>]*>Done<\/button>/);
+	});
+});
+
+describe('the Paint panel’s brush', () => {
+	const brush = (over: Partial<Parameters<typeof PaintPanel>[0]> = {}) => render({ tool: 'brush', ...over });
+
+	it('shows the brush shapes and size only while the Brush is the tool', () => {
+		expect(render()).not.toContain('Brush size');
+		expect(render()).not.toContain('Brush shape');
+		expect(brush()).toContain('Brush shape');
+		expect(brush()).toMatch(/<input[^>]*aria-label="Brush size"[^>]*max="60"[^>]*value="6"/);
+		expect(brush({ size: 12 })).toContain('12 mm');
+	});
+
+	it('offers Circle, Sphere and Triangles, with the one in use checked', () => {
+		for (const [shape, label] of [
+			['circle', 'Circle'],
+			['sphere', 'Sphere'],
+			['triangle', 'Triangles'],
+		] as const) {
+			const html = brush({ shape });
+			expect(html).toMatch(new RegExp(`aria-label="${label}"[^>]*checked=""`));
+			for (const other of ['Circle', 'Sphere', 'Triangles'].filter((l) => l !== label)) {
+				expect(html).not.toMatch(new RegExp(`aria-label="${other}"[^>]*checked=""`));
+			}
+		}
+	});
+
+	it('has no size for a Triangles brush (it paints one triangle), and tells how to use the brush in the hint', () => {
+		expect(brush({ shape: 'triangle' })).toMatch(/aria-label="Brush size"[^>]*disabled=""/);
+		expect(brush()).not.toMatch(/aria-label="Brush size"[^>]*disabled/);
+		expect(brush()).toMatch(/Drag to paint/);
+		expect(brush()).toMatch(/Ctrl\+wheel changes the brush size/);
+	});
+
+	it('does not offer the smart fill angle for the brush (it is not used)', () => {
+		expect(brush()).toMatch(/aria-label="Smart fill angle"[^>]*disabled=""/);
 	});
 });

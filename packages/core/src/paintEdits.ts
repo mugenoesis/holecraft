@@ -1,5 +1,5 @@
 import type { Vec3 } from './camera.ts';
-import type { Design, NodeId, PaintFill } from './design.ts';
+import type { BrushDab, Design, NodeId, PaintFill } from './design.ts';
 import { MAX_FILL_ANGLE } from './paintRegions.ts';
 import { isHexColor } from './palette.ts';
 
@@ -18,13 +18,27 @@ export function canPaint(design: Design, id: NodeId): boolean {
 	return node.mode === 'solid' && !node.hidden && !node.locked;
 }
 
+/** Longest brush stroke and biggest brush. */
+export const MAX_BRUSH_DABS = 300;
+export const MAX_BRUSH_RADIUS = 500;
+
+const direction = (v: Vec3) => finite(v) && Math.abs(Math.hypot(...v) - 1) < 1e-3;
+const usableDab = (d: BrushDab) => finite(d.point) && direction(d.normal);
+
 function usable(fill: PaintFill): boolean {
 	if (fill.id.length === 0) return false;
 	if (fill.kind === 'body') return isHexColor(fill.color);
 	if (fill.color !== null && !isHexColor(fill.color)) return false;
+	if (fill.kind === 'brush') return usableBrush(fill);
 	if (fill.spread !== undefined && fill.spread !== 'smart' && fill.spread !== 'bucket') return false;
 	if (fill.angle !== undefined && !(fill.angle >= 0 && fill.angle <= MAX_FILL_ANGLE)) return false;
-	return finite(fill.point) && finite(fill.normal) && Math.abs(Math.hypot(...fill.normal) - 1) < 1e-3;
+	return finite(fill.point) && direction(fill.normal);
+}
+
+function usableBrush(fill: Extract<PaintFill, { kind: 'brush' }>): boolean {
+	if (!['circle', 'sphere', 'triangle'].includes(fill.shape)) return false;
+	if (!(fill.radius > 0 && fill.radius <= MAX_BRUSH_RADIUS)) return false;
+	return fill.dabs.length >= 1 && fill.dabs.length <= MAX_BRUSH_DABS && fill.dabs.every(usableDab);
 }
 
 const sameFill = (a: PaintFill, b: PaintFill) => JSON.stringify(a) === JSON.stringify(b);
@@ -60,6 +74,14 @@ export function recolourPaint(fills: readonly PaintFill[] | undefined, from: str
 	return fills.map((f) => (f.color === from ? ({ ...f, color: to } as PaintFill) : f));
 }
 
+/** A point and surface direction after a stretch: the point goes where the surface does, the direction turns as the surface does. */
+function stretchedDab(dab: BrushDab, factors: Vec3, shift: Vec3 | null): BrushDab {
+	const point = [0, 1, 2].map((k) => factors[k]! * dab.point[k]! + (shift ? shift[k]! : 0)) as Vec3;
+	const raw = [0, 1, 2].map((k) => dab.normal[k]! / factors[k]!);
+	const length = Math.hypot(...(raw as [number, number, number]));
+	return { point, normal: raw.map((v) => v / length) as Vec3 };
+}
+
 /**
  * The fills after the node they are on is stretched by `factors` along its axes (and moved by `shift`, if given): the points go where the
  * stretched surface is, and the directions turn as a stretched surface's do (by the inverse of the stretch, back to length 1), the same
@@ -71,9 +93,11 @@ export function stretchPaint(fills: readonly PaintFill[] | undefined, factors: V
 	if (!moves && factors.every((f) => f === 1)) return fills as PaintFill[];
 	return fills.map((fill) => {
 		if (fill.kind === 'body') return fill;
-		const point = [0, 1, 2].map((k) => factors[k]! * fill.point[k]! + (shift ? shift[k]! : 0)) as Vec3;
-		const raw = [0, 1, 2].map((k) => fill.normal[k]! / factors[k]!);
-		const length = Math.hypot(...(raw as [number, number, number]));
-		return { ...fill, point, normal: raw.map((v) => v / length) as Vec3 };
+		if (fill.kind === 'brush') {
+			// a brush stays round, so its radius follows the average stretch (the cube root of the volume's)
+			const radius = fill.radius * Math.cbrt(factors[0] * factors[1] * factors[2]);
+			return { ...fill, radius, dabs: fill.dabs.map((dab) => stretchedDab(dab, factors, shift)) };
+		}
+		return { ...fill, ...stretchedDab({ point: fill.point, normal: fill.normal }, factors, shift) };
 	});
 }

@@ -1582,6 +1582,20 @@ button.primary:disabled {
 	color: rgb(255 255 255 / 70%);
 	font-size: 12px;
 }
-.paint-tool .soon {
-	opacity: 0.5;
+.brush-cursor {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+.brush-cursor circle {
+	fill: none;
+	stroke: #fff;
+	stroke-width: 2;
+	filter: drop-shadow(0 0 1px rgb(0 0 0 / 80%));
+}
+.brush-cursor circle.dot {
+	fill: #fff;
+	stroke: none;
 }

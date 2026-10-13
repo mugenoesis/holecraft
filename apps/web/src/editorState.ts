@@ -10,6 +10,7 @@ import {
 	alignNodes,
 	type ChamferEdges,
 	type CountersinkEnd,
+	canPaint,
 	canUndo,
 	clearPaint,
 	createHistory,
@@ -118,6 +119,9 @@ export type EditorAction =
 	| { type: 'setEuler'; id: NodeId; euler: [number, number, number] }
 	// The Edge tool: previews a node's edge treatments between moveStart and moveEnd (Apply), or cancelDrag (Cancel).
 	| { type: 'previewEdges'; id: NodeId; edges: EdgeTreatment[] }
+	// The Paint tool's brush: a stroke on one shape, grown by previewPaint between paintStart and moveEnd (or cancelDrag).
+	| { type: 'paintStart'; id: NodeId }
+	| { type: 'previewPaint'; id: NodeId; fill: PaintFill }
 	| { type: 'cancelDrag' }
 	| { type: 'removeEdges'; id: NodeId; ids: string[] }
 	| { type: 'undo' }
@@ -161,7 +165,9 @@ function commit(state: EditorState, next: Design, selection: NodeId[] = state.se
 
 type ActionOf<T extends EditorAction['type']> = Extract<EditorAction, { type: T }>;
 type SelectionAction = ActionOf<'pick' | 'marquee' | 'selectAll' | 'clearSelection'>;
-type DragAction = ActionOf<'moveStart' | 'move' | 'moveEnd' | 'setGeometry' | 'setRotation' | 'previewEdges' | 'cancelDrag'>;
+type DragAction = ActionOf<
+	'moveStart' | 'move' | 'moveEnd' | 'setGeometry' | 'setRotation' | 'previewEdges' | 'paintStart' | 'previewPaint' | 'cancelDrag'
+>;
 type HistoryAction = ActionOf<'undo' | 'redo'>;
 /** Everything else: edits to the document itself, each one an undoable step. */
 type EditAction = Exclude<EditorAction, SelectionAction | DragAction | HistoryAction>;
@@ -219,6 +225,12 @@ function reduceDrag(state: EditorState, action: DragAction): EditorState {
 
 		case 'previewEdges':
 			return preview(state, action.id, (base) => setEdgeTreatments(base, action.id, action.edges));
+
+		case 'paintStart':
+			return state.drag || !canPaint(design, action.id) ? state : { ...state, drag: { base: design, ids: [action.id] } };
+
+		case 'previewPaint':
+			return preview(state, action.id, (base) => addPaint(base, action.id, action.fill));
 
 		case 'cancelDrag':
 			return state.drag ? { ...state, history: replacePresent(state.history, state.drag.base), drag: null } : state;
@@ -424,6 +436,8 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 		case 'setGeometry':
 		case 'setRotation':
 		case 'previewEdges':
+		case 'paintStart':
+		case 'previewPaint':
 		case 'cancelDrag':
 			return reduceDrag(state, action);
 

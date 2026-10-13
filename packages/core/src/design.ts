@@ -62,7 +62,22 @@ export type PaintFill =
 	 */
 	| { id: string; kind: 'region'; color: string | null; point: Vec3; normal: Vec3; spread?: 'smart' | 'bucket'; angle?: number }
 	/** The whole surface (it also covers everything painted before). */
-	| { id: string; kind: 'body'; color: string };
+	| { id: string; kind: 'body'; color: string }
+	/**
+	 * Brush strokes: each dab paints what lies within `radius` mm of its point. A `sphere` is a ball (it wraps round thin walls and edges), a
+	 * `circle` a disc across the surface it was put on (a cylinder along that dab's `normal`, only faces turned towards it, so it does not
+	 * reach through a plate), and a `triangle` paints just the one triangle under the dab. The surface is cut finer under the brush so the paint
+	 * follows its edge. `color` null erases.
+	 */
+	| { id: string; kind: 'brush'; color: string | null; shape: BrushShape; radius: number; dabs: BrushDab[] };
+
+export type BrushShape = 'circle' | 'sphere' | 'triangle';
+
+/** One touch of a brush: where, in the node's own frame, and which way the surface faced there. */
+export interface BrushDab {
+	point: Vec3;
+	normal: Vec3;
+}
 
 export interface BaseNode {
 	id: NodeId;

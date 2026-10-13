@@ -142,6 +142,9 @@ function EditorView({ initial }: { initial: Design }) {
 					onCancelDrag={() => dispatch({ type: 'cancelDrag' })}
 					onPaint={(id, fill) => dispatch({ type: 'addPaint', id, fill })}
 					onErasePaint={(ids) => dispatch({ type: 'clearPaint', ids })}
+					onPaintStrokeStart={(id) => dispatch({ type: 'paintStart', id })}
+					onPaintStrokePreview={(id, fill) => dispatch({ type: 'previewPaint', id, fill })}
+					onPaintStrokeEnd={() => dispatch({ type: 'moveEnd' })}
 				/>
 				<aside className="panel">
 					<ShapesPanel

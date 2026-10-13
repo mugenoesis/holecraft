@@ -73,6 +73,10 @@ interface Props {
 	/** The Paint tool put a fill on an object, or erased all the paint on some. */
 	onPaint: (id: NodeId, fill: PaintFill) => void;
 	onErasePaint: (ids: NodeId[]) => void;
+	/** A brush stroke on an object: begin, grow (the same fill, more dabs), end. */
+	onPaintStrokeStart: (id: NodeId) => void;
+	onPaintStrokePreview: (id: NodeId, fill: PaintFill) => void;
+	onPaintStrokeEnd: () => void;
 }
 
 /** React host for the imperative three.js viewport, plus its overlay controls. */
@@ -314,6 +318,9 @@ export function ViewportCanvas(props: Props) {
 							design={design}
 							selection={selection}
 							onPaint={(id, fill) => latest.current.onPaint(id, fill)}
+							onStrokeStart={(id) => latest.current.onPaintStrokeStart(id)}
+							onStrokePreview={(id, fill) => latest.current.onPaintStrokePreview(id, fill)}
+							onStrokeEnd={() => latest.current.onPaintStrokeEnd()}
 							onEraseAll={(ids) => latest.current.onErasePaint(ids)}
 							onClose={() => setTool(null)}
 						/>

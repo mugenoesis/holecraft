@@ -46,3 +46,54 @@ describe('paint actions', () => {
 		expect(paintOf(editorReducer(cleared, { type: 'undo' }))).toEqual([fill]);
 	});
 });
+
+describe('a brush stroke (a drag)', () => {
+	const dab = (x: number) => ({ point: [x, 0, 20] as [number, number, number], normal: [0, 0, 1] as [number, number, number] });
+	const stroke = (n: number): PaintFill => ({
+		id: 's',
+		kind: 'brush',
+		color: '#2a9d8f',
+		shape: 'sphere',
+		radius: 3,
+		dabs: Array.from({ length: n }, (_, i) => dab(i)),
+	});
+
+	it('previews the growing stroke without making history, and one undo step takes the whole stroke back', () => {
+		let s = editorReducer(start(), { type: 'paintStart', id: 'a' });
+		s = editorReducer(s, { type: 'previewPaint', id: 'a', fill: stroke(1) });
+		expect(paintOf(s)).toEqual([stroke(1)]);
+		s = editorReducer(s, { type: 'previewPaint', id: 'a', fill: stroke(5) });
+		expect(paintOf(s)).toEqual([stroke(5)]); // the same stroke, longer: not a second fill
+		expect(s.history.past).toHaveLength(0);
+		s = editorReducer(s, { type: 'moveEnd' });
+		expect(s.history.past).toHaveLength(1);
+		expect(paintOf(editorReducer(s, { type: 'undo' }))).toBeUndefined();
+	});
+
+	it('goes on after paint that was already there, and cancelDrag puts everything back as it was', () => {
+		const before = editorReducer(start(), { type: 'addPaint', id: 'a', fill });
+		let s = editorReducer(before, { type: 'paintStart', id: 'a' });
+		s = editorReducer(s, { type: 'previewPaint', id: 'a', fill: stroke(3) });
+		expect(paintOf(s)!.map((f) => f.id)).toEqual(['f1', 's']);
+		s = editorReducer(s, { type: 'cancelDrag' });
+		expect(paintOf(s)).toEqual([fill]);
+		expect(s.drag).toBeNull();
+	});
+
+	it('ignores a preview for a shape the stroke did not start on, or when no stroke has started', () => {
+		const idle = editorReducer(start(), { type: 'previewPaint', id: 'a', fill: stroke(1) });
+		expect(paintOf(idle)).toBeUndefined();
+		const two = createEditorState(
+			addShape(addShape(createEmptyDesign('d'), 'box', [0, 0], { id: 'a' }).design, 'cylinder', [50, 0], { id: 'b' }).design,
+		);
+		const started = editorReducer(two, { type: 'paintStart', id: 'a' });
+		expect(editorReducer(started, { type: 'previewPaint', id: 'b', fill: stroke(1) }).history.present.nodes.b!.paint).toBeUndefined();
+	});
+
+	it('starts nothing for a shape that cannot be painted, or while another drag is going', () => {
+		const locked = editorReducer(start(), { type: 'setLocked', ids: ['a'], locked: true });
+		expect(editorReducer(locked, { type: 'paintStart', id: 'a' }).drag).toBeNull();
+		const moving = editorReducer(editorReducer(start(), { type: 'pick', id: 'a', additive: false, phase: 'down' }), { type: 'moveStart' });
+		expect(editorReducer(moving, { type: 'paintStart', id: 'a' })).toBe(moving);
+	});
+});

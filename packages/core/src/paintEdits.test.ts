@@ -196,3 +196,72 @@ describe('resizing keeps paint on its surface', () => {
 		expect((paintOf(after, 'g')![0] as { point: number[] }).point[2]).toBeCloseTo(10, 6);
 	});
 });
+
+describe('brush strokes', () => {
+	const stroke = (over: Partial<Extract<PaintFill, { kind: 'brush' }>> = {}): PaintFill => ({
+		id: 's1',
+		kind: 'brush',
+		color: RED,
+		shape: 'sphere',
+		radius: 3,
+		dabs: [{ point: [0, 0, 20], normal: [0, 0, 1] }],
+		...over,
+	});
+
+	it('are added after what is there, as one fill with all its dabs, and saved and read back unchanged', () => {
+		const dabs = [0, 1, 2].map((i) => ({ point: [i, 0, 20] as [number, number, number], normal: [0, 0, 1] as [number, number, number] }));
+		const d = addPaint(addPaint(start(), 'a', top()), 'a', stroke({ dabs }));
+		expect(paintOf(d)!.map((f) => f.kind)).toEqual(['region', 'brush']);
+		expect(parseDesign(JSON.parse(JSON.stringify(d))).nodes.a!.paint).toEqual(paintOf(d));
+	});
+
+	it('can erase (no colour), and take each of the three shapes', () => {
+		for (const shape of ['circle', 'sphere', 'triangle'] as const) {
+			expect(paintOf(addPaint(start(), 'a', stroke({ shape, color: null })))).toHaveLength(1);
+		}
+	});
+
+	it('are refused when the radius, the dabs, the shape or a direction make no sense', () => {
+		const d = start();
+		for (const bad of [
+			{ radius: 0 },
+			{ radius: -1 },
+			{ radius: 501 },
+			{ radius: Number.NaN },
+			{ dabs: [] },
+			{ dabs: Array.from({ length: 301 }, () => ({ point: [0, 0, 0], normal: [0, 0, 1] })) },
+			{ dabs: [{ point: [0, 0, 0], normal: [0, 0, 0] }] },
+			{ dabs: [{ point: [Number.NaN, 0, 0], normal: [0, 0, 1] }] },
+			{ shape: 'blob' },
+			{ color: 'red' },
+		]) {
+			expect(addPaint(d, 'a', stroke(bad as never)), JSON.stringify(bad)).toBe(d);
+		}
+	});
+
+	it('are refused by the file reader in the same cases, with a message naming what is wrong', () => {
+		const bad = (fill: unknown) => {
+			const raw = JSON.parse(JSON.stringify(start()));
+			raw.nodes.a.paint = [fill];
+			return () => parseDesign(raw);
+		};
+		const ok = stroke();
+		expect(bad({ ...ok, radius: 0 })).toThrow(/radius/);
+		expect(bad({ ...ok, shape: 'blob' })).toThrow(/shape/);
+		expect(bad({ ...ok, dabs: [] })).toThrow(/dabs/);
+		expect(bad({ ...ok, dabs: [{ point: [0, 0, 0], normal: [0, 0, 3] }] })).toThrow(/normal/);
+		expect(bad({ ...ok, color: 'red' })).toThrow(/colour/);
+		expect(bad(ok)).not.toThrow();
+	});
+
+	it('change colour with their slot, like every fill', () => {
+		const d = setPaletteColor(addPaint(start(), 'a', stroke({ color: '#2a9d8f' })), 1, '#112233');
+		expect(paintOf(d)![0]!.color).toBe('#112233');
+	});
+
+	it('stretch with the shape: the dabs go where the surface goes and the radius follows the average stretch', () => {
+		const out = stretchPaint([stroke({ radius: 3 })], [2, 2, 0.5], null)![0] as Extract<PaintFill, { kind: 'brush' }>;
+		expect(out.dabs[0]).toEqual({ point: [0, 0, 10], normal: [0, 0, 1] });
+		expect(out.radius).toBeCloseTo(3 * Math.cbrt(2 * 2 * 0.5), 9);
+	});
+});

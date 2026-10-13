@@ -70,6 +70,17 @@ test.describe('the Paint tool', () => {
 		await expect(swatch(page, 1)).toHaveAttribute('aria-pressed', 'false');
 	});
 
+	test('a number key chooses the filament even with a tool button or a slider focused (they take no digits)', async ({ page }) => {
+		await newDesign(page);
+		await paintButton(page).click();
+		await panel(page).getByRole('radio', { name: 'Brush', exact: true }).check();
+		await page.keyboard.press('2');
+		await expect(swatch(page, 2)).toHaveAttribute('aria-pressed', 'true');
+		await panel(page).getByRole('slider', { name: 'Brush size' }).focus();
+		await page.keyboard.press('3');
+		await expect(swatch(page, 3)).toHaveAttribute('aria-pressed', 'true');
+	});
+
 	test('a click paints the face in the chosen filament and only that face; one undo takes it off', async ({ page }) => {
 		await ready(page);
 		expect(isOrange(await colourAtCentre(page))).toBe(true);
@@ -157,5 +168,129 @@ test.describe('the Paint tool', () => {
 		expect(orca.match(/paint_color="8"/g)).toHaveLength(2); // the top of a box: two triangles, filament 2
 		expect(orca.match(/<triangle /g)).toHaveLength(12);
 		expect(await exportAs('Export as 3MF', true)).not.toContain('paint_color');
+	});
+});
+
+test.describe('the brush', () => {
+	const tool = (page: Page, name: string) => panel(page).getByRole('radio', { name, exact: true });
+	const size = (page: Page) => panel(page).getByRole('slider', { name: 'Brush size' });
+
+	/** Presses at (x0, y0) pixels from the middle of the view and drags to (x1, y1), as a mouse. */
+	async function stroke(page: Page, [x0, y0]: [number, number], [x1, y1]: [number, number], shift = false) {
+		const { x, y } = await centre(page);
+		if (shift) await page.keyboard.down('Shift');
+		await page.mouse.move(x + x0, y + y0);
+		await page.mouse.down();
+		await page.mouse.move(x + x1, y + y1, { steps: 12 });
+		await page.mouse.up();
+		if (shift) await page.keyboard.up('Shift');
+		await page.mouse.move(x + 200, y + 150); // off the shape, so the brush ring is not in the way of the pixels read
+	}
+	async function setSize(page: Page, mm: number) {
+		await size(page).fill(String(mm));
+		await expect(panel(page)).toContainText(`${mm} mm`);
+	}
+	/** A box seen from above with the brush chosen (filament 2, a 6 mm circle brush: about 8 pixels either side of the pointer). */
+	async function readyBrush(page: Page) {
+		await ready(page);
+		await tool(page, 'Brush').check();
+		await expect(size(page)).toHaveValue('6');
+	}
+
+	test('shows its shapes and size once chosen, with a ring on the shape under the pointer the size of the brush', async ({ page }) => {
+		await ready(page);
+		await expect(panel(page).getByLabel('Brush size')).toHaveCount(0);
+		await tool(page, 'Brush').check();
+		for (const shape of ['Circle', 'Sphere', 'Triangles']) await expect(tool(page, shape)).toBeVisible();
+		await expect(tool(page, 'Circle')).toBeChecked();
+		const { x, y } = await centre(page);
+		await page.mouse.move(x, y);
+		const ring = page.getByTestId('brush-cursor');
+		await expect(ring).toBeVisible();
+		const small = Number(await ring.getAttribute('data-radius'));
+		await setSize(page, 12);
+		await page.mouse.move(x + 1, y);
+		await expect.poll(async () => Number(await ring.getAttribute('data-radius'))).toBeGreaterThan(small * 1.8);
+		await tool(page, 'Triangles').check();
+		await expect(ring).toHaveCount(0); // a triangle brush has no radius to show
+	});
+
+	test('a drag paints a band under the brush and nothing further away; one undo takes the whole stroke back', async ({ page }) => {
+		await readyBrush(page);
+		await stroke(page, [-18, 0], [18, 0]);
+		await expect.poll(async () => isTeal(await colourAtCentre(page))).toBe(true);
+		await expect.poll(async () => isTeal(await colourAtCentre(page, 14, 0))).toBe(true);
+		expect(isOrange(await colourAtCentre(page, 0, 18))).toBe(true); // 18 px is about 6.5 mm away from a 3 mm brush
+		expect(isOrange(await colourAtCentre(page, 0, -18))).toBe(true);
+		await page.keyboard.press('Control+z');
+		await expect.poll(async () => isOrange(await colourAtCentre(page))).toBe(true);
+		await expect.poll(async () => isOrange(await colourAtCentre(page, 14, 0))).toBe(true);
+	});
+
+	test('a plain click puts one round dab down', async ({ page }) => {
+		await readyBrush(page);
+		const { x, y } = await centre(page);
+		await page.mouse.click(x - 10, y);
+		await page.mouse.move(x + 200, y + 150);
+		await expect.poll(async () => isTeal(await colourAtCentre(page, -10, 0))).toBe(true);
+		expect(isOrange(await colourAtCentre(page, 10, 0))).toBe(true);
+	});
+
+	test('a bigger brush paints a wider band', async ({ page }) => {
+		await readyBrush(page);
+		await setSize(page, 20);
+		await stroke(page, [-18, 0], [18, 0]);
+		await expect.poll(async () => isTeal(await colourAtCentre(page, 0, 18))).toBe(true); // 10 mm radius is about 27 px
+	});
+
+	test('Shift erases with the brush', async ({ page }) => {
+		await readyBrush(page);
+		await setSize(page, 20);
+		await stroke(page, [-20, 0], [20, 0]);
+		await expect.poll(async () => isTeal(await colourAtCentre(page))).toBe(true);
+		await setSize(page, 6);
+		await stroke(page, [-10, 0], [10, 0], true);
+		await expect.poll(async () => isOrange(await colourAtCentre(page))).toBe(true);
+		expect(isTeal(await colourAtCentre(page, 0, 18))).toBe(true); // the rest of the band is still there
+	});
+
+	test('a left drag paints and does not orbit, while a right drag still turns the view', async ({ page }) => {
+		await readyBrush(page);
+		const before = await page.getByTestId('viewport').getAttribute('data-azimuth');
+		await stroke(page, [-18, 0], [18, 0]);
+		expect(await page.getByTestId('viewport').getAttribute('data-azimuth')).toBe(before);
+		const { x, y } = await centre(page);
+		await page.mouse.move(x, y + 60);
+		await page.mouse.down({ button: 'right' });
+		await page.mouse.move(x + 60, y + 60, { steps: 8 });
+		await page.mouse.up({ button: 'right' });
+		expect(await page.getByTestId('viewport').getAttribute('data-azimuth')).not.toBe(before);
+	});
+
+	test('Ctrl+wheel changes the brush size', async ({ page }) => {
+		await readyBrush(page);
+		const { x, y } = await centre(page);
+		await page.mouse.move(x, y);
+		await page.keyboard.down('Control');
+		await page.mouse.wheel(0, -100);
+		await page.keyboard.up('Control');
+		await expect.poll(async () => Number(await size(page).inputValue())).toBeGreaterThan(6);
+	});
+
+	test('the 3MF for OrcaSlicer has the brush’s triangles painted, more than a face and fewer than all of them', async ({ page }) => {
+		await readyBrush(page);
+		await stroke(page, [-18, 0], [18, 0]);
+		await expect.poll(async () => isTeal(await colourAtCentre(page))).toBe(true);
+		await panel(page).getByRole('button', { name: 'Done' }).click();
+		await page.getByRole('button', { name: 'Export', exact: true }).click();
+		const [download] = await Promise.all([
+			page.waitForEvent('download', { timeout: 30_000 }),
+			page.getByRole('menuitem', { name: 'Export as 3MF for OrcaSlicer' }).click(),
+		]);
+		const model = read3mf(await readFile(await download.path()))['3D/3dmodel.model']!;
+		const painted = model.match(/paint_color="8"/g)?.length ?? 0;
+		const all = model.match(/<triangle /g)?.length ?? 0;
+		expect(painted).toBeGreaterThan(20);
+		expect(all).toBeGreaterThan(painted + 10);
 	});
 });
