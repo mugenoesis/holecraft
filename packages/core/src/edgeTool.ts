@@ -1,5 +1,6 @@
 import type { Design, EdgeTreatment, EdgeTreatmentKind, NodeId } from './design.ts';
 import { edgeIsPresent, type MeshEdge } from './edges.ts';
+import { hasThread } from './threadStandards.ts';
 
 /**
  * The rules of the Edge tool, kept free of the screen: which offered edges already carry a treatment, what choosing edges
@@ -86,6 +87,9 @@ export function edgeToolTarget(design: Design, selection: readonly NodeId[]): { 
 	if (!node || node.kind === 'mesh' || node.hidden) return { problem: 'Select a shape or group to chamfer or round its edges' };
 	if (node.mode === 'hole') return { problem: 'Holes have no edges to treat; select a solid' };
 	if (node.locked) return { problem: `${node.name} is locked` };
+	if (node.kind === 'shape' && hasThread(node.shapeType)) {
+		return { problem: 'Threads have no edges to chamfer or round; group one with a part to treat that part' };
+	}
 	return { id: node.id };
 }
 
@@ -93,6 +97,9 @@ export function edgeToolTarget(design: Design, selection: readonly NodeId[]): { 
 export const MIN_EDGE_LENGTH = 0.5;
 /** More pieces than this and the tool shows nothing (and says why): drawing and testing that many would make the page freeze. */
 export const MAX_OFFERED_SEGMENTS = 4000;
+
+/** Sharp pieces found before chaining and filtering; past this the shape is refused outright, without finishing the search (a thread has tens of thousands). */
+export const MAX_SHARP_PIECES = 5 * MAX_OFFERED_SEGMENTS;
 
 /** An edge's length in mm, along its whole polyline. */
 export function edgeLength(edge: Pick<MeshEdge, 'points'>): number {
