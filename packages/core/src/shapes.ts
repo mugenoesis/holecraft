@@ -1,3 +1,5 @@
+import { FONTS } from './text.ts';
+import { DEFAULT_FONT, DEFAULT_TEXT, defaultTextSize } from './textShape.ts';
 import {
 	ALL_THREAD_SIZES,
 	DEFAULT_FIT,
@@ -30,7 +32,8 @@ export type ShapeType =
 	| 'bolt'
 	| 'nut'
 	| 'washer'
-	| 'standoff';
+	| 'standoff'
+	| 'text';
 
 /**
  * One setting a shape has besides its size (the Properties panel makes a field for each). It is kept as a share of the shape (0.3 is 30% of
@@ -70,6 +73,8 @@ export interface ShapeDef {
 	fixedFootprint?: true;
 	/** Starts as a hole, not a solid. */
 	hole?: true;
+	/** Settings it starts with besides its size and its `params` defaults: a text's words. */
+	initial?: Readonly<Record<string, string | number>>;
 	/** Settings besides the size. A shape with some is built at its real size from them (see parametricMesh), not stretched from a unit mesh. */
 	params?: readonly ParamDef[];
 }
@@ -77,6 +82,7 @@ export interface ShapeDef {
 const SIZE_CHOICES = ALL_THREAD_SIZES.map((t) => ({ value: t.id, label: t.label, group: t.group }));
 const HEAD_CHOICES = HEADS.map((h) => ({ value: h.value, label: h.label }));
 const TYPE_CHOICES = STANDOFF_TYPES.map((t) => ({ value: t.value, label: t.label }));
+const FONT_CHOICES = FONTS.map((f) => ({ value: f.id, label: f.label }));
 const FIT_CHOICES = FITS.map((f) => ({ value: f.value, label: f.label }));
 
 /**
@@ -195,6 +201,15 @@ const BASE_DEFS: readonly BaseDef[] = [
 			{ key: 'fit', label: 'Fit', choices: FIT_CHOICES, default: DEFAULT_FIT, min: 1, max: 3, mmPerUnit: () => 1 },
 		],
 	},
+	{
+		id: 'text',
+		name: 'Text',
+		// the words "Text", at 10 mm to the em, 3 mm thick
+		defaultSize: defaultTextSize(),
+		color: '#2a9d8f',
+		initial: { text: DEFAULT_TEXT },
+		params: [{ key: 'font', label: 'Font', choices: FONT_CHOICES, default: DEFAULT_FONT, min: 1, max: 4, mmPerUnit: () => 1 }],
+	},
 ];
 
 /** Where each shape sits in the panel, and what else it is called. */
@@ -219,6 +234,7 @@ const PANEL: Record<ShapeType, { category: ShapeCategory; keywords: readonly str
 	nut: { category: 'fasteners', keywords: ['hex', 'thread', 'fastener'] },
 	washer: { category: 'fasteners', keywords: ['ring', 'flat', 'fastener'] },
 	standoff: { category: 'fasteners', keywords: ['spacer', 'hex', 'thread', 'fastener'] },
+	text: { category: 'parametric', keywords: ['letters', 'words', 'label', 'name', 'sign', 'font', 'type'] },
 };
 
 export const SHAPE_DEFS: readonly ShapeDef[] = BASE_DEFS.map((d) => ({ ...d, ...PANEL[d.id] }));

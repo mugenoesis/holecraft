@@ -113,7 +113,8 @@ function realSizeMesh(node: ShapeNode): { key: string; build: () => MeshData } |
 		const key = [node.shapeType, width, depth, height, chamfer.size, chamfer.edges].join('|');
 		return { key, build: () => chamferedMesh(node.shapeType as 'box' | 'cylinder', width, depth, height, chamfer.size, chamfer.edges) };
 	}
-	const settings = isShapeType(node.shapeType) ? getShapeDef(node.shapeType).params : undefined;
+	// text has settings but no mesh of its own here: its letters come from the geometry engine, so a box stands in until they arrive
+	const settings = isShapeType(node.shapeType) && node.shapeType !== 'text' ? getShapeDef(node.shapeType).params : undefined;
 	if (settings)
 		return {
 			key: [
@@ -475,6 +476,7 @@ export class DesignScene {
 	}
 
 	private geometryForNode(node: ShapeNode, meshes: ReadonlyMap<string, MeshData>): THREE.BufferGeometry {
+		if (node.shapeType === 'text') return this.geometryFor('box'); // stand-in until the letters arrive
 		if (node.shapeType !== MESH_SHAPE_TYPE) return this.geometryFor(node.shapeType as ShapeType);
 		const ref = String(node.params.mesh);
 		const data = meshes.get(ref);

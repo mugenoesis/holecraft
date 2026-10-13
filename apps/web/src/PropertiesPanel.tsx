@@ -236,12 +236,19 @@ export function PropertiesPanel({ design, selection, dispatch, library }: Props)
 	);
 }
 
-function TextField({ label, value, onCommit }: { label: string; value: string; onCommit: (v: string) => void }) {
+export function TextField({ label, value, onCommit }: { label: string; value: string; onCommit: (v: string) => void }) {
 	const d = useDraft(value, onCommit);
 	return (
 		<label className="field">
 			<span>{label}</span>
-			<input type="text" value={d.value} onChange={(e) => d.onChange(e.target.value)} onBlur={d.onBlur} onKeyDown={d.onKeyDown} />
+			<input
+				type="text"
+				aria-label={label}
+				value={d.value}
+				onChange={(e) => d.onChange(e.target.value)}
+				onBlur={d.onBlur}
+				onKeyDown={d.onKeyDown}
+			/>
 		</label>
 	);
 }

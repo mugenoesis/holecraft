@@ -3,6 +3,7 @@ import { MAX_SHAPE_SIZE } from './limits.ts';
 import type { MeshData } from './meshShape.ts';
 import { getShapeDef, isShapeType, type ParamDef } from './shapes.ts';
 import { outwards } from './solidShapes.ts';
+import { textOf, withText } from './textShape.ts';
 import { threadedMesh } from './threadMesh.ts';
 import { followSettings, hasThread, isThreadedType } from './threadStandards.ts';
 
@@ -59,6 +60,12 @@ export function typedParamMm(node: ShapeNode, key: string): number {
 	return def ? typedShare(node, def) * def.mmPerUnit(sizeOf(node)) : Number.NaN;
 }
 
+/** A text shape's settings after one changed (a new font gives it the size of its letters in that font); null if that cannot be. Anything else as it is. */
+function resizedForText(node: ShapeNode, changed: ShapeNode['params']): ShapeNode['params'] | null {
+	if (node.shapeType !== 'text') return changed;
+	return withText(node.params, textOf(node), Number(changed.font));
+}
+
 /** What to keep for a setting typed as `mm` (a pick from its list, a whole count, or a share of the shape), or null if that is not allowed. */
 function settingFor(node: ShapeNode, def: ParamDef, mm: number): number | null {
 	if (def.choices) return def.choices.some((c) => c.value === mm) ? mm : null;
@@ -80,7 +87,8 @@ export function setShapeParam(design: Design, id: NodeId, key: string, mm: numbe
 	if (share === null || (def.choices ? shapeParam(node, key) : node.params[key]) === share) return design;
 	const changed = { ...node.params, [key]: share };
 	// a thread's footprint follows its size, fit and head (and a bolt's height its head, a nut's thickness its size)
-	const params = isThreadedType(node.shapeType) ? followSettings(node.shapeType, node.params, changed) : changed;
+	const params = isThreadedType(node.shapeType) ? followSettings(node.shapeType, node.params, changed) : resizedForText(node, changed);
+	if (!params) return design;
 	const next: ShapeNode = { ...node, params };
 	return { ...design, nodes: { ...design.nodes, [id]: next }, updatedAt: (now ?? new Date()).toISOString() };
 }

@@ -44,7 +44,7 @@ export function addShape(
 		color: def.color,
 		hidden: false,
 		locked: false,
-		params: { width, depth, height },
+		params: { width, depth, height, ...def.initial },
 	};
 
 	return {

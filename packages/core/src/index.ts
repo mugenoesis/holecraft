@@ -29,6 +29,8 @@ export * from './shapeSearch.ts';
 export * from './shapes.ts';
 export * from './solidShapes.ts';
 export * from './surfacePlane.ts';
+export * from './text.ts';
+export * from './textShape.ts';
 export * from './threadStandards.ts';
 export * from './units.ts';
 export * from './validate.ts';

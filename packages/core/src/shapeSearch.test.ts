@@ -10,7 +10,7 @@ describe('the shape categories', () => {
 		const known = new Set(SHAPE_CATEGORIES.map((c) => c.id));
 		for (const def of SHAPE_DEFS) expect(known.has(def.category)).toBe(true);
 		const counts = SHAPE_CATEGORIES.map((c) => SHAPE_DEFS.filter((d) => d.category === c.id).length);
-		expect(counts).toEqual([10, 4, 6]);
+		expect(counts).toEqual([10, 5, 6]);
 		expect(counts.reduce((a, b) => a + b, 0)).toBe(SHAPE_DEFS.length);
 	});
 
@@ -27,7 +27,7 @@ describe('the shape categories', () => {
 			'half-sphere',
 			'hexagon',
 		]);
-		expect(ids('', 'parametric')).toEqual(['tube', 'torus', 'star', 'polygon']);
+		expect(ids('', 'parametric')).toEqual(['tube', 'torus', 'star', 'polygon', 'text']);
 		expect(ids('', 'fasteners')).toEqual(['threaded-rod', 'threaded-hole', 'bolt', 'nut', 'washer', 'standoff']);
 	});
 });

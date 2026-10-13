@@ -49,3 +49,16 @@ describe('the Size choice with inch sizes', () => {
 		expect(choiceGroups(getShapeDef('threaded-hole').params![1]!)).toEqual([['', expect.any(Array)]]);
 	});
 });
+
+describe('a Text shape’s fields', () => {
+	it('has a Text box showing its words, then its Font choice', () => {
+		const html = render('text');
+		expect(html).toMatch(/<input[^>]*aria-label="Text"[^>]*value="Text"/);
+		expect(html).toMatch(/<option value="1" selected="">Sans<\/option>/);
+		expect(html.indexOf('aria-label="Text"')).toBeLessThan(html.indexOf('aria-label="Font"'));
+	});
+
+	it('has no Text box on any other shape', () => {
+		expect(render('tube')).not.toContain('aria-label="Text"');
+	});
+});

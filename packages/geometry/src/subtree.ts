@@ -5,15 +5,15 @@ import type { Subtree } from './types.ts';
 const FORMAT = 'v5'; // v2: edge treatments; v3: single shapes as roots; v4: smooth cuts along curved edges; v5: hidden parts are left out
 
 /**
- * The top-level nodes drawn as one computed mesh: groups (their holes cut), and shapes with treated edges (their chamfers and
- * rounds cut). A hole is included: its ghost shows the finished shape, as the cut will use it, not every shape it is made from.
+ * The top-level nodes drawn as one computed mesh: groups (their holes cut), shapes with treated edges (their chamfers and
+ * rounds cut), and text (its letters are built by the geometry engine from their outlines). A hole is included: its ghost shows the finished shape, as the cut will use it, not every shape it is made from.
  * Inner groups are evaluated as part of their parent; hidden nodes are left alone.
  */
 export function rootComputedNodes(design: Design): NodeId[] {
 	return design.roots.filter((id) => {
 		const node = design.nodes[id];
 		if (!node || node.hidden) return false;
-		return node.kind === 'group' || (node.kind === 'shape' && (node.edges?.length ?? 0) > 0);
+		return node.kind === 'group' || (node.kind === 'shape' && (node.shapeType === 'text' || (node.edges?.length ?? 0) > 0));
 	});
 }
 
