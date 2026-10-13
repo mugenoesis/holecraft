@@ -2,7 +2,7 @@ import type { Vec3 } from '@holecraft/core';
 import { useEffect, useRef } from 'react';
 import type { Viewport } from './Viewport.ts';
 
-export interface SurfaceHit {
+interface SurfaceHit {
 	point: Vec3;
 	normal: Vec3;
 }

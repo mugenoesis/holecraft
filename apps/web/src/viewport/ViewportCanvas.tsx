@@ -191,8 +191,8 @@ export function ViewportCanvas(props: Props) {
 
 	const getViewport = useCallback(() => viewportRef.current, []);
 	const findEdges = useCallback(
-		(subtree: Subtree, models: ReadonlyMap<string, MeshData>) =>
-			evaluatorRef.current?.edges(subtree, models) ?? Promise.reject(new Error('The geometry worker is not running')),
+		(subtree: Subtree, models: ReadonlyMap<string, MeshData>, treated?: boolean) =>
+			evaluatorRef.current?.edges(subtree, models, treated) ?? Promise.reject(new Error('The geometry worker is not running')),
 		[],
 	);
 
@@ -305,6 +305,9 @@ export function ViewportCanvas(props: Props) {
 							getViewport={() => viewportRef.current}
 							units={design.units}
 							snap={design.grid.snap}
+							design={design}
+							meshes={meshes}
+							findEdges={findEdges}
 							camera={camera}
 							onClose={() => setTool(null)}
 						/>

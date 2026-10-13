@@ -3,7 +3,7 @@ import { meshRefsIn, type Subtree, subtreeOf, toolEdgesKey } from '@holecraft/ge
 import { useEffect, useRef, useState } from 'react';
 
 /** Asks the geometry worker which edges the Edge tool offers on a subtree's root. */
-export type FindEdges = (subtree: Subtree, meshes: ReadonlyMap<string, MeshData>) => Promise<MeshEdge[]>;
+export type FindEdges = (subtree: Subtree, meshes: ReadonlyMap<string, MeshData>, treated?: boolean) => Promise<MeshEdge[]>;
 
 export type ToolEdges =
 	| { kind: 'loading' }

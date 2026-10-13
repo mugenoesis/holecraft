@@ -18,13 +18,20 @@ function untreated(design: Nodes, id: NodeId): Nodes {
  * found on the solid **without** its own chamfers and rounds, so an edge that already has one is still offered, to be changed or
  * removed, and previewing a treatment doesn't change what is offered. Only edges worth choosing are offered (`usefulEdges`): a
  * shape already cut up by many treatments has thousands of tiny steps that nobody could pick, and drawing them would freeze the page.
+ * With `treated`, the edges of the finished shape instead, its own chamfers and rounds included (what the ruler snaps to).
  */
-export function toolEdges(M: ManifoldToplevel, design: Nodes, id: NodeId, meshes?: MeshTable): MeshEdge[] {
-	const mesh = evaluateGroup(M, untreated(design, id), id, meshes);
+export function toolEdges(
+	M: ManifoldToplevel,
+	design: Nodes,
+	id: NodeId,
+	meshes?: MeshTable,
+	options: { treated?: boolean } = {},
+): MeshEdge[] {
+	const mesh = evaluateGroup(M, options.treated ? design : untreated(design, id), id, meshes);
 	return mesh ? usefulEdges(sharpEdges(mesh)) : [];
 }
 
 /** Equal keys mean `toolEdges` gives the same answer: the node's shape, ignoring its own treatments, position, name and colour. */
-export function toolEdgesKey(design: Nodes, id: NodeId): string {
-	return subtreeHash(untreated(design, id), id);
+export function toolEdgesKey(design: Nodes, id: NodeId, options: { treated?: boolean } = {}): string {
+	return options.treated ? `finished:${subtreeHash(design, id)}` : subtreeHash(untreated(design, id), id);
 }
