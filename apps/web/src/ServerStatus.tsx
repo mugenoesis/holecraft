@@ -18,9 +18,9 @@ export function ServerStatus() {
 
 	const label = state.kind === 'online' ? `Server v${state.health.version}` : state.kind === 'offline' ? 'Server offline' : 'Connecting…';
 	return (
-		<div className={`server-status ${state.kind}`} role="status">
+		<div className={`server-status ${state.kind}`} role="status" title={label}>
 			<span className="dot" aria-hidden="true" />
-			{label}
+			<span className="server-label">{label}</span>
 		</div>
 	);
 }

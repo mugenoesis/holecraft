@@ -36,6 +36,21 @@ describe('importModelFile', () => {
 		expect(d.upload.mock.calls[0]![0]).toBe(mesh);
 	});
 
+	it('stands a Y-up model upright when told Y is up: the 10 x 20 x 30 model is 10 x 30 x 20 (its y is the height)', async () => {
+		const { input, mesh } = await importModelFile(file('Bracket.obj', writeObj([body])), deps(), { up: 'y' });
+		expect(input.size).toEqual([10, 30, 20]);
+		expect(Math.min(...Array.from({ length: mesh.positions.length / 3 }, (_, i) => mesh.positions[i * 3 + 2]!))).toBeCloseTo(0); // standing on its base
+	});
+
+	it('leaves a model as it is when Z is up, which is the default', async () => {
+		const [a, b] = [
+			await importModelFile(file('a.stl', writeStl([body])), deps(), { up: 'z' }),
+			await importModelFile(file('a.stl', writeStl([body])), deps()),
+		];
+		expect(a.input.size).toEqual([10, 20, 30]);
+		expect(b.input.size).toEqual([10, 20, 30]);
+	});
+
 	it('reads OBJ files too', async () => {
 		const { input } = await importModelFile(file('m.obj', writeObj([body])), deps());
 		expect(input.size).toEqual([10, 20, 30]);

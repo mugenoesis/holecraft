@@ -81,6 +81,25 @@ export function signedVolume(mesh: MeshData): number {
 	return volume;
 }
 
+/** Which of a model file's axes is up: most CAD, STL and 3MF files are Z up; many modellers and games (an OBJ, often) make Y the height. */
+export type UpAxis = 'z' | 'y';
+
+/**
+ * A model turned so that Z is up. A Y-up model is turned a quarter about the x axis, (x, y, z) to (x, -z, y), so what was its height is
+ * Z, and what faced front faces the way it should; a turn rather than a swap, so nothing is mirrored and every triangle still faces out.
+ * The same mesh back for a Z-up model, a new one (the given mesh is left alone) otherwise.
+ */
+export function reorientMesh(mesh: MeshData, up: UpAxis): MeshData {
+	if (up === 'z') return mesh;
+	const positions = new Float32Array(mesh.positions.length);
+	for (let i = 0; i < positions.length; i += 3) {
+		positions[i] = mesh.positions[i]!;
+		positions[i + 1] = -mesh.positions[i + 2]! + 0; // + 0 keeps a -0 out of the file
+		positions[i + 2] = mesh.positions[i + 1]!;
+	}
+	return { positions, indices: new Uint32Array(mesh.indices) };
+}
+
 /**
  * Fits a model into the unit box every shape is built in (x and y within ±0.5, z from 0 to 1), and
  * returns its real size in mm. The shape's width, depth and height then scale it, like any other

@@ -51,7 +51,7 @@ millimetres). The model becomes a shape named after the file, resting on the wor
 size, and from then on it is like any other shape: move, resize, rotate, recolour, duplicate, turn it
 into a **hole**, group it, export it.
 
-- **Z is up.** An OBJ saved with Y up will arrive lying on its side; turn it with the rotation rings.
+- **Which way is up.** Files are read as Z up (CAD, STL and 3MF files). Many OBJ files, from Blender and game tools, have Y as the height and would arrive lying on their side: set the **Up axis** next to the Import button to **Y up** first and the model is stood upright as it is read (a quarter turn, not a mirror, so its width, depth and height are right straight away). The choice is remembered in your browser.
 - A model has to be **watertight** (a closed surface) to be cut or to cut something. If it has holes in
   its surface it still imports and moves, but grouping it with a hole or exporting it as a group says
   which model is the problem.
