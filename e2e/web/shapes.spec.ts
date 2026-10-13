@@ -358,3 +358,85 @@ test.describe('threaded shapes', () => {
 		await expect(field(page, 'Width')).toHaveValue('5');
 	});
 });
+
+/*
+ * The bolt (a thread with a head on it) and the nut that goes on it. A bolt's Length is its shank, not counting the head; the volumes are worked
+ * out by hand from the ISO sizes (an M5 hex head is 8 mm across flats and 3.5 mm high, a nut 4 mm thick).
+ */
+test.describe('bolts and nuts', () => {
+	const mean = (crest: number, pitch: number) => {
+		const root = crest - 0.5413 * pitch;
+		return (crest * crest) / 8 + (root * root) / 4 + 2 * (5 / 16) * ((crest * crest + crest * root + root * root) / 3);
+	};
+	const hexArea = (flats: number) => 2 * Math.sqrt(3) * (flats / 2) ** 2;
+	const pick = async (page: Page, label: string, option: string) =>
+		properties(page).getByLabel(label, { exact: true }).selectOption({ label: option });
+
+	test('a bolt has Size and Head (Hex to start), and its Length is the shank: 20 mm, with the head on top of it', async ({ page }) => {
+		await tile(page, 'Bolt').click();
+		await row(page, 0).click();
+		await expect(field(page, 'Size')).toHaveValue('5');
+		await expect(field(page, 'Head')).toHaveValue('1');
+		await expect(field(page, 'Length')).toHaveValue('20');
+		await expect(field(page, 'Width')).toBeDisabled();
+		await expect(field(page, 'Width')).toHaveValue('9.24'); // a hex across its corners
+		await expect(field(page, 'Depth')).toHaveValue('8');
+	});
+
+	test('a hex bolt exports as its thread plus its head, 23.5 mm tall in all', async ({ page }) => {
+		await tile(page, 'Bolt').click();
+		const stl = await exportStl(page);
+		const exact = Math.PI * 20 * mean(2.5, 0.8) + hexArea(8) * 3.5;
+		expect(Math.abs(stl.volume - exact) / exact).toBeLessThan(0.005);
+		expect(stl.max[2]).toBeCloseTo(23.5, 3);
+	});
+
+	test('a socket cap bolt is round and 25 mm tall, and changing the head keeps the 20 mm shank', async ({ page }) => {
+		await tile(page, 'Bolt').click();
+		await row(page, 0).click();
+		await pick(page, 'Head', 'Socket cap');
+		await expect(field(page, 'Length')).toHaveValue('20');
+		await expect(field(page, 'Width')).toHaveValue('8.5');
+		await expect(field(page, 'Depth')).toHaveValue('8.5');
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		expect((await exportStl(page)).max[2]).toBeCloseTo(25, 3);
+	});
+
+	test('typing a Length changes the shank, not the head: 40 mm exports 43.5 mm tall', async ({ page }) => {
+		await tile(page, 'Bolt').click();
+		await row(page, 0).click();
+		await field(page, 'Length').fill('40');
+		await field(page, 'Length').press('Enter');
+		await expect(field(page, 'Length')).toHaveValue('40');
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		const stl = await exportStl(page);
+		expect(stl.max[2]).toBeCloseTo(43.5, 3);
+		const exact = Math.PI * 40 * mean(2.5, 0.8) + hexArea(8) * 3.5;
+		expect(Math.abs(stl.volume - exact) / exact).toBeLessThan(0.005);
+	});
+
+	test('a nut is 4 mm thick and a hex 8 mm across flats with an M5 thread through it, and its Fit opens the thread', async ({ page }) => {
+		await tile(page, 'Nut').click();
+		await row(page, 0).click();
+		await expect(field(page, 'Fit')).toHaveValue('2');
+		await expect(field(page, 'Length')).toHaveValue('4');
+		const exact = hexArea(8) * 4 - Math.PI * 4 * mean(2.7, 0.8);
+		const normal = (await exportStl(page)).volume;
+		expect(Math.abs(normal - exact) / exact).toBeLessThan(0.006);
+		await pick(page, 'Fit', 'Loose');
+		await page.getByRole('heading', { name: 'Objects' }).click();
+		expect((await exportStl(page)).volume).toBeLessThan(normal); // a looser nut has less in it
+		await expect(field(page, 'Width')).toHaveValue('9.24'); // and the outside is the same
+	});
+
+	test('a bigger nut size sets its standard thickness (M8 is 6.5 mm); only the lift and Length handles show on a bolt and a nut', async ({
+		page,
+	}) => {
+		await tile(page, 'Nut').click();
+		await row(page, 0).click();
+		await pick(page, 'Size', 'M8');
+		await expect(field(page, 'Length')).toHaveValue('6.5');
+		for (const id of ['corner-pp', 'side-px']) await expect(page.getByTestId(`handle-${id}`)).toHaveCount(0);
+		await expect(page.getByTestId('handle-height')).toBeVisible();
+	});
+});

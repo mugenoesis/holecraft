@@ -720,6 +720,18 @@ button.primary:disabled {
 	mask-composite: exclude;
 }
 
+/* a bolt: a hex head on a threaded shank; a nut: a hex with the hole through it */
+.swatch.bolt {
+	clip-path: polygon(10% 0, 90% 0, 90% 26%, 66% 26%, 66% 100%, 34% 100%, 34% 26%, 10% 26%);
+	background-image:
+		linear-gradient(transparent 26%, rgb(0 0 0 / 0%) 26%), repeating-linear-gradient(-20deg, transparent 0 3px, rgb(0 0 0 / 28%) 3px 5px);
+}
+
+.swatch.nut {
+	clip-path: polygon(25% 6%, 75% 6%, 100% 50%, 75% 94%, 25% 94%, 0 50%);
+	mask: radial-gradient(circle, transparent 28%, #000 30%);
+}
+
 .swatch.polygon {
 	clip-path: polygon(50% 0, 98% 36%, 80% 94%, 20% 94%, 2% 36%);
 }

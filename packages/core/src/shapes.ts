@@ -1,4 +1,4 @@
-import { DEFAULT_FIT, DEFAULT_THREAD_DIAMETER, FITS, THREAD_SIZES } from './threadStandards.ts';
+import { DEFAULT_FIT, DEFAULT_HEAD, DEFAULT_THREAD_DIAMETER, defaultThreadSize, FITS, HEADS, THREAD_SIZES } from './threadStandards.ts';
 
 export type ShapeType =
 	| 'box'
@@ -16,7 +16,9 @@ export type ShapeType =
 	| 'star'
 	| 'polygon'
 	| 'threaded-rod'
-	| 'threaded-hole';
+	| 'threaded-hole'
+	| 'bolt'
+	| 'nut';
 
 /**
  * One setting a shape has besides its size (the Properties panel makes a field for each). It is kept as a share of the shape (0.3 is 30% of
@@ -55,6 +57,7 @@ export interface ShapeDef {
 }
 
 const SIZE_CHOICES = THREAD_SIZES.map((t) => ({ value: t.diameter, label: `M${t.diameter}` }));
+const HEAD_CHOICES = HEADS.map((h) => ({ value: h.value, label: h.label }));
 const FIT_CHOICES = FITS.map((f) => ({ value: f.value, label: f.label }));
 
 /**
@@ -107,7 +110,7 @@ export const SHAPE_DEFS: readonly ShapeDef[] = [
 	{
 		id: 'threaded-rod',
 		name: 'Threaded Rod',
-		defaultSize: [5, 5, 20],
+		defaultSize: defaultThreadSize('threaded-rod', 20),
 		color: '#8d99ae',
 		fixedFootprint: true,
 		params: [{ key: 'size', label: 'Size', choices: SIZE_CHOICES, default: DEFAULT_THREAD_DIAMETER, min: 2, max: 12, mmPerUnit: () => 1 }],
@@ -116,10 +119,34 @@ export const SHAPE_DEFS: readonly ShapeDef[] = [
 		id: 'threaded-hole',
 		name: 'Threaded Hole',
 		// M5 opened out by the Normal fit's 0.2 mm on every side
-		defaultSize: [5.4, 5.4, 10],
+		defaultSize: defaultThreadSize('threaded-hole', 10),
 		color: '#8d99ae',
 		fixedFootprint: true,
 		hole: true,
+		params: [
+			{ key: 'size', label: 'Size', choices: SIZE_CHOICES, default: DEFAULT_THREAD_DIAMETER, min: 2, max: 12, mmPerUnit: () => 1 },
+			{ key: 'fit', label: 'Fit', choices: FIT_CHOICES, default: DEFAULT_FIT, min: 1, max: 3, mmPerUnit: () => 1 },
+		],
+	},
+	{
+		id: 'bolt',
+		name: 'Bolt',
+		// an M5 hex bolt with a 20 mm shank under its 3.5 mm head
+		defaultSize: defaultThreadSize('bolt', 20),
+		color: '#e76f51',
+		fixedFootprint: true,
+		params: [
+			{ key: 'size', label: 'Size', choices: SIZE_CHOICES, default: DEFAULT_THREAD_DIAMETER, min: 2, max: 12, mmPerUnit: () => 1 },
+			{ key: 'head', label: 'Head', choices: HEAD_CHOICES, default: DEFAULT_HEAD, min: 1, max: 2, mmPerUnit: () => 1 },
+		],
+	},
+	{
+		id: 'nut',
+		name: 'Nut',
+		// an M5 nut, 4 mm thick
+		defaultSize: defaultThreadSize('nut', 0),
+		color: '#2a9d8f',
+		fixedFootprint: true,
 		params: [
 			{ key: 'size', label: 'Size', choices: SIZE_CHOICES, default: DEFAULT_THREAD_DIAMETER, min: 2, max: 12, mmPerUnit: () => 1 },
 			{ key: 'fit', label: 'Fit', choices: FIT_CHOICES, default: DEFAULT_FIT, min: 1, max: 3, mmPerUnit: () => 1 },

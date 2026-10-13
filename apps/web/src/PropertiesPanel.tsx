@@ -4,6 +4,7 @@ import {
 	eulerOfTransform,
 	isThreadedType,
 	isUpright,
+	lengthOffset,
 	type NodeId,
 	rotationOfTransform,
 	translationOf,
@@ -132,6 +133,8 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 	};
 	// a thread keeps its real width and depth (from its Size and Fit): only its length can change
 	const fixed = only.kind === 'shape' && isThreadedType(only.shapeType);
+	// a bolt's Length is its shank: the head is on top of it, so its height is more
+	const offset = only.kind === 'shape' ? lengthOffset(only.shapeType, only.params) : 0;
 	const size = only.kind === 'shape' ? (only.params as { width: number; depth: number; height: number }) : null;
 
 	return (
@@ -159,8 +162,8 @@ export function PropertiesPanel({ design, selection, dispatch }: Props) {
 						/>
 						<NumberField
 							label={fixed ? 'Length' : 'Height'}
-							value={size.height}
-							onCommit={(height) => dispatch({ type: 'setSize', id: only.id, size: { height } })}
+							value={size.height - offset}
+							onCommit={(length) => dispatch({ type: 'setSize', id: only.id, size: { height: length + offset } })}
 						/>
 					</>
 				)}
