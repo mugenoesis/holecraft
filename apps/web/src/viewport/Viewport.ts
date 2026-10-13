@@ -96,6 +96,7 @@ export class Viewport {
 	private pinch: [Point, Point] | null = null;
 	/** While the ruler is on, the left button no longer selects or moves: clicks belong to the ruler and dragging orbits. */
 	private surfaceToolOn = false;
+	private toolPaintsOnDrag = false;
 	private multiSelectOn = false;
 	private planeMarker: THREE.Object3D | null = null;
 
@@ -248,6 +249,15 @@ export class Viewport {
 		return { x: ((p.x + 1) / 2) * this.host.clientWidth, y: ((1 - p.y) / 2) * this.host.clientHeight };
 	}
 
+	/** How many pixels a millimetre is across the view at a world point (the same for every direction across the view). */
+	pixelsPerMm(point: Vec3): number {
+		const camera = this.rig.active;
+		camera.updateMatrixWorld();
+		const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+		const [a, b] = [this.project(point), this.project([point[0] + right.x, point[1] + right.y, point[2] + right.z])];
+		return a && b ? Math.hypot(b.x - a.x, b.y - a.y) : 0;
+	}
+
 	/** Whether a face at `point` with this outward `normal` points towards the camera (cheap: no rays). */
 	facesCamera(point: Vec3, normal: Vec3): boolean {
 		const camera = this.rig.active;
@@ -277,8 +287,9 @@ export class Viewport {
 	}
 
 	/** While a surface tool (ruler, workplane) is on, the left button no longer selects or moves: clicks belong to the tool and dragging orbits. */
-	setSurfaceTool(on: boolean): void {
+	setSurfaceTool(on: boolean, paintsOnDrag = false): void {
 		this.surfaceToolOn = on;
+		this.toolPaintsOnDrag = on && paintsOnDrag;
 	}
 
 	/** While the Select toggle is on, every press adds to (or takes from) the selection, and a finger on empty space draws the selection box. */
@@ -504,7 +515,7 @@ export class Viewport {
 	/** Once the pointer has travelled far enough, decides what the press has become. False while it is still a click. */
 	private beginDrag(press: LeftPress, e: PointerEvent): boolean {
 		if (Math.hypot(e.clientX - press.startX, e.clientY - press.startY) < DRAG_THRESHOLD) return false;
-		press.mode = dragModeFor(press, this.surfaceToolOn, this.multiSelectOn);
+		press.mode = dragModeFor(press, this.surfaceToolOn, this.multiSelectOn, this.toolPaintsOnDrag);
 		if (press.mode === 'move') this.opts.onMoveStart();
 		return true;
 	}

@@ -127,6 +127,23 @@ function parseTreatments(raw: unknown, path: string): EdgeTreatment[] | undefine
 
 const MAX_PAINT_FILLS = 1000;
 
+const MAX_BRUSH_DABS = 300;
+const MAX_BRUSH_RADIUS = 500;
+
+function parseBrush(raw: Raw, path: string, id: string, color: string | null): PaintFill {
+	const { shape, radius, dabs } = raw;
+	if (shape !== 'circle' && shape !== 'sphere' && shape !== 'triangle') fail(`${path}.shape`, 'must be "circle", "sphere" or "triangle"');
+	if (!(isFiniteNumber(radius) && radius > 0 && radius <= MAX_BRUSH_RADIUS))
+		fail(`${path}.radius`, `must be a number above 0 and up to ${MAX_BRUSH_RADIUS}`);
+	if (!Array.isArray(dabs) || dabs.length < 1 || dabs.length > MAX_BRUSH_DABS)
+		fail(`${path}.dabs`, `must be a list of 1 to ${MAX_BRUSH_DABS} dabs`);
+	const list = dabs.map((d, i) => {
+		if (!isRecord(d)) fail(`${path}.dabs.${i}`, 'must be an object');
+		return { point: parsePoint(d.point, `${path}.dabs.${i}.point`), normal: parseDirection(d.normal, `${path}.dabs.${i}.normal`) };
+	});
+	return { id, kind: 'brush', color, shape, radius, dabs: list };
+}
+
 function parsePaintFill(raw: unknown, path: string): PaintFill {
 	if (!isRecord(raw)) fail(path, 'must be an object');
 	const id = str(raw.id, `${path}.id`, MAX_TREATMENT_ID);
@@ -136,8 +153,9 @@ function parsePaintFill(raw: unknown, path: string): PaintFill {
 		return raw.color.toLowerCase();
 	};
 	if (raw.kind === 'body') return { id, kind: 'body', color: colorOf(false)! };
-	if (raw.kind !== 'region') fail(`${path}.kind`, 'must be "region" or "body"');
+	if (raw.kind !== 'region' && raw.kind !== 'brush') fail(`${path}.kind`, 'must be "region", "brush" or "body"');
 	const color = colorOf(true);
+	if (raw.kind === 'brush') return parseBrush(raw, path, id, color);
 	const { spread, angle } = raw;
 	if (spread !== undefined && spread !== 'smart' && spread !== 'bucket') fail(`${path}.spread`, 'must be "smart" or "bucket"');
 	if (angle !== undefined && !(isFiniteNumber(angle) && angle >= 0 && angle <= 90)) fail(`${path}.angle`, 'must be a number from 0 to 90');

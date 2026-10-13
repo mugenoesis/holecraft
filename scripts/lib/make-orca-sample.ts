@@ -30,6 +30,19 @@ const paintedBox = addPaint(addShape(createEmptyDesign('p', 'Paint'), 'box', [0,
 	normal: [0, 0, 1],
 });
 writeFileSync(`${out}/paint.3mf`, write3mf(collectBodies(manifold, paintedBox), { filaments: paintedBox.palette }));
+// the same box with a round brush dab on its top (the surface is cut finer under it), for the brush check; the number of painted
+// triangles is written beside it so the check can require the engine to keep every one
+const brushed = addPaint(addShape(createEmptyDesign('b', 'Brush'), 'box', [0, 0], { id: 'box' }).design, 'box', {
+	id: 'dab',
+	kind: 'brush',
+	color: '#2a9d8f',
+	shape: 'circle',
+	radius: 4,
+	dabs: [{ point: [0, 0, 20], normal: [0, 0, 1] }],
+});
+const brushBodies = collectBodies(manifold, brushed);
+writeFileSync(`${out}/brush.3mf`, write3mf(brushBodies, { filaments: brushed.palette }));
+writeFileSync(`${out}/brush.count`, String(brushBodies[0]!.mesh.paint!.triangle.filter((v) => v !== 0).length));
 writeFileSync(`${out}/plain.3mf`, write3mf(bodies));
 writeFileSync(`${out}/plain.stl`, writeStl(bodies));
 console.log(`wrote ${bodies.length} bodies; palettes of ${d.palette.length} and ${sixteen.palette.length} colours`);

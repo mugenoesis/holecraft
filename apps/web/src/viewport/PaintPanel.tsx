@@ -1,5 +1,5 @@
-import { MAX_FILL_ANGLE } from '@holecraft/core';
-import type { PaintSettings } from './paintTool.ts';
+import { type BrushShape, MAX_FILL_ANGLE } from '@holecraft/core';
+import { BRUSH_SIZE, type PaintSettings } from './paintTool.ts';
 
 interface Props {
 	palette: readonly string[];
@@ -7,6 +7,9 @@ interface Props {
 	filament: number;
 	tool: PaintSettings['tool'];
 	angle: number;
+	/** The brush's shape and size (its diameter, mm). */
+	shape: BrushShape;
+	size: number;
 	/** A problem with the last click, shown in place of the hint. */
 	status: string | null;
 	/** Whether anything selected has paint to erase. */
@@ -14,9 +17,22 @@ interface Props {
 	onFilament: (index: number) => void;
 	onTool: (tool: PaintSettings['tool']) => void;
 	onAngle: (degrees: number) => void;
+	onShape: (shape: BrushShape) => void;
+	onSize: (mm: number) => void;
 	onEraseAll: () => void;
 	onDone: () => void;
 }
+
+const SHAPES: readonly (readonly [BrushShape, string])[] = [
+	['circle', 'Circle'],
+	['sphere', 'Sphere'],
+	['triangle', 'Triangles'],
+];
+
+const hintFor = (tool: PaintSettings['tool']) =>
+	tool === 'brush'
+		? 'Drag to paint · Shift to erase · Ctrl+wheel changes the brush size'
+		: 'Click a face to paint it · Shift+click to erase · Ctrl+wheel changes the angle';
 
 /**
  * The bar at the bottom of the view while the Paint tool is on, laid out like OrcaSlicer's colour painting: the filaments (numbered, and
@@ -61,12 +77,44 @@ export function PaintPanel(p: Props) {
 						/>
 						Bucket fill
 					</label>
-					<label className="soon" title="Coming in the next update">
-						<input type="radio" name="paint-tool" aria-label="Brush" disabled />
+					<label>
+						<input type="radio" name="paint-tool" aria-label="Brush" checked={p.tool === 'brush'} onChange={() => p.onTool('brush')} />
 						Brush
 					</label>
 				</fieldset>
 			</div>
+			{p.tool === 'brush' && (
+				<>
+					<div className="edge-tool-row">
+						<strong>Brush shape</strong>
+						<fieldset className="edge-kind" aria-label="Brush shape">
+							{SHAPES.map(([shape, label]) => (
+								<label key={shape}>
+									<input type="radio" name="paint-shape" aria-label={label} checked={p.shape === shape} onChange={() => p.onShape(shape)} />
+									{label}
+								</label>
+							))}
+						</fieldset>
+					</div>
+					<div className="edge-tool-row">
+						<span className="edge-size">
+							<label htmlFor="paint-size">Brush size</label>
+							<input
+								id="paint-size"
+								type="range"
+								aria-label="Brush size"
+								min={BRUSH_SIZE.min}
+								max={BRUSH_SIZE.max}
+								step={BRUSH_SIZE.step}
+								value={p.size}
+								disabled={p.shape === 'triangle'}
+								onChange={(e) => p.onSize(Number(e.target.value))}
+							/>
+							<output>{p.size} mm</output>
+						</span>
+					</div>
+				</>
+			)}
 			<div className="edge-tool-row">
 				<span className="edge-size">
 					<label htmlFor="paint-angle">Smart fill angle</label>
@@ -86,7 +134,7 @@ export function PaintPanel(p: Props) {
 			</div>
 			<div className="edge-tool-row">
 				<span className="muted paint-hint" aria-live="polite">
-					{p.status ?? 'Click a face to paint it · Shift+click to erase · Ctrl+wheel changes the angle'}
+					{p.status ?? hintFor(p.tool)}
 				</span>
 				<span className="edge-tool-spacer" />
 				<button type="button" onClick={p.onEraseAll} disabled={!p.canErase} title="Take all the paint off the selected shapes">

@@ -11,6 +11,7 @@ import {
 	type MeshData,
 	mirrorMeshX,
 	type NodeId,
+	type PaintedMesh,
 	type PaintFill,
 	paintTriangles,
 	parametricShape,
@@ -268,8 +269,11 @@ class Evaluation {
 /** `mesh` with its paint worked out (in its own frame) and then, if `transform` is given, placed by hand so the triangles keep their order. */
 function paintedMesh(mesh: GroupMesh, fills: readonly PaintFill[], transform: readonly number[] | null): GroupMesh {
 	const paint = paintTriangles(mesh, fills);
-	const withPaint = paint ? { ...mesh, paint } : mesh;
-	return transform ? { ...withPaint, positions: transformPositions(mesh.positions, transform) } : withPaint;
+	// a brush cuts the surface finer, and the paint belongs to that mesh
+	const { mesh: cut, ...painting } = paint ?? {};
+	const base = cut ? { ...mesh, ...cut } : mesh;
+	const withPaint = paint ? { ...base, paint: painting as PaintedMesh } : base;
+	return transform ? { ...withPaint, positions: transformPositions(base.positions, transform) } : withPaint;
 }
 
 /** `positions` moved by a column-major 4x4 transform (rotation and position only, so the triangles keep their winding). */

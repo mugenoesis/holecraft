@@ -56,4 +56,16 @@ if [ ! -f "$OUT/engine-paint.3mf" ]; then
 fi
 echo "what the engine kept:"
 python_in_image /checks/verify-orca-paint.py /files/engine-paint.3mf 2 2
+echo "== brush.3mf (a round brush dab, the surface cut finer under it, in filament 2) =="
+PAINTED="$(cat "$OUT/brush.count")"
+echo "what we wrote ($PAINTED painted triangles):"
+python_in_image /checks/verify-orca-paint.py /files/brush.3mf "$PAINTED" 2
+echo "the OrcaSlicer engine:"
+docker run --rm --entrypoint /bin/bash -v "$OUT:/files" -v "$ROOT/scripts/lib:/checks:ro" "$IMAGE" /checks/orca-engine-check.sh brush.3mf engine-brush.3mf | grep -E "engine exit|wrote no"
+if [ ! -f "$OUT/engine-brush.3mf" ]; then
+  echo "FAIL: the OrcaSlicer engine could not load brush.3mf" >&2
+  exit 1
+fi
+echo "what the engine kept:"
+python_in_image /checks/verify-orca-paint.py /files/engine-brush.3mf "$PAINTED" 2
 echo "OK: OrcaSlicer's engine loads the export and keeps every object's filament, the whole palette and the painted faces"

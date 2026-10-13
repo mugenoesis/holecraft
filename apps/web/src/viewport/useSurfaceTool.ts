@@ -36,14 +36,15 @@ const CLICK_SLOP = 4;
  * button stops selecting and moving, so a click belongs to the tool and dragging orbits. Handlers are read at the
  * time of each event, so they can change on every render.
  */
-export function useSurfaceTool(getViewport: () => Viewport | null, handlers: Handlers): void {
+export function useSurfaceTool(getViewport: () => Viewport | null, handlers: Handlers, options: { paintsOnDrag?: boolean } = {}): void {
+	const paintsOnDrag = options.paintsOnDrag ?? false;
 	const latest = useRef(handlers);
 	latest.current = handlers;
 
 	useEffect(() => {
 		const viewport = getViewport();
 		if (!viewport) return;
-		viewport.setSurfaceTool(true);
+		viewport.setSurfaceTool(true, paintsOnDrag);
 		const el = viewport.element;
 		const at = (e: PointerEvent): ViewPoint => {
 			const rect = el.getBoundingClientRect();
@@ -93,5 +94,5 @@ export function useSurfaceTool(getViewport: () => Viewport | null, handlers: Han
 			window.removeEventListener('keydown', onKey, true);
 			viewport.setSurfaceTool(false);
 		};
-	}, [getViewport]);
+	}, [getViewport, paintsOnDrag]);
 }

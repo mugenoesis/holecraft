@@ -111,3 +111,46 @@ describe('painted shapes in the CSG engine', () => {
 		expect(subtreeHash(d, 'a')).toBe(subtreeHash(addPaint(box(), 'a', topFill(RED, 'other-id')), 'a')); // ids are not geometry
 	});
 });
+
+describe('brush strokes in the CSG engine', () => {
+	const stroke = (radius: number, point: [number, number, number]): PaintFill => ({
+		id: 's',
+		kind: 'brush',
+		color: RED,
+		shape: 'circle',
+		radius,
+		dabs: [{ point, normal: [0, 0, 1] }],
+	});
+
+	it('cut the finished mesh finer under the brush and paint a disc of the brush’s size, with the surface as closed and as big as before', () => {
+		const d = addPaint(box(), 'a', stroke(4, [0, 0, 20]));
+		const mesh = evaluateGroup(M, d, 'a')!;
+		expect(mesh.indices.length / 3).toBeGreaterThan(12);
+		expect(mesh.paint!.triangle).toHaveLength(mesh.indices.length / 3);
+		expect(painted(mesh, 1).area).toBeGreaterThan(Math.PI * 16 * 0.9);
+		expect(painted(mesh, 1).area).toBeLessThan(Math.PI * 16 * 1.1);
+		const everything = { ...mesh, paint: { colors: [''], triangle: new Uint16Array(mesh.indices.length / 3).fill(1) } };
+		expect(painted(everything, 1).area).toBeCloseTo(2400, 2); // cutting does not change the area
+	});
+
+	it('are exported where the shape stands (turned a quarter about X, the disc faces -Y) with the same cut surface', () => {
+		const turned = setNodeEuler(addPaint(box(), 'a', stroke(4, [0, 0, 20])), 'a', [90, 0, 0]);
+		const placed = evaluateNode(M, turned, 'a')!;
+		const own = evaluateGroup(M, turned, 'a')!;
+		expect(placed.indices.length).toBe(own.indices.length);
+		expect(painted(placed, 1).area).toBeCloseTo(painted(own, 1).area, 3);
+		const [x, y, z] = painted(placed, 1).direction;
+		expect([x, y, z]).toEqual([expect.closeTo(0, 4), expect.closeTo(-1, 4), expect.closeTo(0, 4)]);
+	});
+
+	it('are painted on the finished surface of a group: the part of a disc over a hole is not there', () => {
+		let d = addShape(box(), 'cylinder', [0, 0], { id: 'h' }).design;
+		d = setShapeSize(d, 'h', { width: 10, depth: 10, height: 40 });
+		d = setNodeMode(d, ['h'], 'hole');
+		d = groupNodes(d, ['a', 'h'], { id: 'g' }).design;
+		const mesh = evaluateGroup(M, addPaint(d, 'g', stroke(8, [0, 0, 20])), 'g')!;
+		const ring = Math.PI * 64 - 0.5 * 64 * 25 * Math.sin((2 * Math.PI) / 64); // the disc minus the 5 mm hole, to within the brush's jagged edge
+		expect(painted(mesh, 1).area).toBeGreaterThan(ring * 0.85);
+		expect(painted(mesh, 1).area).toBeLessThan(ring * 1.15);
+	});
+});
