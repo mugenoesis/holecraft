@@ -72,12 +72,13 @@ export function selectedRings(
 export function selectedHandles(
 	design: Design,
 	selection: readonly NodeId[],
+	unlockedStretch: readonly NodeId[] = [],
 ): { id: NodeId; geometry: ShapeGeometry; yaw: number; rotation: number[]; tilted: boolean; lengthOnly: boolean } | null {
 	const id = selection.length === 1 ? selection[0]! : undefined;
 	const node = id !== undefined ? design.nodes[id] : undefined;
 	if (!id || !node || node.locked || node.hidden) return null;
 	if (node.kind === 'group') {
-		const geometry = canResizeGroup(design, id) ? groupGeometry(design, id) : null;
+		const geometry = canResizeGroup(design, id, { fasteners: unlockedStretch.includes(id) }) ? groupGeometry(design, id) : null;
 		const rotation = rotationOfTransform(node.transform);
 		return (
 			geometry && { id, geometry, yaw: eulerOfTransform(node.transform)[2], rotation, tilted: !isUpright(rotation), lengthOnly: false }

@@ -3,7 +3,7 @@ import { type Design, type DesignNode, MAX_NAME_LENGTH, type NodeId, type ShapeN
 import { stretchTreatments } from './edgeEdits.ts';
 import { clampToWorkplane, snapToGrid } from './grid.ts';
 import { descendantIds } from './groups.ts';
-import { setGroupGeometry, setGroupRotation } from './groupTransform.ts';
+import { type GroupResizeOptions, setGroupGeometry, setGroupRotation } from './groupTransform.ts';
 import { newId } from './ids.ts';
 import { MAX_SHAPE_SIZE } from './limits.ts';
 import { MESH_SHAPE_TYPE } from './meshShape.ts';
@@ -143,9 +143,9 @@ function lockFootprint(node: ShapeNode, params: ShapeNode['params']): ShapeNode[
 	return params;
 }
 
-export function setShapeGeometry(design: Design, id: NodeId, g: ShapeGeometry, now?: Date): Design {
+export function setShapeGeometry(design: Design, id: NodeId, g: ShapeGeometry, now?: Date, options?: GroupResizeOptions): Design {
 	const node = design.nodes[id];
-	if (node?.kind === 'group') return setGroupGeometry(design, id, g, now);
+	if (node?.kind === 'group') return setGroupGeometry(design, id, g, now, options);
 	if (!isEditable(node) || node.kind !== 'shape') return design;
 	const sizes = [g.width, g.depth, g.height];
 	// an upright shape's base is its lowest point, so it stays on or above the workplane; a tilted one reaches below its base centre
