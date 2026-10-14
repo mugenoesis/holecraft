@@ -20,9 +20,14 @@ RUN npm run build
 # ---- runtime ----
 # The server is a single bundled file, so the runtime image needs no node_modules.
 FROM node:26-bookworm-slim
+ARG VERSION=dev
+ARG REVISION=unknown
 LABEL org.opencontainers.image.title="Holecraft" \
       org.opencontainers.image.description="Open-source, offline, browser-based 3D modeling" \
-      org.opencontainers.image.licenses="AGPL-3.0-only"
+      org.opencontainers.image.licenses="AGPL-3.0-only" \
+      org.opencontainers.image.source="https://github.com/mugenoesis/holecraft" \
+      org.opencontainers.image.version="$VERSION" \
+      org.opencontainers.image.revision="$REVISION"
 
 ENV NODE_ENV=production \
     HOLECRAFT_HOST=0.0.0.0 \
