@@ -13,14 +13,19 @@ function Keys({ keys }: { keys: string }) {
 export function ShortcutSheet({ onClose }: { onClose: () => void }) {
 	const close = useRef<HTMLButtonElement>(null);
 	useEffect(() => {
+		const opener = document.activeElement;
 		close.current?.focus();
 		const onKey = (e: KeyboardEvent) => {
+			if (e.key === 'Tab') return e.preventDefault(); // Close is the only thing in the sheet to reach
 			if (e.key !== 'Escape') return;
 			e.stopImmediatePropagation();
 			onClose();
 		};
 		window.addEventListener('keydown', onKey, true);
-		return () => window.removeEventListener('keydown', onKey, true);
+		return () => {
+			window.removeEventListener('keydown', onKey, true);
+			if (opener instanceof HTMLElement) opener.focus();
+		};
 	}, [onClose]);
 
 	return (

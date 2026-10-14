@@ -1,0 +1,71 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, type Page, test } from '@playwright/test';
+import { createDesignViaApi, newDesign, openPanel } from './helpers.ts';
+
+/** The WCAG A and AA problems axe finds on the page as it is now, each as "rule: element" so a failure says what to fix. */
+async function problems(page: Page): Promise<string[]> {
+	const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+	return result.violations.flatMap((v) =>
+		v.nodes.map((n) => `${v.id}: ${n.target.join(' ')} — ${n.failureSummary?.split('\n')[1]?.trim() ?? ''}`),
+	);
+}
+
+test.describe('accessibility (axe, WCAG A and AA)', () => {
+	test('the designs list', async ({ page, request }) => {
+		await createDesignViaApi(request);
+		await page.goto('/');
+		await expect(page.getByTestId('design-card').first()).toBeVisible();
+		expect(await problems(page)).toEqual([]);
+	});
+
+	test('the editor', async ({ page }) => {
+		await newDesign(page);
+		expect(await problems(page)).toEqual([]);
+	});
+
+	test('the editor with a shape selected, on each panel tab', async ({ page }) => {
+		await newDesign(page);
+		await page.getByRole('button', { name: /^Box/ }).first().click();
+		for (const tab of ['Shapes', 'Edit', 'Colours', 'Objects'] as const) {
+			await openPanel(page, tab);
+			expect(await problems(page), tab).toEqual([]);
+		}
+	});
+
+	test('the shortcut sheet', async ({ page }) => {
+		await newDesign(page);
+		await page.keyboard.press('?');
+		await expect(page.getByRole('dialog')).toBeVisible();
+		expect(await problems(page)).toEqual([]);
+	});
+
+	test('the designs list when it cannot load, and the editor when the save fails', async ({ page }) => {
+		await page.route('**/api/designs', (route) => route.abort());
+		await page.goto('/');
+		await expect(page.getByRole('alert')).toBeVisible();
+		expect(await problems(page)).toEqual([]);
+		await page.unroute('**/api/designs');
+		await newDesign(page);
+		await page.route('**/api/designs/*', (route) => (route.request().method() === 'PUT' ? route.abort() : route.continue()));
+		await page.getByLabel('Design name').fill('Renamed');
+		await page.getByLabel('Design name').blur();
+		await expect(page.getByTestId('save-status')).toHaveText(/Couldn’t save/, { timeout: 15000 });
+		expect(await problems(page)).toEqual([]);
+	});
+
+	test('the editor with each tool on', async ({ page }) => {
+		await newDesign(page);
+		await page.getByRole('button', { name: /^Box/ }).first().click();
+		for (const key of ['r', 'w', 'e', 'n', 'k']) {
+			await page.keyboard.press(key);
+			expect(await problems(page), key).toEqual([]);
+			await page.keyboard.press('Escape');
+		}
+	});
+
+	test('the editor on a phone', async ({ page }) => {
+		await page.setViewportSize({ width: 390, height: 780 });
+		await newDesign(page);
+		expect(await problems(page)).toEqual([]);
+	});
+});
