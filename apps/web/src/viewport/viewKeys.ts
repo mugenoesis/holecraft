@@ -35,7 +35,11 @@ interface Targets {
 }
 
 /** The view commands on a plain key, by lower-case key name. */
-function viewCommand(key: string, viewport: Viewport | null, onToggleTool: (tool: SurfaceTool) => void): (() => void) | undefined {
+export function viewKeyCommand(
+	key: string,
+	viewport: Viewport | null,
+	onToggleTool: (tool: SurfaceTool) => void,
+): (() => void) | undefined {
 	const commands: Record<string, () => void> = {
 		home: () => viewport?.home(),
 		f: () => viewport?.fitAll(),
@@ -54,7 +58,7 @@ export function useViewKeys({ viewport, camera, latest, onToggleTool }: Targets)
 		const onKeyDown = (e: KeyboardEvent) => {
 			if (e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
 			const nudge = nudgeForKey(e.key, e.shiftKey, latest.current.design.grid.snap, camera.current.state.azimuth);
-			const run = nudge ? () => latest.current.onNudge(nudge) : viewCommand(e.key, viewport.current, onToggleTool);
+			const run = nudge ? () => latest.current.onNudge(nudge) : viewKeyCommand(e.key, viewport.current, onToggleTool);
 			if (!run) return;
 			run();
 			e.preventDefault();

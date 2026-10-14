@@ -1,6 +1,7 @@
 import { type Dispatch, useEffect } from 'react';
 import type { EditorAction } from './editorState.ts';
 import { isTypingTarget } from './keyboard.ts';
+import { isSheetKey } from './shortcutList.ts';
 
 /** The parts of a key press that decide which shortcut it is. */
 export interface ShortcutEvent {
@@ -37,11 +38,16 @@ export function shortcutAction(e: ShortcutEvent): EditorAction | null {
 	return rules.get(e.key.toLowerCase())?.(e.shiftKey) ?? null;
 }
 
-/** Runs the editor's keyboard shortcuts, except while the user is typing in a field. */
-export function useEditorShortcuts(dispatch: Dispatch<EditorAction>): void {
+/** Runs the editor's keyboard shortcuts, except while the user is typing in a field. `?` opens the shortcut sheet. */
+export function useEditorShortcuts(dispatch: Dispatch<EditorAction>, onHelp: () => void): void {
 	useEffect(() => {
 		const onKeyDown = (e: KeyboardEvent) => {
 			if (isTypingTarget(e.target)) return;
+			if (isSheetKey(e)) {
+				onHelp();
+				e.preventDefault();
+				return;
+			}
 			const action = shortcutAction(e);
 			if (!action) return;
 			dispatch(action);
@@ -49,5 +55,5 @@ export function useEditorShortcuts(dispatch: Dispatch<EditorAction>): void {
 		};
 		window.addEventListener('keydown', onKeyDown);
 		return () => window.removeEventListener('keydown', onKeyDown);
-	}, [dispatch]);
+	}, [dispatch, onHelp]);
 }

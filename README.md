@@ -125,6 +125,7 @@ easy to back up or copy.
 | Resize | Select one shape and drag a handle. Corner handles resize width and depth, side handles one dimension, the top round handle the height. The opposite corner or side stays fixed, and the edge you drag snaps to the grid. Hold `Shift` to scale all three dimensions together, `Alt` to resize about the centre. The size shows live while you drag |
 | Rotate | Select one shape and drag a coloured ring handle: red turns it about the X axis, green about Y, blue about Z. It turns about the shape's centre and snaps to 22.5° (hold `Shift` for 1° steps). The angle shows live while you drag. You can also type **Rotate X / Y / Z** in degrees in the Properties panel |
 | Lift | Drag the black cone above a shape to raise it off the workplane. Press `D` (or **Drop to workplane**) to put it back down |
+| Shortcuts | Press `?` (or the **?** button in the top bar) for a sheet of every keyboard shortcut and mouse move; `Esc` closes it |
 | Nudge | Arrow keys move the selection along the nearest workplane axis by the grid step (`Shift` for ten times as far) |
 | Edit properties | Select a shape, then type a name, position (X, Y, Z), size (width, depth, height) or color in the Properties panel. Press Enter or click away to apply; invalid values are rejected |
 | Tilted shapes | A shape tipped about X or Y has no resize or lift handles (rotate it back to use them); its X, Y and Z fields show its base point, which moves when it tips. **Drop to workplane** rests its lowest corner on the plane. Shapes turned only about Z keep every handle |
