@@ -254,7 +254,7 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   scale of its own, so the contents are stretched from their old local box to the new one (`groupGeometry` presents that box as a
   `ShapeGeometry`, so `HandlesOverlay` is reused). Each child's position is `factor * t + shift` in its parent's frame, and each shape's
   width/depth/height is scaled by the factor of the parent axis it lines up with (`axisMap`), recursing through nested groups. That is exact only
-  when every inner node is turned in quarter turns and the group is upright, which `canResizeGroup` checks (otherwise no handles); a result
+  when every inner node is turned in quarter turns within the group (the group itself may be turned or tipped any way: the stretch is worked out in its own frame), which `canResizeGroup` checks (otherwise no handles); a result
   outside 0.1..1000 mm for any shape is refused. `MAX_SHAPE_SIZE` now lives in `limits.ts` to avoid an import cycle with edit.ts.
 
 ## Chamfers (Stage A)
@@ -340,8 +340,8 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   once it is tipped about X or Y (`selectedHandles(...).tilted`) it is `handlePositionTilted` / `dragHandleTilted` / `lowestPointOffset` in `resizeTilted.ts`,
   worked in the shape's own frame from its whole row-major turn (sides and corners aimed at the plane of its own base, the height handle at its own up axis via
   `closestParamOnLine`, the lift handle at the world vertical and never below the floor: `-lowestPointOffset`). `setShapeGeometry` lets a tipped shape's base centre dip
-  below z = 0 (an upright one's base is its lowest point). How a pointer aims each kind of handle is `handleAim.ts` (`floor`, `vertical`, `plane`, `axis`). A **group** still
-  needs to stand level and hold only quarter turns (`canResizeGroup`).
+  below z = 0 (an upright one's base is its lowest point). How a pointer aims each kind of handle is `handleAim.ts` (`floor`, `vertical`, `plane`, `axis`). A **group** gets the same handles at any turn (`groupGeometry` is its contents' box in its own frame), but only while it holds quarter turns and no
+  thread (`canResizeGroup`); `setGroupGeometry` also lets a tipped group's base centre dip below z = 0.
 - Ring drags use `Viewport.pickPlane` and ignore moves where the ring plane is edge-on.
 
 ## Input fields

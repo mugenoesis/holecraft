@@ -131,6 +131,27 @@ test.describe('grouping', () => {
 		expect(await widthOfFirst()).toBe(20);
 	});
 
+	test('a tipped group keeps its resize and lift handles, and they work along its own axes', async ({ page }) => {
+		await twoSelected(page);
+		await groupButton(page).click();
+		await field(page, 'Rotate X').fill('40');
+		await field(page, 'Rotate X').press('Enter');
+		for (const id of ['corner-pp', 'side-px', 'side-py', 'height', 'lift']) await expect(page.getByTestId(`handle-${id}`)).toBeVisible();
+		await expect(properties(page)).not.toContainText(/quarter turns/);
+		const width = async () => Number(await field(page, 'Width').inputValue());
+		const w0 = await width();
+		const depth0 = Number(await field(page, 'Depth').inputValue());
+		const a = await center(page.getByTestId('handle-side-px'));
+		const b = await center(page.getByTestId('handle-side-nx'));
+		const dx = a.x - (a.x + b.x) / 2 + (a.x - b.x) / 2;
+		const dy = a.y - (a.y + b.y) / 2 + (a.y - b.y) / 2;
+		const len = Math.hypot(dx, dy) || 1;
+		await drag(page, a, { x: a.x + (dx / len) * 60, y: a.y + (dy / len) * 60 }, { steps: 12 });
+		await expect.poll(width).toBeGreaterThan(w0 + 1);
+		expect(Number(await field(page, 'Depth').inputValue())).toBeCloseTo(depth0, 4);
+		expect(Number(await field(page, 'Rotate X').inputValue())).toBeCloseTo(40, 4);
+	});
+
 	test('a group holding a shape turned some other way than in quarter turns has no resize handles', async ({ page }) => {
 		await twoSelected(page);
 		await page.getByTestId('object-list').locator('li').first().locator('button').first().click();

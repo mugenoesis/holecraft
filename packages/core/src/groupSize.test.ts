@@ -44,11 +44,18 @@ describe('setGroupSize', () => {
 		expect(setGroupSize(d, 'nope', { width: 40 })).toBe(d);
 	});
 
-	it('refuses a locked group, one that is tipped over, and one that holds a thread (it would stretch it)', () => {
+	it('takes a typed size for a tipped group too, along its own axes', () => {
 		const { d, g } = pair();
-		const [locked, tipped] = [setLocked(d, [g], true), setNodeEuler(d, g, [30, 0, 0])];
+		const tipped = setNodeEuler(d, g, [30, 0, 0]);
+		const out = setGroupSize(tipped, g, { width: 160 });
+		expect(out).not.toBe(tipped);
+		expect(groupGeometry(out, g)).toMatchObject({ width: 160, depth: 20, height: 20 });
+	});
+
+	it('refuses a locked group and one that holds a thread (it would stretch it)', () => {
+		const { d, g } = pair();
+		const locked = setLocked(d, [g], true);
 		expect(setGroupSize(locked, g, { width: 160 })).toBe(locked);
-		expect(setGroupSize(tipped, g, { width: 160 })).toBe(tipped);
 		let t = addShape(createEmptyDesign('d'), 'threaded-rod', [0, 0], { id: 'a' }).design;
 		t = setShapeParam(t, 'a', 'size', 8);
 		t = addShape(t, 'box', [30, 0], { id: 'b' }).design;

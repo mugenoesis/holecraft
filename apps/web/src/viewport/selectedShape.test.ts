@@ -100,6 +100,17 @@ describe('selectedHandles', () => {
 		expect(selectedHandles(setNodeEuler(scene(), 'a', [0, 0, 30]), ['a'])!.tilted).toBe(false);
 	});
 
+	it('gives a tipped group handles along its own axes, as a tipped shape has', () => {
+		const level = groupNodes(scene(), ['a', 'b'], { id: 'g' }).design;
+		expect(selectedHandles(level, ['g'])!.tilted).toBe(false);
+		const tipped = setNodeEuler(level, 'g', [30, 0, 0]);
+		const h = selectedHandles(tipped, ['g'])!;
+		expect(h.id).toBe('g');
+		expect(h.tilted).toBe(true);
+		expect(h.rotation).toEqual(rotationOfTransform(tipped.nodes.g!.transform));
+		expect(h.geometry.width).toBeCloseTo(70);
+	});
+
 	it('is null for a group that cannot be scaled exactly, and the usual nothing cases', () => {
 		const d = scene();
 		const grouped = groupNodes(setNodeEuler(d, 'a', [0, 0, 45]), ['a', 'b'], { id: 'g' }).design;
