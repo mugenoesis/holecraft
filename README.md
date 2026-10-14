@@ -19,11 +19,12 @@ independent project with its own code and design, and it runs entirely on your o
 - **Docker**: self-host it and open it from any browser on your network.
 - **Linux desktop app**: AppImage or .deb that works fully offline.
 
-> **Status: early development (Phase 4d of the roadmap done).** You can keep a library
-> of designs that save automatically, navigate a 3D workplane, add boxes, cylinders, spheres, cones, pyramids, wedges, roofs and domes,
-> select, move, resize, lift and rotate them, edit their properties, make shapes into holes and
-> group them to cut real holes out of solids, undo/redo, **import** existing models (STL, OBJ,
-> 3MF) and **export for 3D printing** (STL, OBJ, 3MF). Phase 5 tools (align, mirror, ruler...) come next.
+> **Status: version 0.1, the first release.** A library of designs that save automatically; shapes (basic,
+> parametric, threads and fasteners, text, SVG and sketches) with move, resize, rotate, holes and groups that
+> cut real geometry; chamfers and rounds on any edge; align, flip, ruler and Workplane tools; colour
+> painting and a filament palette; **import** (STL, OBJ, 3MF, SVG) and **export** (STL, OBJ, 3MF, and 3MF for
+> OrcaSlicer). Still to come: more Sketch tools (revolve, fillets, dimensions), packaging (Flatpak, multi-arch
+> Docker, login) and version history. There is no authentication, so keep it on a trusted network.
 
 ## Colours and multi-colour printing
 
@@ -160,6 +161,15 @@ easy to back up or copy.
 
 ### Docker
 
+Run the published image (amd64):
+
+```bash
+docker run -d --name holecraft -p 8080:8080 -v holecraft-data:/data mugenoesis/holecraft:0.1.0
+# open http://<host>:8080
+```
+
+Or build it yourself from a clone:
+
 ```bash
 docker compose -f docker/compose.yaml up -d --build
 # open http://<host>:8080
@@ -231,6 +241,7 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/install-hooks.sh` | Use the git hooks in `.githooks/` (pre-commit: lint, knip, typecheck, unit tests; pre-push: `scripts/check.sh`, with `FULL=1` / `AUDIT=1` for more). Stands in for CI while GitHub Actions is unavailable |
 | `scripts/e2e.sh` | Playwright tests in the Playwright Docker image |
 | `scripts/docker-smoke.sh` | Build the image, run it, verify health and non-root user |
+| `scripts/release-docker.sh` | Build the release image (`mugenoesis/holecraft:<version>` and `latest`), smoke-test it, and push it to Docker Hub with `PUSH=1` |
 | `scripts/package-desktop.sh` | Build the AppImage and .deb (in a Debian container) |
 | `npm run knip` | Unused files, exports and dependencies (fails the gate) |
 | `npm run coverage` | Unit tests with coverage; per-package floors in `vitest.config.ts` fail the gate, HTML report in `coverage/` |
