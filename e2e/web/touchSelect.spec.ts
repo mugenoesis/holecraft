@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { Fingers } from './fingers.ts';
-import { camera, center, dropShape, newDesign, selectedNames, viewport } from './helpers.ts';
+import { camera, center, dropShape, newDesign, openPanel, selectedNames, viewport } from './helpers.ts';
 
 /*
  * Selecting more than one object with a finger alone: a Select toggle in the view toolbar makes every tap add to (or take
@@ -19,7 +19,7 @@ async function threeShapes(page: Page) {
 	await dropShape(page, 'Box', -150, 0);
 	await dropShape(page, 'Cylinder', 150, 0);
 	await dropShape(page, 'Sphere', 0, 120);
-	await page.getByRole('heading', { name: 'Objects' }).click();
+	await openPanel(page, 'Objects'); // a touch screen has the compact layout, where the list is a tab of the panel
 	await page.keyboard.press('Escape'); // nothing selected
 	const c = await center(viewport(page));
 	return { c, left: { x: c.x - 150, y: c.y }, right: { x: c.x + 150, y: c.y }, below: { x: c.x, y: c.y + 120 } };
@@ -57,10 +57,12 @@ test.describe('multi-select with a finger', () => {
 	});
 
 	test('with it on, dragging a selected object does not move it (a drag is for the selection box)', async ({ page }) => {
-		const { left } = await threeShapes(page);
+		const { left, right } = await threeShapes(page);
 		await toggle(page).click();
 		const fingers = await Fingers.on(page);
 		await fingers.tap(left);
+		// two are selected, so there are no resize or rotation handles over the finger (a single selected shape has them, and they take a drag)
+		await fingers.tap(right);
 		const listed = () => row(page, 0).innerText(); // "Box 1 (x, y)"
 		const before = await listed();
 		await fingers.drag([left], [{ x: left.x + 60, y: left.y + 40 }]);

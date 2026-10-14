@@ -1,5 +1,6 @@
 import { type Design, MAX_PALETTE_SIZE, type NodeId } from '@holecraft/core';
 import { type Dispatch, useState } from 'react';
+import { ColourField, useColourEdit } from './ColourField.tsx';
 import type { EditorAction } from './editorState.ts';
 
 interface Props {
@@ -17,6 +18,11 @@ export function PalettePanel({ design, selection, dispatch }: Props) {
 	const [chosen, setChosen] = useState(0);
 	const { palette } = design;
 	const slot = Math.min(chosen, palette.length - 1);
+	const edit = useColourEdit(
+		dispatch,
+		(color) => ({ type: 'previewPalette', slot, color }),
+		(color) => ({ type: 'paletteSet', slot, color }),
+	);
 
 	return (
 		<section aria-label="Colours">
@@ -44,15 +50,7 @@ export function PalettePanel({ design, selection, dispatch }: Props) {
 			</div>
 
 			<div className="palette-edit">
-				<label className="field">
-					<span>Colour {slot + 1}</span>
-					<input
-						type="color"
-						aria-label="Change the chosen colour"
-						value={palette[slot]}
-						onChange={(e) => dispatch({ type: 'paletteSet', slot, color: e.target.value })}
-					/>
-				</label>
+				<ColourField label={`Colour ${slot + 1}`} inputLabel="Change the chosen colour" value={palette[slot]!} {...edit} />
 				<div className="button-row">
 					<button
 						type="button"

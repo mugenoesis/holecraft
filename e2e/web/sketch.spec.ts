@@ -239,6 +239,7 @@ test.describe('Edit sketch', () => {
 		expect(await number(page, 'Width')).toBe(before);
 
 		await edit(page).click();
+		await cameraSettled(page); // the view eases to the sketch: drawing before it arrives would land the corners somewhere else
 		await tool(page, 'Rectangle').click();
 		await drag(page, [90, -20], [150, 20]);
 		await finishSketch(page);

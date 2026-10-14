@@ -1,12 +1,15 @@
 import type { Design, NodeId, ShapeType, Vec3, WorkPlane } from '@holecraft/core';
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { ArrangePanel } from './ArrangePanel.tsx';
+import { type PanelTab, useCompactLayout, usePanelTab } from './compactLayout.ts';
 import { ApiError, getDesign, uploadThumbnail } from './designsApi.ts';
 import { useEditorShortcuts } from './editorShortcuts.ts';
 import { createEditorState, editorReducer } from './editorState.ts';
 import { NotFound } from './NotFound.tsx';
 import { PalettePanel } from './PalettePanel.tsx';
+import { PanelTabs } from './PanelTabs.tsx';
 import { PropertiesPanel } from './PropertiesPanel.tsx';
+import { SelectionBar } from './SelectionBar.tsx';
 import { ObjectList, ShapesPanel } from './ShapesPanel.tsx';
 import { TopBar } from './TopBar.tsx';
 import { useAutosave } from './useAutosave.ts';
@@ -102,10 +105,15 @@ function EditorView({ initial }: { initial: Design }) {
 	);
 
 	const [width, depth] = design.grid.size;
+	// Phones, folding phones and tablets: one panel tab at a time, and the selection's edits as buttons over the view.
+	const compact = useCompactLayout();
+	const [tab, setTab] = usePanelTab(state.selection.length);
+	const shown = (t: PanelTab) => !compact || tab === t;
 
 	return (
-		<div className="app">
+		<div className={compact ? 'app compact' : 'app'}>
 			<TopBar
+				compact={compact}
 				state={state}
 				dispatch={dispatch}
 				meshes={meshes}
@@ -156,21 +164,39 @@ function EditorView({ initial }: { initial: Design }) {
 								: { type: 'addSketch', plane: { origin: frame.origin, normal: frame.normal }, outlines, height },
 						)
 					}
+					compact={compact}
+					selectionBar={compact && <SelectionBar design={design} selection={state.selection} dispatch={dispatch} />}
 				/>
 				<aside className="panel">
-					<ShapesPanel
-						onAddShape={(shape) => (plane ? addOnPlane(shape, plane, plane.origin) : addAt(shape, [0, 0]))}
-						saved={{
-							items: library.items,
-							onAdd: (id) => void addSaved(id, plane ? { plane, point: plane.origin } : { at: [0, 0] }),
-							onRename: (id, name) => void library.rename(id, name),
-							onDelete: (id) => void library.remove(id),
-						}}
-					/>
-					<PropertiesPanel design={design} selection={state.selection} dispatch={dispatch} library={library} onEditSketch={setSketchEdit} />
-					<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
-					<PalettePanel design={design} selection={state.selection} dispatch={dispatch} />
-					<ObjectList design={design} selection={state.selection} onSelect={select} dispatch={dispatch} />
+					{compact && <PanelTabs tab={tab} onTab={setTab} selected={state.selection.length} />}
+					{/* hidden rather than left out, so a tab keeps what was typed in it (a search, a name) */}
+					<div className="panel-tab" hidden={!shown('shapes')}>
+						<ShapesPanel
+							onAddShape={(shape) => (plane ? addOnPlane(shape, plane, plane.origin) : addAt(shape, [0, 0]))}
+							saved={{
+								items: library.items,
+								onAdd: (id) => void addSaved(id, plane ? { plane, point: plane.origin } : { at: [0, 0] }),
+								onRename: (id, name) => void library.rename(id, name),
+								onDelete: (id) => void library.remove(id),
+							}}
+						/>
+					</div>
+					<div className="panel-tab" hidden={!shown('edit')}>
+						<PropertiesPanel
+							design={design}
+							selection={state.selection}
+							dispatch={dispatch}
+							library={library}
+							onEditSketch={setSketchEdit}
+						/>
+						<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
+					</div>
+					<div className="panel-tab" hidden={!shown('colours')}>
+						<PalettePanel design={design} selection={state.selection} dispatch={dispatch} />
+					</div>
+					<div className="panel-tab" hidden={!shown('objects')}>
+						<ObjectList design={design} selection={state.selection} onSelect={select} dispatch={dispatch} />
+					</div>
 				</aside>
 			</main>
 

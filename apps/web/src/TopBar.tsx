@@ -21,31 +21,45 @@ interface Props {
 	meshes: ReadonlyMap<string, MeshData>;
 	onImported: (input: MeshShapeInput, mesh: MeshData) => void;
 	save: { status: SaveStatus; problem: string | null; lastError: string | undefined };
+	/** The compact layout: arrows for undo and redo, and group and ungroup left to the bar over the view. */
+	compact: boolean;
 }
 
 /** The bar across the top of the editor: back link, undo/redo, group, name, import/export and save status. */
-export function TopBar({ state, dispatch, meshes, onImported, save }: Props) {
+export function TopBar({ state, dispatch, meshes, onImported, save, compact }: Props) {
 	const design = state.history.present;
 	const selection: readonly NodeId[] = state.selection;
 
 	return (
 		<header className="topbar">
 			<Link to="/" className="back-link" title="Back to all your designs">
-				← All designs
+				← <span className="back-label">All designs</span>
 			</Link>
 			<div className="brand">
 				<img src="/icon-192.png" alt="" width={24} height={24} />
 				<span>Holecraft</span>
 			</div>
 			<div className="edit-actions" role="toolbar" aria-label="Edit">
-				<button type="button" onClick={() => dispatch({ type: 'undo' })} disabled={!canUndo(state.history)} title="Undo (Ctrl+Z)">
-					Undo
+				<button
+					type="button"
+					aria-label="Undo"
+					onClick={() => dispatch({ type: 'undo' })}
+					disabled={!canUndo(state.history)}
+					title="Undo (Ctrl+Z)"
+				>
+					{compact ? '↶' : 'Undo'}
 				</button>
-				<button type="button" onClick={() => dispatch({ type: 'redo' })} disabled={!canRedo(state.history)} title="Redo (Ctrl+Shift+Z)">
-					Redo
+				<button
+					type="button"
+					aria-label="Redo"
+					onClick={() => dispatch({ type: 'redo' })}
+					disabled={!canRedo(state.history)}
+					title="Redo (Ctrl+Shift+Z)"
+				>
+					{compact ? '↷' : 'Redo'}
 				</button>
 			</div>
-			<div className="edit-actions" role="toolbar" aria-label="Group">
+			<div className="edit-actions" role="toolbar" aria-label="Group" hidden={compact}>
 				<button
 					type="button"
 					onClick={() => dispatch({ type: 'group' })}

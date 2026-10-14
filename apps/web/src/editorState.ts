@@ -128,6 +128,11 @@ export type EditorAction =
 	// The Paint tool's brush: a stroke on one shape, grown by previewPaint between paintStart and moveEnd (or cancelDrag).
 	| { type: 'paintStart'; id: NodeId }
 	| { type: 'previewPaint'; id: NodeId; fill: PaintFill }
+	// The colour wheel: colourStart begins a drag (with or without a selection), previewColor / previewPalette show a colour
+	// on the shapes as it is dragged, moveEnd keeps the last one as one undo step and cancelDrag takes it back.
+	| { type: 'colourStart' }
+	| { type: 'previewColor'; ids: NodeId[]; color: string }
+	| { type: 'previewPalette'; slot: number; color: string }
 	| { type: 'cancelDrag' }
 	| { type: 'removeEdges'; id: NodeId; ids: string[] }
 	| { type: 'undo' }
@@ -176,9 +181,11 @@ type SelectionAction = ActionOf<'pick' | 'marquee' | 'selectAll' | 'clearSelecti
 type DragAction = ActionOf<
 	'moveStart' | 'move' | 'moveEnd' | 'setGeometry' | 'setRotation' | 'previewEdges' | 'paintStart' | 'previewPaint' | 'cancelDrag'
 >;
+/** The colour wheel's drag: like any other drag it ends with moveEnd or cancelDrag. */
+type ColourDragAction = ActionOf<'colourStart' | 'previewColor' | 'previewPalette'>;
 type HistoryAction = ActionOf<'undo' | 'redo'>;
 /** Everything else: edits to the document itself, each one an undoable step. */
-type EditAction = Exclude<EditorAction, SelectionAction | DragAction | HistoryAction>;
+type EditAction = Exclude<EditorAction, SelectionAction | DragAction | ColourDragAction | HistoryAction>;
 
 /** Changes to what is selected. */
 function reduceSelection(state: EditorState, action: SelectionAction): EditorState {
@@ -242,6 +249,25 @@ function reduceDrag(state: EditorState, action: DragAction): EditorState {
 
 		case 'cancelDrag':
 			return state.drag ? { ...state, history: replacePresent(state.history, state.drag.base), drag: null } : state;
+	}
+}
+
+/** The colour wheel: shows a colour on the design the drag began from, with or without a selection. */
+function reduceColourDrag(state: EditorState, action: ColourDragAction): EditorState {
+	const design = state.history.present;
+	switch (action.type) {
+		case 'colourStart':
+			return state.drag ? state : { ...state, drag: { base: design, ids: [...state.selection] } };
+
+		case 'previewColor':
+			return state.drag
+				? { ...state, history: replacePresent(state.history, setNodeColor(state.drag.base, action.ids, action.color)) }
+				: state;
+
+		case 'previewPalette':
+			return state.drag
+				? { ...state, history: replacePresent(state.history, setPaletteColor(state.drag.base, action.slot, action.color)) }
+				: state;
 	}
 }
 
@@ -463,6 +489,11 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 		case 'previewPaint':
 		case 'cancelDrag':
 			return reduceDrag(state, action);
+
+		case 'colourStart':
+		case 'previewColor':
+		case 'previewPalette':
+			return reduceColourDrag(state, action);
 
 		case 'undo':
 		case 'redo':

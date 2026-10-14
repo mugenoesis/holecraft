@@ -172,7 +172,8 @@ describe('setShapeSketch', () => {
 	it('is one change, the same design when nothing changed, and refused for a locked or other shape or a drawing with nothing in it', () => {
 		const d = made();
 		expect(setShapeSketch(d, 's', sketchShown(node(d)))).toBe(d);
-		expect(setShapeSketch(setLocked(d, ['s'], true), 's', slab())).toEqual(setLocked(d, ['s'], true));
+		const locked = setLocked(d, ['s'], true);
+		expect(setShapeSketch(locked, 's', slab())).toBe(locked);
 		expect(setShapeSketch(d, 's', [])).toBe(d);
 		expect(setShapeSketch(d, 'nope', slab())).toBe(d);
 	});
