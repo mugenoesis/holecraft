@@ -164,7 +164,7 @@ easy to back up or copy.
 Run the published image (amd64):
 
 ```bash
-docker run -d --name holecraft -p 8080:8080 -v holecraft-data:/data mugenoesis/holecraft:0.1.1
+docker run -d --name holecraft -p 8080:8080 -v holecraft-data:/data mugenoesis/holecraft:0.2.0
 # open http://<host>:8080
 ```
 
@@ -242,6 +242,7 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/e2e.sh` | Playwright tests in the Playwright Docker image |
 | `scripts/docker-smoke.sh` | Build the image, run it, verify health and non-root user |
 | `scripts/release-docker.sh` | Build the release image (`mugenoesis/holecraft:<version>` and `latest`), smoke-test it, and push it to Docker Hub with `PUSH=1` |
+| `scripts/release-desktop.sh` | Build the AppImage and .deb for the release version, check them, write `SHA256SUMS.txt`, and attach them to the GitHub release with `UPLOAD=1` |
 | `scripts/package-desktop.sh` | Build the AppImage and .deb (in a Debian container) |
 | `npm run knip` | Unused files, exports and dependencies (fails the gate) |
 | `npm run coverage` | Unit tests with coverage; per-package floors in `vitest.config.ts` fail the gate, HTML report in `coverage/` |

@@ -1,6 +1,6 @@
 {
 	"name": "@holecraft/web",
-	"version": "0.1.1",
+	"version": "0.2.0",
 	"private": true,
 	"description": "holecraft browser editor",
 	"license": "AGPL-3.0-only",
@@ -11,8 +11,8 @@
 		"preview": "vite preview"
 	},
 	"dependencies": {
-		"@holecraft/core": "0.1.1",
-		"@holecraft/geometry": "0.1.1",
+		"@holecraft/core": "0.2.0",
+		"@holecraft/geometry": "0.2.0",
 		"manifold-3d": "3.5.4",
 		"react": "^19.3.0",
 		"react-dom": "^19.3.0",
