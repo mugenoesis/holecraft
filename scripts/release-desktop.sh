@@ -46,7 +46,15 @@ done
 (cd "$OUT" && sha256sum "$(basename "$APPIMAGE")" "$(basename "$DEB")" > SHA256SUMS.txt && cat SHA256SUMS.txt)
 
 if [[ "${UPLOAD:-0}" == "1" ]]; then
-  gh release upload "$TAG" "$APPIMAGE" "$DEB" "$OUT/SHA256SUMS.txt" --clobber
+  # Replace by hand rather than with --clobber: gh uploads the files side by side, and clobbering them together can leave only the smallest one.
+  for file in "$APPIMAGE" "$DEB" "$OUT/SHA256SUMS.txt"; do
+    gh release delete-asset "$TAG" "$(basename "$file")" --yes >/dev/null 2>&1 || true
+  done
+  gh release upload "$TAG" "$APPIMAGE" "$DEB" "$OUT/SHA256SUMS.txt"
+  for file in "$APPIMAGE" "$DEB" "$OUT/SHA256SUMS.txt"; do
+    state="$(gh release view "$TAG" --json assets --jq ".assets[] | select(.name == \"$(basename "$file")\") | .state")"
+    [[ "$state" == "uploaded" ]] || { echo "$(basename "$file") is not on release $TAG (state: '$state')" >&2; exit 1; }
+  done
   echo "Attached the packages to release $TAG"
 else
   echo "Built and checked the $VERSION packages in $OUT (not uploaded; UPLOAD=1 attaches them to release $TAG)"
