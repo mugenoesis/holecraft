@@ -177,7 +177,7 @@ easy to back up or copy.
 Run the published image (amd64):
 
 ```bash
-docker run -d --name holecraft -p 8080:8080 -v holecraft-data:/data mugenoesis/holecraft:0.2.0
+docker run -d --name holecraft -p 8080:8080 -v holecraft-data:/data mugenoesis/holecraft:0.3.0
 # open http://<host>:8080
 ```
 
