@@ -200,6 +200,76 @@ body {
 	cursor: pointer;
 }
 
+.export-menu .menu {
+	min-width: 320px;
+}
+
+.menu-divider {
+	margin: 4px 0;
+	border-top: 1px solid var(--border);
+}
+
+.menu-link {
+	padding: 4px 10px 6px;
+	font-size: 12px;
+	color: var(--accent);
+	text-align: left;
+	text-decoration: underline;
+	background: transparent;
+	border: 0;
+	cursor: pointer;
+}
+
+.trident-form {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 300px;
+	padding: 10px;
+	border-top: 1px solid var(--border);
+	margin-top: 4px;
+}
+
+.trident-form label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	font-size: 12px;
+}
+
+.trident-form input {
+	padding: 6px 8px;
+	font: inherit;
+}
+
+.trident-form p {
+	margin: 0;
+	font-size: 12px;
+}
+
+.trident-actions {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+.trident-forget {
+	margin-right: auto;
+}
+
+.trident-error {
+	max-width: 320px;
+	padding: 6px 10px;
+	font-size: 12px;
+	color: var(--bad);
+}
+
+.trident-note {
+	max-width: 320px;
+	padding: 6px 10px;
+	font-size: 12px;
+}
+
 .menu .muted {
 	font-size: 12px;
 }

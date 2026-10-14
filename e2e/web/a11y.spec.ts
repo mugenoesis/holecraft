@@ -39,6 +39,33 @@ test.describe('accessibility (axe, WCAG A and AA)', () => {
 		expect(await problems(page)).toEqual([]);
 	});
 
+	test('the export menu with Send to Trident: the setup form, then the settings, and a message when sending failed', async ({
+		page,
+		request,
+	}) => {
+		await newDesign(page);
+		await page.getByRole('button', { name: /^Box/ }).first().click();
+		await page.getByRole('button', { name: 'Export', exact: true }).click();
+		const menu = page.locator('.export-menu .menu');
+		await expect(page.getByRole('menu', { name: 'Export format' })).toBeVisible();
+		expect(await problems(page), 'the menu').toEqual([]);
+		await menu.getByRole('menuitem', { name: /Send to Trident/ }).click();
+		await expect(menu.getByLabel('Address')).toBeVisible();
+		expect(await problems(page), 'the setup form').toEqual([]);
+		// an address nothing is listening on: the failure message shows in the menu
+		await request.put('/api/trident', { data: { url: 'http://127.0.0.1:9', key: 'k' } });
+		await menu.getByRole('button', { name: 'Cancel' }).click();
+		await page.keyboard.press('Escape');
+		await page.getByRole('button', { name: 'Export', exact: true }).click();
+		await menu.getByRole('menuitem', { name: /Send to Trident/ }).click();
+		await expect(menu.getByRole('alert')).toBeVisible();
+		expect(await problems(page), 'the failure message').toEqual([]);
+		await menu.getByRole('button', { name: 'Trident settings…' }).click();
+		await expect(menu.getByLabel('API key')).toBeVisible();
+		expect(await problems(page), 'the settings form').toEqual([]);
+		await request.delete('/api/trident');
+	});
+
 	test('the designs list when it cannot load, and the editor when the save fails', async ({ page }) => {
 		await page.route('**/api/designs', (route) => route.abort());
 		await page.goto('/');

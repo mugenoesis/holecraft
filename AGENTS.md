@@ -393,6 +393,12 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Desktop: exports are normal downloads, so Electron asks where to save. `HOLECRAFT_DOWNLOAD_DIR`
   skips the dialog and saves into a folder, which is how the desktop e2e test works.
 
+## Send to Trident
+- **The server sends, not the browser** (`apps/server/src/trident.ts`): `GET|PUT|DELETE /api/trident` keep the address and key in `<data>/trident.json` (mode 600, written by rename; `GET` and `PUT` only ever say `hasKey`, and `PUT` keeps the key when it is left out, replaces it when given, drops it when empty); `POST /api/trident/send` takes the 3MF as `model/3mf` (limit 200 MB, name in `x-file-name`), uploads it to `<url>/models` as multipart with `Authorization: Bearer <key>` (none when there is no key), and answers `{ openUrl: <url>/?model=<id> }`. A redirect is an error (a POST would become a GET); failures are 502 with a message fit to show (401 names the key, 403, 413, unreachable with the address, not a Trident); not set up is 409. The address must be http(s) with no login in it.
+- **The file is `exportOrcaBytes`** (exportDesign.ts: the same bytes as the "3MF for OrcaSlicer" download, kept in memory). Web: `tridentApi.ts` (client), `useTrident.ts` (state; opens the new tab **at the click**, before the network wait, so popup blockers allow it, then points it at `openUrl`, or closes it on failure; with no tab allowed it shows a link), `ExportMenuItems.tsx` (the menu items and the Trident row, the setup/settings form, message and settings link).
+- **Accessibility**: the `role="menu"` holds only the format rows, the separator and the Send row; the form, message and link sit beside it inside the dropdown (a menu may not contain a form: axe fails it, and a scan of that state is in a11y.spec.ts). Tests: `tridentRoutes.test.ts` (a fake Trident in the test), `tridentApi.test.ts`, `e2e/web/trident.spec.ts` (a fake Trident in the test process, which the e2e server reaches).
+- Trident's side (API keys, `?model=<id>`) is in the Trident repo, from 0.6.
+
 ## Palette and OrcaSlicer export
 - `design.palette` (1 to 16 `#rrggbb`, `DEFAULT_PALETTE` = the four default shape colours) is saved with the design
   (format version 2; `MIGRATIONS[1]` adds the default palette to older files). Slot n is filament n.

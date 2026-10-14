@@ -37,11 +37,14 @@ export function hasExportableShapes(design: Design): boolean {
 	});
 }
 
-/**
- * Exports the whole design as a file download. Throws, with a message fit to show, if there is
- * nothing to export (every solid is a hole, hidden, or has been cut away completely).
- */
-export async function runExport(design: Design, format: ExportFormat, deps: ExportDeps): Promise<void> {
+/** A built export: the file's name, its bytes and its media type. */
+interface BuiltExport {
+	fileName: string;
+	data: Uint8Array | string;
+	mime: string;
+}
+
+async function buildExport(design: Design, format: ExportFormat, deps: ExportDeps): Promise<BuiltExport> {
 	const bodies = await deps.bodies(design);
 	if (bodies.length === 0) throw new Error('Nothing to export: there are no solid shapes in this design');
 
@@ -54,5 +57,20 @@ export async function runExport(design: Design, format: ExportFormat, deps: Expo
 				: format === 'orca3mf'
 					? write3mf(bodies, { filaments: design.palette })
 					: write3mf(bodies);
-	deps.save(exportFileName(design.name, info.extension), data, info.mime);
+	return { fileName: exportFileName(design.name, info.extension), data, mime: info.mime };
+}
+
+/**
+ * Exports the whole design as a file download. Throws, with a message fit to show, if there is
+ * nothing to export (every solid is a hole, hidden, or has been cut away completely).
+ */
+export async function runExport(design: Design, format: ExportFormat, deps: ExportDeps): Promise<void> {
+	const built = await buildExport(design, format, deps);
+	deps.save(built.fileName, built.data, built.mime);
+}
+
+/** The "3MF for OrcaSlicer" file, kept in memory instead of downloaded: what is sent to Trident. */
+export async function exportOrcaBytes(design: Design, deps: ExportDeps): Promise<{ fileName: string; data: Uint8Array }> {
+	const built = await buildExport(design, 'orca3mf', deps);
+	return { fileName: built.fileName, data: built.data as Uint8Array };
 }
