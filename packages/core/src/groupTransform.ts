@@ -103,12 +103,12 @@ function innerNodes(design: Design, id: NodeId): DesignNode[] {
 
 /**
  * A group's contents as the box the resize handles work on: base centre in the world, and size along the group's own
- * x, y and z. Null unless the group is only turned about the vertical (the handles work on upright boxes).
+ * x, y and z, however the group is turned (a tipped group's handles work along its own axes, like a tipped shape's).
  */
 export function groupGeometry(design: Design, id: NodeId): ShapeGeometry | null {
 	const node = design.nodes[id];
 	const b = groupLocalBounds(design, id);
-	if (node?.kind !== 'group' || !b || !isUpright(rotationOfTransform(node.transform))) return null;
+	if (node?.kind !== 'group' || !b) return null;
 	const [x, y, z] = transformPoint(node.transform, [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, b.min[2]]);
 	return { x, y, z, width: b.max[0] - b.min[0], depth: b.max[1] - b.min[1], height: b.max[2] - b.min[2] };
 }
@@ -116,7 +116,7 @@ export function groupGeometry(design: Design, id: NodeId): ShapeGeometry | null 
 /**
  * Whether a group can be resized exactly. A group has no scale of its own, so resizing rescales every shape inside,
  * which is only exact while each one is turned in quarter turns within its group, and no thread is inside (a thread keeps its real size) (then its width, depth and height
- * line up with the group's axes). The group itself must be upright.
+ * line up with the group's axes). The group itself may be turned any way: the stretch is worked out in its own frame.
  */
 export function canResizeGroup(design: Design, id: NodeId): boolean {
 	return (
@@ -193,15 +193,17 @@ function stretched(
 
 /**
  * Resizes and/or lifts a group to the box `g` (as groupGeometry describes it): everything inside is stretched to match, so the
- * contents fill the new box exactly. Refused (same design back) for a locked group, one that is not upright or has shapes turned
- * other than in quarter turns, bad numbers, a base below the workplane, or a shape that would pass the size limits.
+ * contents fill the new box exactly. Refused (same design back) for a locked group, one that has shapes turned other than in quarter
+ * turns, bad numbers, a level group's base below the workplane (a tipped one's base centre may dip, as a tipped shape's can), or a shape
+ * that would pass the size limits.
  */
 export function setGroupGeometry(design: Design, id: NodeId, g: ShapeGeometry, now?: Date): Design {
 	const node = design.nodes[id];
 	const from = groupLocalBounds(design, id);
 	const sizes = [g.width, g.depth, g.height];
 	if (node?.kind !== 'group' || node.locked || !from || !canResizeGroup(design, id)) return design;
-	if (![g.x, g.y, g.z, ...sizes].every(Number.isFinite) || g.z < 0 || sizes.some((v) => v <= 0)) return design;
+	const belowFloor = g.z < 0 && isUpright(rotationOfTransform(node.transform));
+	if (![g.x, g.y, g.z, ...sizes].every(Number.isFinite) || belowFloor || sizes.some((v) => v <= 0)) return design;
 
 	const [cx, cy, cz] = transformPoint(rigidInverse(node.transform), [g.x, g.y, g.z]);
 	const to = { min: [cx - g.width / 2, cy - g.depth / 2, cz] as Vec3, max: [cx + g.width / 2, cy + g.depth / 2, cz + g.height] as Vec3 };

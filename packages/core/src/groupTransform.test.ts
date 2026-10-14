@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { createEmptyDesign, type Design } from './design.ts';
 import { setNodeEuler, setShapeSize } from './edit.ts';
 import { groupNodes } from './groups.ts';
-import { canResizeGroup, groupGeometry, groupLocalCentre, groupRings, setGroupGeometry, setGroupRotation } from './groupTransform.ts';
+import {
+	canResizeGroup,
+	groupGeometry,
+	groupLocalBounds,
+	groupLocalCentre,
+	groupRings,
+	setGroupGeometry,
+	setGroupRotation,
+} from './groupTransform.ts';
+import { transformPoint } from './mat4.ts';
 import { addShape, nodeBoundsIn, shapeBounds } from './ops.ts';
 import { eulerToMatrix, rotationOfTransform } from './rotation.ts';
 
@@ -141,11 +150,25 @@ describe('groupGeometry', () => {
 		expect([geo.x, geo.y]).toEqual([expect.closeTo(30), expect.closeTo(0)]);
 	});
 
-	it('is null for a shape, a missing node or a group that is not upright', () => {
-		const { d, g } = pair();
+	it('is null for a shape or a missing node', () => {
+		const { d } = pair();
 		expect(groupGeometry(d, 'a')).toBeNull();
 		expect(groupGeometry(d, 'nope')).toBeNull();
-		expect(groupGeometry(setGroupRotation(d, g, eulerToMatrix([30, 0, 0])), g)).toBeNull();
+	});
+
+	it('still has one when the group is tipped: the size along its own axes, and its own base centre in the world', () => {
+		const { d, g } = pair();
+		const tipped = setGroupRotation(d, g, eulerToMatrix([90, 0, 0]));
+		const geo = groupGeometry(tipped, g)!;
+		close([geo.width, geo.depth, geo.height], [80, 20, 20]);
+		// the base of the contents (own z = 0) is the point the group's own frame puts there
+		const local = groupLocalBounds(tipped, g)!;
+		const base = transformPoint(tipped.nodes[g]!.transform, [
+			(local.min[0]! + local.max[0]!) / 2,
+			(local.min[1]! + local.max[1]!) / 2,
+			local.min[2]!,
+		]);
+		close([geo.x, geo.y, geo.z], base);
 	});
 });
 
@@ -159,10 +182,15 @@ describe('canResizeGroup', () => {
 		expect(canResizeGroup(turned, g)).toBe(true);
 	});
 
-	it('is false when a shape inside is turned some other way, or the group is tipped', () => {
+	it('is false when a shape inside is turned some other way', () => {
 		const { d, g } = pair();
 		expect(canResizeGroup(setNodeEuler(d, 'a', [0, 0, 45]), g)).toBe(false);
-		expect(canResizeGroup(setGroupRotation(d, g, eulerToMatrix([20, 0, 0])), g)).toBe(false);
+	});
+
+	it('does not mind the group itself being tipped: its contents are still in quarter turns in its own frame', () => {
+		const { d, g } = pair();
+		expect(canResizeGroup(setGroupRotation(d, g, eulerToMatrix([20, 0, 0])), g)).toBe(true);
+		expect(canResizeGroup(setNodeEuler(setGroupRotation(d, g, eulerToMatrix([20, 0, 0])), 'a', [0, 0, 45]), g)).toBe(false);
 	});
 
 	it('looks inside nested groups too, and refuses shapes', () => {
@@ -239,6 +267,28 @@ describe('setGroupGeometry', () => {
 		const b = nodeBoundsIn(out, g)!; // the group's x now runs along world y
 		expect(b.max[1]! - b.min[1]!).toBeCloseTo(160);
 		expect(b.max[0]! - b.min[0]!).toBeCloseTo(20);
+	});
+
+	it('stretches a tipped group along its own axes', () => {
+		const { d, g } = pair();
+		// turned a quarter about Y, the group's own x (its 80 mm length) runs straight down the world z
+		const tipped = setGroupRotation(d, g, eulerToMatrix([0, 90, 0]));
+		const geo = groupGeometry(tipped, g)!;
+		const before = nodeBoundsIn(tipped, g)!;
+		close([before.max[2]! - before.min[2]!, before.max[0]! - before.min[0]!], [80, 20]);
+		const out = setGroupGeometry(tipped, g, { ...geo, width: 160 });
+		const after = nodeBoundsIn(out, g)!;
+		close([after.max[2]! - after.min[2]!, after.max[0]! - after.min[0]!, after.max[1]! - after.min[1]!], [160, 20, 20]);
+		// the two boxes were stretched with it: each is now 40 along the group's own x
+		expect((out.nodes.a as unknown as { params: { width: number } }).params.width).toBeCloseTo(40);
+		expect(out.nodes[g]!.transform).toEqual(tipped.nodes[g]!.transform); // the group itself did not move or turn
+	});
+
+	it('lets a tipped group\u2019s base dip below the workplane, as a tipped shape\u2019s may, but not a level one', () => {
+		const { d, g } = pair();
+		const tipped = setGroupRotation(d, g, eulerToMatrix([0, 90, 0]));
+		const geo = groupGeometry(tipped, g)!;
+		expect(setGroupGeometry(tipped, g, { ...geo, z: -5 })).not.toBe(tipped);
 	});
 
 	it('refuses bad numbers, sizes that are too big or too small, locked groups, and what cannot be scaled exactly', () => {

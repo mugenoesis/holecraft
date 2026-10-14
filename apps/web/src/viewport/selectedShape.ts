@@ -78,15 +78,9 @@ export function selectedHandles(
 	if (!id || !node || node.locked || node.hidden) return null;
 	if (node.kind === 'group') {
 		const geometry = canResizeGroup(design, id) ? groupGeometry(design, id) : null;
+		const rotation = rotationOfTransform(node.transform);
 		return (
-			geometry && {
-				id,
-				geometry,
-				yaw: eulerOfTransform(node.transform)[2],
-				rotation: rotationOfTransform(node.transform),
-				tilted: false,
-				lengthOnly: false,
-			}
+			geometry && { id, geometry, yaw: eulerOfTransform(node.transform)[2], rotation, tilted: !isUpright(rotation), lengthOnly: false }
 		);
 	}
 	const shape = selectedShape(design, selection);
