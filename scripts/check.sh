@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# The full pre-commit gate: lockfile consistency (workspaces pin each other to an exact version, so a version bump must touch them all), Biome (format, lint, complexity), unused code (knip), typecheck, unit tests with
+# The full pre-commit gate: lockfile consistency (workspaces pin each other to an exact version, so a version bump
+# must touch every package), Biome (format, lint, complexity), unused code (knip), typecheck, unit tests with
 # coverage floors, build, browser integration tests.
 #
 # Usage: scripts/check.sh           # fast gate (no packaging)
