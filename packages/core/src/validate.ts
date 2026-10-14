@@ -13,6 +13,7 @@ import {
 } from './design.ts';
 import { MAX_SHAPE_SIZE } from './edit.ts';
 import type { GridSettings } from './grid.ts';
+import { MAX_STRETCH, MIN_STRETCH } from './groupFrame.ts';
 import { isMeshRef, MESH_SHAPE_TYPE } from './meshShape.ts';
 import { DEFAULT_PALETTE, isHexColor, MAX_PALETTE_SIZE } from './palette.ts';
 import { isShapeType } from './shapes.ts';
@@ -297,16 +298,31 @@ function parseShape(base: BaseNode, raw: Raw, path: string): ShapeNode {
 	return { ...base, kind: 'shape', shapeType, params, ...(sketch && { sketch }) };
 }
 
+/** A group's stretch: three positive numbers within limits, or nothing (all 1 is the same as none, so it is left out). */
+function parseStretch(v: unknown, path: string): [number, number, number] | undefined {
+	if (v === undefined) return undefined;
+	if (
+		!Array.isArray(v) ||
+		v.length !== 3 ||
+		!v.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= MIN_STRETCH && n <= MAX_STRETCH)
+	)
+		fail(path, `must be three numbers from ${MIN_STRETCH} to ${MAX_STRETCH}`);
+	const scale = v as [number, number, number];
+	return scale.every((n) => n === 1) ? undefined : scale;
+}
+
 function parseGroup(base: BaseNode, raw: Raw, path: string): GroupNode {
 	if (!Array.isArray(raw.children) || !raw.children.every((c) => typeof c === 'string'))
 		fail(`${path}.children`, 'must be a list of node ids');
 	if (raw.op !== 'union' && raw.op !== 'intersect') fail(`${path}.op`, 'must be "union" or "intersect"');
+	const scale = parseStretch(raw.scale, `${path}.scale`);
 	return {
 		...base,
 		kind: 'group',
 		children: [...(raw.children as string[])],
 		op: raw.op,
 		multicolor: bool(raw.multicolor, `${path}.multicolor`),
+		...(scale && { scale }),
 	};
 }
 
@@ -339,6 +355,8 @@ const MIGRATIONS: Record<number, (design: Record<string, unknown>) => Record<str
 	4: (design) => design,
 	// 5 -> 6: a sketch's sides may be arcs or smooth curves (`segments`). Nothing to change in older files.
 	5: (design) => design,
+	// 6 -> 7: a group may carry a stretch along its own axes (`scale`). Nothing to change in older files.
+	6: (design) => design,
 };
 
 function migrate(raw: Record<string, unknown>): Record<string, unknown> {

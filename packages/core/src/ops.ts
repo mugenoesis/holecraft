@@ -1,6 +1,7 @@
 import type { Bounds, Vec3 } from './camera.ts';
 import type { Design, DesignNode, Mat4, NodeId, ShapeNode } from './design.ts';
 import { IDENTITY } from './design.ts';
+import { groupFrame } from './groupFrame.ts';
 import { newId } from './ids.ts';
 import { multiplyMat4 } from './mat4.ts';
 import { getShapeDef, type ShapeType } from './shapes.ts';
@@ -98,7 +99,7 @@ function boundsWithin(design: Design, id: NodeId, parent: Readonly<Mat4>): Bound
 	if (node.kind === 'shape') return shapeBounds(node, parent);
 	if (node.kind !== 'group') return null;
 
-	const frame = multiplyMat4(parent, node.transform);
+	const frame = multiplyMat4(parent, groupFrame(node)); // the group's stretch included
 	const solids: Bounds[] = [];
 	const holes: Bounds[] = [];
 	for (const childId of node.children) {

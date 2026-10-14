@@ -6,7 +6,7 @@ import type { Sketch } from './sketch.ts';
 import type { Units } from './units.ts';
 
 /** Bump when the on-disk design format changes, and add a migration. */
-export const DESIGN_FORMAT_VERSION = 6;
+export const DESIGN_FORMAT_VERSION = 7;
 
 /** What the designs list shows about each saved design. */
 export interface DesignSummary {
@@ -129,6 +129,8 @@ export interface GroupNode extends BaseNode {
 	children: NodeId[];
 	op: 'union' | 'intersect';
 	multicolor: boolean;
+	/** A stretch along the group's own axes (see groupFrame.ts); left out when there is none. */
+	scale?: [number, number, number];
 }
 
 export type DesignNode = ShapeNode | MeshNode | GroupNode;

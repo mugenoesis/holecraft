@@ -434,7 +434,7 @@ describe('a sketch with curves', () => {
 		expect(() => parseDesign(raw)).toThrow(/points/);
 	});
 
-	it('is the format 6', () => {
-		expect(DESIGN_FORMAT_VERSION).toBe(6);
+	it('needs at least format 6 (curved sides)', () => {
+		expect(DESIGN_FORMAT_VERSION).toBeGreaterThanOrEqual(6);
 	});
 });

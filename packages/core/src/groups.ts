@@ -1,5 +1,6 @@
 import type { Design, DesignNode, GroupNode, NodeId } from './design.ts';
 import { IDENTITY } from './design.ts';
+import { bakeStretch } from './groupTransform.ts';
 import { newId } from './ids.ts';
 import { multiplyMat4 } from './mat4.ts';
 
@@ -25,12 +26,15 @@ export function canGroup(design: Design, ids: readonly NodeId[]): boolean {
 	return design.roots.filter((id) => wanted.has(id) && isEditable(design.nodes[id])).length >= 2;
 }
 
-/** True when `ungroupNodes` would dissolve something: the selection includes an unlocked top-level group. */
+/**
+ * True when `ungroupNodes` would dissolve something: the selection includes an unlocked top-level group, and if it has a stretch of its
+ * own that can be folded into the shapes it holds (one holding shapes turned at odd angles cannot: they would be sheared).
+ */
 export function canUngroup(design: Design, ids: readonly NodeId[]): boolean {
 	const wanted = new Set(ids);
 	return design.roots.some((id) => {
 		const n = design.nodes[id];
-		return wanted.has(id) && n?.kind === 'group' && !n.locked;
+		return wanted.has(id) && n?.kind === 'group' && !n.locked && bakeStretch(design, id) !== null;
 	});
 }
 
@@ -74,13 +78,26 @@ export function groupNodes(design: Design, ids: readonly NodeId[], opts: GroupOp
 	return { design: { ...design, nodes: { ...design.nodes, [id]: group }, roots, updatedAt: stamp(opts.now) }, id };
 }
 
+/** The design with the stretch of each wanted top-level group folded into its shapes, and the groups that can be ungrouped (one whose stretch cannot be folded in is left out). */
+function bakedForUngrouping(source: Design, wanted: Set<NodeId>): { design: Design; wanted: Set<NodeId> } {
+	let design = source;
+	const ready = new Set(wanted);
+	for (const id of wanted) {
+		if (!source.roots.includes(id) || source.nodes[id]?.kind !== 'group') continue;
+		const baked = bakeStretch(design, id);
+		if (baked) design = baked;
+		else ready.delete(id);
+	}
+	return { design, wanted: ready };
+}
+
 /**
  * Dissolves top-level groups, one level deep. Each child takes over the group's transform so it
  * stays exactly where it was, and a hole group turns its children into holes. Returns the
  * freed children in order; with no groups to dissolve, the design is returned as is.
  */
-export function ungroupNodes(design: Design, ids: readonly NodeId[], now?: Date): { design: Design; ids: NodeId[] } {
-	const wanted = new Set(ids);
+export function ungroupNodes(source: Design, ids: readonly NodeId[], now?: Date): { design: Design; ids: NodeId[] } {
+	const { design, wanted } = bakedForUngrouping(source, new Set(ids));
 	const nodes = { ...design.nodes };
 	const freed: NodeId[] = [];
 	const roots: NodeId[] = [];
@@ -104,5 +121,5 @@ export function ungroupNodes(design: Design, ids: readonly NodeId[], now?: Date)
 		delete nodes[rootId];
 	}
 
-	return freed.length ? { design: { ...design, nodes, roots, updatedAt: stamp(now) }, ids: freed } : { design, ids: [] };
+	return freed.length ? { design: { ...design, nodes, roots, updatedAt: stamp(now) }, ids: freed } : { design: source, ids: [] };
 }

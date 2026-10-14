@@ -1,5 +1,6 @@
 import type { Design, EdgeTreatment, EdgeTreatmentKind, NodeId } from './design.ts';
 import { edgeIsPresent, type MeshEdge } from './edges.ts';
+import { isStretched } from './groupFrame.ts';
 import { hasThread } from './threadStandards.ts';
 
 /**
@@ -87,6 +88,9 @@ export function edgeToolTarget(design: Design, selection: readonly NodeId[]): { 
 	if (!node || node.kind === 'mesh' || node.hidden) return { problem: 'Select a shape or group to chamfer or round its edges' };
 	if (node.mode === 'hole') return { problem: 'Holes have no edges to treat; select a solid' };
 	if (node.locked) return { problem: `${node.name} is locked` };
+	if (node.kind === 'group' && isStretched(node)) {
+		return { problem: 'This group has been stretched along its own axes, so its edges cannot be chamfered or rounded' };
+	}
 	if (node.kind === 'shape' && hasThread(node.shapeType)) {
 		return { problem: 'Threads have no edges to chamfer or round; group one with a part to treat that part' };
 	}

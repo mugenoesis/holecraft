@@ -6,6 +6,7 @@ import {
 	type Design,
 	type GroupNode,
 	getShapeDef,
+	groupFrame,
 	isMirrored,
 	isShapeType,
 	MESH_SHAPE_TYPE,
@@ -320,7 +321,7 @@ export class DesignScene {
 			obj.name = node.name;
 			this.objects.set(node.id, obj);
 		}
-		this.applyTransform(obj, node.transform);
+		this.applyTransform(obj, groupFrame(node)); // the group's own stretch too: it is drawn stretched, its cut is not redone
 		obj.visible = !node.hidden;
 		if (obj.parent !== parent) parent.add(obj);
 

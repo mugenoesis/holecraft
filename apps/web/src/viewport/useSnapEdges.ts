@@ -1,4 +1,4 @@
-import { type Design, type MeshData, type MeshEdge, type NodeId, type SnapEdge, worldEdges } from '@holecraft/core';
+import { type Design, type MeshData, type MeshEdge, type NodeId, nodeFrame, type SnapEdge, worldEdges } from '@holecraft/core';
 import { meshRefsIn, subtreeOf, toolEdgesKey } from '@holecraft/geometry';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FindEdges } from './useToolEdges.ts';
@@ -19,7 +19,7 @@ export function placedEdges(
 	return wanted.flatMap(([id, key]) => {
 		const edges = known.get(key);
 		const node = design.nodes[id];
-		return edges && node ? worldEdges(edges, node.transform) : [];
+		return edges && node ? worldEdges(edges, nodeFrame(node)) : [];
 	});
 }
 

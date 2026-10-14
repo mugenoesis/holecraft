@@ -57,6 +57,14 @@ describe('fillFor: a click on the surface becomes a fill in the shape’s own fr
 		expect(r.id).toBe('g');
 	});
 
+	it('says why a group stretched along its own axes cannot be painted', () => {
+		const d = groupNodes(addShape(box(), 'cylinder', [60, 0], { id: 'b' }).design, ['a', 'b'], { id: 'g' }).design;
+		const stretched = { ...d, nodes: { ...d.nodes, g: { ...d.nodes.g!, scale: [2, 1, 1] } as never } };
+		expect(fillFor(stretched, { id: 'g', point: [0, 0, 20], normal: [0, 0, 1] }, settings())).toEqual({
+			problem: expect.stringMatching(/stretched/),
+		});
+	});
+
 	it('says why not, rather than painting: nothing under the pointer, a locked shape, a hole', () => {
 		const say = (d: ReturnType<typeof box>, id?: string) =>
 			fillFor(d, { ...(id && { id }), point: [0, 0, 20], normal: [0, 0, 1] }, settings());

@@ -5,6 +5,7 @@ import {
 	DEFAULT_FILL_ANGLE,
 	type Design,
 	type DesignNode,
+	isStretched,
 	MAX_BRUSH_DABS,
 	type NodeId,
 	newId,
@@ -56,6 +57,8 @@ function paintable(design: Design, hit: SurfaceClick): { id: NodeId; node: Desig
 	if (!hit.id || !node || node.kind === 'mesh' || !design.roots.includes(hit.id)) return { problem: 'Click a shape to paint it' };
 	if (node.locked) return { problem: `${node.name} is locked` };
 	if (node.mode === 'hole') return { problem: 'A hole has no surface to paint' };
+	if (node.kind === 'group' && isStretched(node))
+		return { problem: `${node.name} has been stretched along its own axes, so it cannot be painted` };
 	if (!canPaint(design, hit.id)) return { problem: `${node.name} can't be painted` };
 	return { id: hit.id, node };
 }

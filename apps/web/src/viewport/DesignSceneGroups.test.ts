@@ -164,3 +164,29 @@ describe('DesignScene restructuring', () => {
 		expect(allMeshes()).toHaveLength(3);
 	});
 });
+
+describe('DesignScene with a stretched group', () => {
+	const stretched = (scale: [number, number, number]): Design => ({
+		...grouped,
+		nodes: { ...grouped.nodes, g: { ...grouped.nodes.g!, scale } as never },
+	});
+
+	it('draws the group stretched along its own axes: the group object carries the stretch', () => {
+		scene.sync(stretched([2, 3, 0.5]));
+		const group = scene.root.children.find((o) => o instanceof THREE.Group)!;
+		expect(group.scale.toArray()).toEqual([2, 3, 0.5]);
+	});
+
+	it('is picked where it is drawn, not where it was: the sphere at x = 50 is now at x = 100, and the gap is at 50', () => {
+		scene.sync(stretched([2, 1, 1]));
+		scene.root.updateMatrixWorld(true);
+		expect(scene.pick(ray(100, 0))).toBe('g');
+		expect(scene.pick(ray(50, 0))).toBeNull();
+	});
+
+	it('is still drawn at its size when it has no stretch', () => {
+		scene.sync(grouped);
+		const group = scene.root.children.find((o) => o instanceof THREE.Group)!;
+		expect(group.scale.toArray()).toEqual([1, 1, 1]);
+	});
+});

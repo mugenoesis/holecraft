@@ -111,10 +111,15 @@ describe('selectedHandles', () => {
 		expect(h.geometry.width).toBeCloseTo(70);
 	});
 
-	it('is null for a group that cannot be scaled exactly, and the usual nothing cases', () => {
+	it('gives a group holding a shape turned at an odd angle its handles too: it is stretched instead of rewritten', () => {
+		const grouped = groupNodes(setNodeEuler(scene(), 'a', [0, 0, 45]), ['a', 'b'], { id: 'g' }).design;
+		expect(selectedHandles(grouped, ['g'])?.id).toBe('g');
+	});
+
+	it('is null for a group holding a thread (it keeps its real size), and the usual nothing cases', () => {
 		const d = scene();
-		const grouped = groupNodes(setNodeEuler(d, 'a', [0, 0, 45]), ['a', 'b'], { id: 'g' }).design;
-		expect(selectedHandles(grouped, ['g'])).toBeNull();
+		const withRod = groupNodes(addShape(d, 'threaded-rod', [200, 0], { id: 'r' }).design, ['a', 'r'], { id: 'tg' }).design;
+		expect(selectedHandles(withRod, ['tg'])).toBeNull();
 		expect(selectedHandles(d, [])).toBeNull();
 		expect(selectedHandles(d, ['a', 'b'])).toBeNull();
 		expect(selectedHandles(setLocked(d, ['a'], true), ['a'])).toBeNull();
