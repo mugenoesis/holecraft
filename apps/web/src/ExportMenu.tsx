@@ -1,6 +1,7 @@
 import type { Design, MeshData, NodeId } from '@holecraft/core';
 import { useEffect, useRef, useState } from 'react';
-import { EXPORT_FORMATS, type ExportFormat, exportDeps, hasExportableShapes, onlySelected, runExport } from './exportDesign.ts';
+import { ExportMenuItems } from './ExportMenuItems.tsx';
+import { type ExportFormat, exportDeps, hasExportableShapes, onlySelected, runExport } from './exportDesign.ts';
 
 /** The "Export" button and its menu of file formats, for the top bar. */
 export function ExportMenu({
@@ -65,19 +66,19 @@ export function ExportMenu({
 			</button>
 
 			{open && (
-				<div className="menu" role="menu" aria-label="Export format">
+				<div className="menu">
 					{picked && (
 						<label className="menu-option">
 							<input type="checkbox" checked={selectedOnly} onChange={(e) => setSelectedOnly(e.target.checked)} />
 							Only the selected ({selection.length})
 						</label>
 					)}
-					{EXPORT_FORMATS.map((f) => (
-						<button key={f.id} type="button" role="menuitem" aria-label={`Export as ${f.label}`} onClick={() => void start(f.id)}>
-							<strong>{f.label}</strong>
-							<span className="muted">{f.hint}</span>
-						</button>
-					))}
+					<ExportMenuItems
+						source={usingSelection ? picked : design}
+						meshes={meshes}
+						onFormat={(format) => void start(format)}
+						onSent={() => setOpen(false)}
+					/>
 				</div>
 			)}
 

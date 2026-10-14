@@ -96,6 +96,7 @@ The **Export** button in the top bar downloads the whole design as (tick **Only 
 | **OBJ** | Other 3D programs. Text, in millimetres, one named object per shape |
 | **3MF** | Viewers and other 3D programs. Keeps each object's name and colour, in millimetres. Slicers such as OrcaSlicer and Trident ignore these colours: use **3MF for OrcaSlicer** for multi-colour printing |
 | **3MF for OrcaSlicer** | Multi-colour printing in OrcaSlicer, Bambu Studio and Trident: each object is assigned the filament of its colour (see below) |
+| **Send to Trident** | Not a file: sends the same file as *3MF for OrcaSlicer* to your [Trident](https://github.com/mugenoesis/Trident) slicer and opens it there in a new tab (see below) |
 
 What you get is what you see: holes are cut out of the solids they share a group with, every
 shape is placed where it sits (moved, lifted, turned), and each top-level shape or group becomes its
@@ -103,6 +104,18 @@ own object. Holes that are not in a group with a solid, hidden shapes and anythi
 completely are left out. The file is named after the design. The files have been checked with an
 independent mesh library (`scripts/verify-exports.sh`): closed, consistently wound, the right volume.
 In the desktop app you choose where to save; set `HOLECRAFT_DOWNLOAD_DIR` to save straight into a folder.
+
+### Send to Trident
+
+If you run a Trident slicer (version 0.6 or later), **Export, Send to Trident** uploads the design to it and opens it there, with the palette
+as filaments, in one click. The first time it asks for Trident's address (such as `http://192.168.1.3:8000`) and an API key; make the key in Trident
+under the settings cog, **API keys…**, as a *Holecraft* key (it can only upload models). Leave the key empty if your Trident has no login. After that
+the menu shows where it sends to, and **Trident settings…** changes or forgets it. *Only the selected* is respected.
+
+Holecraft's server sends the file, not your browser, so the two need no shared folder, Trident needs no cross-site setup and Holecraft may be on
+https while Trident is on http. The address and key are kept in `trident.json` in Holecraft's data folder (readable only by the server's user);
+the key is never sent back to the browser. Holecraft has no login, so anyone who can open it can send to that Trident or change the settings: keep both on a
+trusted network.
 
 ## Your designs
 

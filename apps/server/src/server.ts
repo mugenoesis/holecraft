@@ -7,6 +7,7 @@ import { DesignStore } from './designs.ts';
 import { LibraryStore, registerLibraryRoutes } from './library.ts';
 import { MeshStore, registerMeshRoutes } from './meshes.ts';
 import { ThumbnailStore } from './thumbnails.ts';
+import { registerTridentRoutes, TridentStore } from './trident.ts';
 
 export interface ServerOptions {
 	/** Where designs, thumbnails and imported meshes are stored. Created if missing. */
@@ -35,6 +36,7 @@ export async function createServer(opts: ServerOptions): Promise<FastifyInstance
 	const meshes = new MeshStore(opts.dataDir);
 	await meshes.init();
 	registerMeshRoutes(app, meshes);
+	registerTridentRoutes(app, new TridentStore(opts.dataDir));
 
 	const staticDir = opts.staticDir;
 	if (staticDir) {
