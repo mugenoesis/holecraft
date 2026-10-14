@@ -1,8 +1,10 @@
 import {
 	createSketchEditor,
 	type Design,
+	draftArc,
 	draftLine,
 	draftOutline,
+	draftSpline,
 	frameOfNode,
 	frameOfPlane,
 	fromFrame,
@@ -163,7 +165,9 @@ export function SketchTool({ getViewport, design, plane, editId, camera, onFinis
 				outlines={state.outlines}
 				selected={state.selected}
 				draftShape={draftOutline(state)}
-				draftLine={draftLine(state)}
+				draftLine={state.tool === 'line' ? draftLine(state) : null}
+				draftArc={draftArc(state)}
+				draftSpline={draftSpline(state)}
 				toScreen={toScreen}
 			/>
 			<SketchBar
@@ -174,6 +178,7 @@ export function SketchTool({ getViewport, design, plane, editId, camera, onFinis
 				hint={problem ?? sketchHint(state)}
 				canFinish={state.outlines.length > 0}
 				canDelete={state.selected !== null}
+				canReshape={state.selected !== null}
 				editing={editId !== null}
 				onTool={(tool) => dispatch({ type: 'tool', tool })}
 				onSides={(sides) => dispatch({ type: 'sides', sides })}
@@ -183,6 +188,8 @@ export function SketchTool({ getViewport, design, plane, editId, camera, onFinis
 					setProblem(null);
 				}}
 				onDelete={() => dispatch({ type: 'key', key: 'Delete' })}
+				onStraighten={() => dispatch({ type: 'straighten' })}
+				onSmooth={() => dispatch({ type: 'smooth' })}
 				onCancel={onCancel}
 				onFinish={finish}
 			/>

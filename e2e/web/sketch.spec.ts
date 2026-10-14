@@ -32,9 +32,9 @@ async function clickAt(page: Page, dx: number, dy: number) {
 	await page.mouse.click(x + dx, y + dy);
 }
 /** Clicks Finish and waits for the new shape to be the selected one, so what is read next is its own. */
-async function finishSketch(page: Page) {
+async function finishSketch(page: Page, name = 'Sketch 1') {
 	await finish(page).click();
-	await expect(field(page, 'Name')).toHaveValue('Sketch 1');
+	await expect(field(page, 'Name')).toHaveValue(name);
 }
 const number = async (page: Page, label: string) => Number(await field(page, label).inputValue());
 const projection = (page: Page) => viewport(page).getAttribute('data-projection');
@@ -182,6 +182,151 @@ test.describe('the Sketch tool', () => {
 		const plate = await pixelAt(page, x + 55, y + 30);
 		expect(middle[2]).toBeGreaterThan(150); // the workplane's pale blue
 		expect(plate[0]).toBeGreaterThan(plate[2] + 60); // the solid is coral
+	});
+});
+
+test.describe('curves in a sketch', () => {
+	const mids = (page: Page) => page.getByTestId('sketch-mid');
+
+	/** A rectangle 120 x 40 pixels across the middle, selected with the Select tool. */
+	async function selectedRectangle(page: Page) {
+		await sketchButton(page).click();
+		await cameraSettled(page);
+		await drag(page, [-60, -20], [60, 20]);
+		await tool(page, 'Select').click();
+		await clickAt(page, 0, 0);
+	}
+	/** Finishes and reads the sketch's size. */
+	async function finishAndMeasure(page: Page, name = 'Sketch 1') {
+		await finishSketch(page, name);
+		return { w: await number(page, 'Width'), d: await number(page, 'Depth') };
+	}
+
+	test('the bar has Arc and Spline after Line', async ({ page }) => {
+		await sketchButton(page).click();
+		for (const name of ['Line', 'Arc', 'Spline']) await expect(tool(page, name)).toBeVisible();
+	});
+
+	test('an arc is a start, a point it passes through and its end; Enter closes it with a straight side: a half circle D is twice as wide as deep', async ({
+		page,
+	}) => {
+		await sketchButton(page).click();
+		await cameraSettled(page);
+		await tool(page, 'Arc').click();
+		for (const [x, y] of [
+			[-60, 0],
+			[0, 60],
+			[60, 0],
+		] as [number, number][])
+			await clickAt(page, x, y);
+		await expect(finish(page)).toBeDisabled(); // nothing is closed yet
+		await page.keyboard.press('Enter');
+		await expect(finish(page)).toBeEnabled();
+		const { w, d } = await finishAndMeasure(page);
+		expect(d / w).toBeGreaterThan(0.45);
+		expect(d / w).toBeLessThan(0.55);
+	});
+
+	test('clicking back on the start after a point to pass through closes the outline with an arc: two arcs make a circle', async ({
+		page,
+	}) => {
+		await sketchButton(page).click();
+		await cameraSettled(page);
+		await tool(page, 'Arc').click();
+		for (const [x, y] of [
+			[-60, 0],
+			[0, 60],
+			[60, 0],
+			[0, -60],
+			[-60, 0],
+		] as [number, number][])
+			await clickAt(page, x, y);
+		const { w, d } = await finishAndMeasure(page);
+		expect(Math.abs(w - d)).toBeLessThanOrEqual(2);
+	});
+
+	test('a spline through four points is closed on the first and is as wide as deep for a square of points', async ({ page }) => {
+		await sketchButton(page).click();
+		await cameraSettled(page);
+		await tool(page, 'Spline').click();
+		for (const [x, y] of [
+			[-50, -50],
+			[50, -50],
+			[50, 50],
+			[-50, 50],
+		] as [number, number][])
+			await clickAt(page, x, y);
+		await expect(finish(page)).toBeDisabled();
+		await clickAt(page, -50, -50);
+		await expect(finish(page)).toBeEnabled();
+		const { w, d } = await finishAndMeasure(page);
+		expect(Math.abs(w - d)).toBeLessThanOrEqual(2);
+	});
+
+	test('a selected outline shows a diamond on every side; dragging one bends the side out into an arc, so the shape is deeper', async ({
+		page,
+	}) => {
+		await selectedRectangle(page);
+		await expect(mids(page)).toHaveCount(4);
+		await drag(page, [0, 20], [0, 50]);
+		const bent = await finishAndMeasure(page);
+
+		await sketchButton(page).click();
+		await cameraSettled(page);
+		await drag(page, [-60, -20], [60, 20]);
+		const flat = await finishAndMeasure(page, 'Sketch 2');
+		expect(bent.d).toBeGreaterThan(flat.d * 1.3);
+		expect(bent.w).toBe(flat.w);
+	});
+
+	test('Straighten sides takes the bend out again', async ({ page }) => {
+		await selectedRectangle(page);
+		await drag(page, [0, 20], [0, 50]);
+		await bar(page).getByRole('button', { name: 'Straighten sides' }).click();
+		const straight = await finishAndMeasure(page);
+
+		await sketchButton(page).click();
+		await cameraSettled(page);
+		await drag(page, [-60, -20], [60, 20]);
+		expect(straight).toEqual(await finishAndMeasure(page, 'Sketch 2'));
+	});
+
+	test('Smooth corners turns the outline into one smooth curve, which rounds out past the corners', async ({ page }) => {
+		await selectedRectangle(page);
+		await bar(page).getByRole('button', { name: 'Smooth corners' }).click();
+		const smooth = await finishAndMeasure(page);
+
+		await sketchButton(page).click();
+		await cameraSettled(page);
+		await drag(page, [-60, -20], [60, 20]);
+		const flat = await finishAndMeasure(page, 'Sketch 2');
+		expect(smooth.w).toBeGreaterThan(flat.w);
+		expect(smooth.d).toBeGreaterThan(flat.d);
+	});
+
+	test('the buttons for sides are only there while an outline is selected', async ({ page }) => {
+		await sketchButton(page).click();
+		await cameraSettled(page);
+		await expect(bar(page).getByRole('button', { name: 'Smooth corners' })).toHaveCount(0);
+		await drag(page, [-60, -20], [60, 20]);
+		await tool(page, 'Select').click();
+		await clickAt(page, 0, 0);
+		await expect(bar(page).getByRole('button', { name: 'Smooth corners' })).toBeVisible();
+		await clickAt(page, 200, 120);
+		await expect(bar(page).getByRole('button', { name: 'Smooth corners' })).toHaveCount(0);
+	});
+
+	test('a circle keeps its curve through Edit sketch: finishing it again changes nothing', async ({ page }) => {
+		await sketchButton(page).click();
+		await cameraSettled(page);
+		await tool(page, 'Circle').click();
+		await drag(page, [0, 0], [50, 0]);
+		const before = await finishAndMeasure(page);
+		await page.getByRole('button', { name: 'Edit sketch', exact: true }).click();
+		await cameraSettled(page);
+		await expect(page.locator('.sketch-fill')).toHaveCount(1);
+		await finishSketch(page);
+		expect({ w: await number(page, 'Width'), d: await number(page, 'Depth') }).toEqual(before);
 	});
 });
 

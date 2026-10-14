@@ -10,6 +10,8 @@ interface Props {
 	hint: string;
 	canFinish: boolean;
 	canDelete: boolean;
+	/** An outline is selected, so its sides can be made straight or smooth. */
+	canReshape: boolean;
 	/** An existing sketch is being redrawn, not a new one drawn. */
 	editing: boolean;
 	onTool: (tool: SketchTool) => void;
@@ -17,6 +19,8 @@ interface Props {
 	onSnap: (on: boolean) => void;
 	onHeight: (text: string) => void;
 	onDelete: () => void;
+	onStraighten: () => void;
+	onSmooth: () => void;
 	onCancel: () => void;
 	onFinish: () => void;
 }
@@ -27,6 +31,8 @@ const TOOLS: readonly (readonly [SketchTool, string])[] = [
 	['circle', 'Circle'],
 	['polygon', 'Polygon'],
 	['line', 'Line'],
+	['arc', 'Arc'],
+	['spline', 'Spline'],
 ];
 
 /** The bar at the bottom of the view while drawing a sketch: the tools, their options, the snap and the thickness, and Cancel and Finish. */
@@ -74,6 +80,16 @@ export function SketchBar(p: Props) {
 					/>
 					<span>mm</span>
 				</span>
+				{p.canReshape && (
+					<>
+						<button type="button" onClick={p.onStraighten} title="Make every side of the selected outline straight">
+							Straighten sides
+						</button>
+						<button type="button" onClick={p.onSmooth} title="Make the selected outline one smooth curve through its corners">
+							Smooth corners
+						</button>
+					</>
+				)}
 			</div>
 			<div className="edge-tool-row">
 				<span className="muted paint-hint" aria-live="polite">

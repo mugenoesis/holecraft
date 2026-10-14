@@ -2060,3 +2060,16 @@ button.primary:disabled {
 .sketch-point.closable {
 	fill: #e8a317;
 }
+.sketch-mid {
+	fill: #fff;
+	stroke: #e8a317;
+	stroke-width: 2;
+}
+.sketch-mid.selected {
+	fill: #e8a317;
+}
+.sketch-through {
+	fill: none;
+	stroke: #e8a317;
+	stroke-width: 2;
+}

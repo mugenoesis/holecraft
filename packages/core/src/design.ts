@@ -6,7 +6,7 @@ import type { Sketch } from './sketch.ts';
 import type { Units } from './units.ts';
 
 /** Bump when the on-disk design format changes, and add a migration. */
-export const DESIGN_FORMAT_VERSION = 5;
+export const DESIGN_FORMAT_VERSION = 6;
 
 /** What the designs list shows about each saved design. */
 export interface DesignSummary {

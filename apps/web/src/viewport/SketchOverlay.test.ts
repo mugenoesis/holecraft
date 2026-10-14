@@ -76,3 +76,79 @@ describe('the sketch overlay', () => {
 		expect(three).toContain('closable');
 	});
 });
+
+describe('the sketch overlay with curves', () => {
+	const circle = {
+		points: [
+			[-10, 0],
+			[10, 0],
+		] as [number, number][],
+		segments: [1, 1] as (number | 'line' | 'curve')[],
+	};
+
+	it('draws a curved outline as many short pieces of its true curve', () => {
+		const html = render({ outlines: [circle] });
+		expect(html.match(/L/g)!.length).toBeGreaterThan(20);
+	});
+
+	it('shows a diamond in the middle of every side of the selected outline, the selected side filled', () => {
+		const html = render({ outlines: [square(0, 0, 10)], selected: { outline: 0, segment: 1 } });
+		expect(html.match(/data-testid="sketch-mid"/g)).toHaveLength(4);
+		expect(html).toMatch(/class="[^"]*selected"[^>]*data-segment="1"|data-segment="1"[^>]*class="[^"]*selected"/);
+		expect(render({ outlines: [square(0, 0, 10)], selected: null })).not.toContain('sketch-mid');
+	});
+
+	it('puts the diamonds on the curve, not on the chord: a circle’s two are at the bottom and the top', () => {
+		const html = render({ outlines: [circle], selected: { outline: 0 } });
+		expect(html).toMatch(/data-segment="0"[^>]*d="M0,114 /);
+		expect(html).toMatch(/data-segment="1"[^>]*d="M0,74 /);
+	});
+
+	it('draws a path of arcs being clicked out: the arcs so far, the next one dashed, the point it goes through and the corners', () => {
+		const html = render({
+			draftArc: {
+				points: [
+					[0, 0],
+					[10, 0],
+				],
+				through: [14, 6],
+				placed: [
+					[0, 0],
+					[5, -5],
+					[10, 0],
+				],
+				preview: [
+					[10, 0],
+					[12, 3],
+					[14, 6],
+				],
+			},
+		});
+		expect(html).toContain('0,100 10,110 20,100');
+		expect(html).toMatch(/data-testid="sketch-arc-preview"[^>]*points="20,100 24,94 28,88"/);
+		expect(html.match(/data-testid="sketch-point"/g)).toHaveLength(2);
+		expect(html).toContain('data-testid="sketch-through"');
+	});
+
+	it('draws a spline being clicked out: the smooth curve, and its corners with the first one ready to close it once there are three', () => {
+		const html = render({
+			draftSpline: {
+				points: [
+					[0, 0],
+					[10, 0],
+					[10, 10],
+				],
+				curve: [
+					[0, 0],
+					[5, -1],
+					[10, 0],
+					[11, 5],
+					[10, 10],
+				],
+			},
+		});
+		expect(html).toContain('0,100 10,102 20,100 22,90 20,80');
+		expect(html.match(/data-testid="sketch-point"/g)).toHaveLength(3);
+		expect(html).toContain('closable');
+	});
+});
