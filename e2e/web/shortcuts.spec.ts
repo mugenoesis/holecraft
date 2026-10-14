@@ -21,6 +21,21 @@ test.describe('the keyboard shortcut sheet', () => {
 		await expect(sheet).toBeHidden();
 	});
 
+	test('keeps the keyboard inside while open, and gives it back to the ? button on close', async ({ page }) => {
+		await newDesign(page);
+		const opener = page.getByRole('button', { name: 'Keyboard shortcuts' });
+		await opener.focus();
+		await page.keyboard.press('Enter');
+		const close = page.getByRole('button', { name: 'Close' });
+		await expect(close).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(close).toBeFocused();
+		await page.keyboard.press('Shift+Tab');
+		await expect(close).toBeFocused();
+		await page.keyboard.press('Escape');
+		await expect(opener).toBeFocused();
+	});
+
 	test('a click outside it shuts it; typing ? in the design name does not open it', async ({ page }) => {
 		await newDesign(page);
 		await page.getByLabel('Design name').fill('What?');

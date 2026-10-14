@@ -6,6 +6,7 @@
 	--muted: #5f6f7e;
 	--accent: #0f766e;
 	--ok: #16a34a;
+	--ok-text: #15803d;
 	--warn: #d97706;
 	--bad: #dc2626;
 	font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -224,7 +225,7 @@ body {
 }
 
 .save-status.saved {
-	color: var(--ok);
+	color: var(--ok-text);
 }
 
 .save-status.error {
