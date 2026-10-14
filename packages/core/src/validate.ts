@@ -16,7 +16,16 @@ import type { GridSettings } from './grid.ts';
 import { isMeshRef, MESH_SHAPE_TYPE } from './meshShape.ts';
 import { DEFAULT_PALETTE, isHexColor, MAX_PALETTE_SIZE } from './palette.ts';
 import { isShapeType } from './shapes.ts';
-import { MAX_SKETCH_COORDINATE, MAX_SKETCH_OUTLINES, MAX_SKETCH_POINTS, type Sketch } from './sketch.ts';
+import {
+	isSketchSegment,
+	MAX_SKETCH_COORDINATE,
+	MAX_SKETCH_OUTLINES,
+	MAX_SKETCH_POINTS,
+	type Sketch,
+	type SketchOutline,
+	type SketchSegment,
+} from './sketch.ts';
+import { MAX_BULGE } from './sketchCurves.ts';
 
 /** A saved design that cannot be trusted, with where in it the problem is. */
 export class DesignValidationError extends Error {
@@ -242,22 +251,36 @@ function parseShapeParams(rawParams: unknown, path: string): Record<string, numb
 	return params;
 }
 
+/** One outline: its points, and the kind of each side if any is curved (one per point). */
+function parseOutline(outline: unknown, where: string): SketchOutline {
+	if (!isRecord(outline) || !Array.isArray(outline.points) || outline.points.length < 2 || outline.points.length > MAX_SKETCH_POINTS)
+		fail(where, `must be an outline of 2 to ${MAX_SKETCH_POINTS} points`);
+	const points = outline.points.map((p, k) => {
+		const ok = Array.isArray(p) && p.length === 2 && p.every((n) => isFiniteNumber(n) && Math.abs(n) <= MAX_SKETCH_COORDINATE);
+		if (!ok) fail(`${where}.points.${k}`, `must be a point: two finite numbers, none beyond ±${MAX_SKETCH_COORDINATE}`);
+		return [(p as number[])[0]!, (p as number[])[1]!] as [number, number];
+	});
+	const segments = outline.segments === undefined ? undefined : parseSegments(outline.segments, points.length, where);
+	if (points.length < 3 && !segments?.some((kind) => kind !== 'line'))
+		fail(where, 'must be an outline of 3 or more points (2 when a side is curved)');
+	return { points, ...(segments && { segments }) };
+}
+
+/** The kinds of side of an outline: one per point, each a line, a smooth curve, or an arc by its bulge. */
+function parseSegments(raw: unknown, count: number, where: string): SketchSegment[] {
+	if (!Array.isArray(raw) || raw.length !== count) fail(`${where}.segments`, 'must give the kind of each side, one for each point');
+	return raw.map((kind, k) => {
+		if (!isSketchSegment(kind)) fail(`${where}.segments.${k}`, `must be a side: "line", "curve" or an arc's bulge up to ${MAX_BULGE}`);
+		return kind;
+	});
+}
+
 /** A sketch shape's drawing: 1 to 64 outlines of 3 to 512 points each. Not recentred: that is for whoever makes the drawing. */
 function parseSketch(raw: unknown, path: string): Sketch {
 	if (!isRecord(raw) || !Array.isArray(raw.outlines)) fail(`${path}.sketch`, 'a sketch shape needs a sketch with a list of outlines');
 	if (raw.outlines.length < 1 || raw.outlines.length > MAX_SKETCH_OUTLINES)
 		fail(`${path}.sketch.outlines`, `must have 1 to ${MAX_SKETCH_OUTLINES} outlines`);
-	const outlines = raw.outlines.map((outline, i) => {
-		const where = `${path}.sketch.outlines.${i}`;
-		if (!isRecord(outline) || !Array.isArray(outline.points) || outline.points.length < 3 || outline.points.length > MAX_SKETCH_POINTS)
-			fail(where, `must be an outline of 3 to ${MAX_SKETCH_POINTS} points`);
-		const points = outline.points.map((p, k) => {
-			const ok = Array.isArray(p) && p.length === 2 && p.every((n) => isFiniteNumber(n) && Math.abs(n) <= MAX_SKETCH_COORDINATE);
-			if (!ok) fail(`${where}.points.${k}`, `must be a point: two finite numbers, none beyond ±${MAX_SKETCH_COORDINATE}`);
-			return [(p as number[])[0]!, (p as number[])[1]!] as [number, number];
-		});
-		return { points };
-	});
+	const outlines = raw.outlines.map((outline, i) => parseOutline(outline, `${path}.sketch.outlines.${i}`));
 	return { outlines };
 }
 
@@ -314,6 +337,8 @@ const MIGRATIONS: Record<number, (design: Record<string, unknown>) => Record<str
 	3: (design) => design,
 	// 4 -> 5: shapes may be sketches (a drawing extruded). Nothing to change in older files.
 	4: (design) => design,
+	// 5 -> 6: a sketch's sides may be arcs or smooth curves (`segments`). Nothing to change in older files.
+	5: (design) => design,
 };
 
 function migrate(raw: Record<string, unknown>): Record<string, unknown> {

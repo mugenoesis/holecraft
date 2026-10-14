@@ -5,17 +5,21 @@ import {
 	outlineArea,
 	rectangleOutline,
 	regularPolygon,
+	SKETCH_TOLERANCE,
 	type SketchOutline,
 	type SketchPoint,
+	type SketchSegment,
 	sketchHits,
 } from './sketch.ts';
+import { bulgeThrough, flattenPath, segmentMidpoint } from './sketchCurves.ts';
+import { hasCurves, sideOf, smoothed, straightened, withoutPoint, withSide, withSides } from './sketchSides.ts';
 
 /**
  * The logic of the Sketch tool's drawing mode, with no screen in it: a state and a reducer fed plane coordinates (mm) and keys, so it is
  * tested without a browser. The view turns the pointer into plane coordinates, draws `outlines` and the draft, and gives back what was done.
  */
 
-export type SketchTool = 'select' | 'rectangle' | 'circle' | 'polygon' | 'line';
+export type SketchTool = 'select' | 'rectangle' | 'circle' | 'polygon' | 'line' | 'arc' | 'spline';
 export const MIN_SIDES = 3;
 export const MAX_SIDES = 32;
 const DEFAULT_SIDES = 6;
@@ -28,13 +32,17 @@ export interface Selected {
 	outline: number;
 	/** Set when one point of the outline is selected (to move it, or delete it). */
 	point?: number;
+	/** Set when one side of the outline is selected, by its middle handle (to bend it, or straighten it). */
+	segment?: number;
 }
 
 type Draft =
 	/** A rectangle, circle or polygon being dragged out. */
 	| { kind: 'shape'; from: SketchPoint; to: SketchPoint }
-	/** A line of points being clicked out, and where the pointer is now. */
+	/** A line (or, with the Spline tool, a smooth curve) of points being clicked out, and where the pointer is now. */
 	| { kind: 'line'; points: SketchPoint[]; hover: SketchPoint | null }
+	/** A path of arcs being clicked out: the corners so far, the bulge of the arc to each, the point the next arc goes through, and the pointer. */
+	| { kind: 'arc'; points: SketchPoint[]; bulges: number[]; through: SketchPoint | null; hover: SketchPoint | null }
 	/** A point or a whole outline being dragged, from the outlines as they were when the press began. */
 	| { kind: 'edit'; target: Selected; start: SketchPoint; base: SketchOutline[]; moved: boolean };
 
@@ -60,11 +68,17 @@ export type SketchAction =
 	| { type: 'up'; at: SketchPoint }
 	| { type: 'key'; key: string; ctrl?: boolean; shift?: boolean }
 	| { type: 'undo' }
-	| { type: 'redo' };
+	| { type: 'redo' }
+	// the selected outline: every side a line, or every side a smooth curve
+	| { type: 'straighten' }
+	| { type: 'smooth' };
 
 export function createSketchEditor(outlines: readonly SketchOutline[] = []): SketchEditorState {
 	return {
-		outlines: outlines.map((o) => ({ points: o.points.map((p): SketchPoint => [p[0], p[1]]) })),
+		outlines: outlines.map((o) => ({
+			points: o.points.map((p): SketchPoint => [p[0], p[1]]),
+			...(o.segments && { segments: [...o.segments] }),
+		})),
 		tool: 'select',
 		sides: DEFAULT_SIDES,
 		snap: DEFAULT_SNAP,
@@ -102,6 +116,45 @@ export function draftLine(state: SketchEditorState): { points: SketchPoint[]; ho
 	return state.draft?.kind === 'line' ? { points: state.draft.points, hover: state.draft.hover } : null;
 }
 
+/** The path of arcs being clicked out: its corners, the bulge of each arc, the point the next goes through, and the points to draw it by. */
+export function draftArc(state: SketchEditorState): {
+	points: SketchPoint[];
+	bulges: number[];
+	through: SketchPoint | null;
+	/** The arcs placed so far, as points of a path. */
+	placed: SketchPoint[];
+	/** The next arc as the pointer would make it (a straight line until a point to pass through is chosen). */
+	preview: SketchPoint[] | null;
+} | null {
+	const d = state.draft;
+	if (d?.kind !== 'arc') return null;
+	const last = d.points[d.points.length - 1]!;
+	const placed = flattenPath(d.points, d.bulges.map(sideOf), SKETCH_TOLERANCE);
+	const bulge = d.through && d.hover ? bulgeThrough(last, d.through, d.hover) : null;
+	const preview = d.hover ? flattenPath([last, d.hover], [bulge === null ? 'line' : sideOf(bulge)], SKETCH_TOLERANCE) : null;
+	return { points: d.points, bulges: d.bulges, through: d.through, placed, preview };
+}
+
+/** The smooth curve being clicked out with the Spline tool: its points, and the curve through them and the pointer (an open curve). */
+export function draftSpline(state: SketchEditorState): { points: SketchPoint[]; curve: SketchPoint[] } | null {
+	const d = state.draft;
+	if (d?.kind !== 'line' || state.tool !== 'spline') return null;
+	const through = d.hover ? [...d.points, d.hover] : d.points;
+	return {
+		points: d.points,
+		curve: flattenPath(
+			through,
+			through.map(() => 'curve'),
+			SKETCH_TOLERANCE,
+		),
+	};
+}
+
+/** The handles of an outline: its corners and the middle of each side (where a side is grabbed to bend it). */
+export function outlineHandles(outline: SketchOutline): { points: SketchPoint[]; mids: SketchPoint[] } {
+	return { points: outline.points, mids: outline.points.map((_, i) => segmentMidpoint(outline, i)) };
+}
+
 /** The selected outline, if one is. */
 export function selectedOutline(state: SketchEditorState): SketchOutline | null {
 	return state.selected ? (state.outlines[state.selected.outline] ?? null) : null;
@@ -134,47 +187,99 @@ function hitPoint(state: SketchEditorState, at: SketchPoint, reach: number): Sel
 	return best;
 }
 
+/** The middle handle of a side of the selected outline within `reach` of `at`: the side it belongs to, or null. */
+function hitSide(state: SketchEditorState, at: SketchPoint, reach: number): Selected | null {
+	const outline = state.selected ? state.outlines[state.selected.outline] : undefined;
+	if (!state.selected || !outline) return null;
+	let best: Selected | null = null;
+	let bestDistance = reach;
+	for (let segment = 0; segment < outline.points.length; segment++) {
+		const d = distance(at, segmentMidpoint(outline, segment));
+		if (d < bestDistance) [best, bestDistance] = [{ outline: state.selected.outline, segment }, d];
+	}
+	return best;
+}
+
 function pressSelect(state: SketchEditorState, at: SketchPoint, reach: number): SketchEditorState {
-	const target = hitPoint(state, at, reach) ?? sketchHits({ outlines: state.outlines }, at)[0] ?? null;
-	const selected = typeof target === 'number' ? { outline: target } : target;
+	const hit = hitPoint(state, at, reach) ?? hitSide(state, at, reach);
+	const body = sketchHits({ outlines: state.outlines }, at)[0];
+	const selected = hit ?? (body === undefined ? null : { outline: body });
 	if (!selected) return { ...state, selected: null, draft: null };
 	return { ...state, selected, draft: { kind: 'edit', target: selected, start: at, base: state.outlines, moved: false } };
 }
+
+/** The outline a finished line makes: straight sides, or all smooth curves for the Spline tool. */
+const lineOutline = (state: SketchEditorState, points: SketchPoint[]): SketchOutline =>
+	state.tool === 'spline' ? { points, segments: points.map((): SketchSegment => 'curve') } : { points };
 
 function pressLine(state: SketchEditorState, at: SketchPoint, reach: number): SketchEditorState {
 	const points = state.draft?.kind === 'line' ? state.draft.points : [];
 	const here = snapped(at, state.snap);
 	const first = points[0];
-	if (first && points.length >= 3 && distance(at, first) <= reach) return withOutline(state, { points });
+	if (first && points.length >= 3 && distance(at, first) <= reach) return withOutline(state, lineOutline(state, points));
 	const last = points[points.length - 1];
 	if ((first && distance(at, first) <= reach) || (last && distance(here, last) < 1e-9) || points.length >= MAX_SKETCH_POINTS) return state;
 	return { ...state, draft: { kind: 'line', points: [...points, here], hover: here } };
 }
 
+/** An arc's side kind, a line when it is flat enough. */
+const arcSides = (bulges: readonly number[]): SketchSegment[] => bulges.map(sideOf);
+
+/** The outline of an arc path, closed back to its first point by a side of the given kind. */
+const arcOutline = (d: Extract<Draft, { kind: 'arc' }>, closing: SketchSegment): SketchOutline =>
+	withSides({ points: d.points }, [...arcSides(d.bulges), closing]);
+
+/** A click with the Arc tool: the start, then each arc's point to pass through and its end (clicking back on the start closes the outline with that arc). */
+function pressArc(state: SketchEditorState, at: SketchPoint, reach: number): SketchEditorState {
+	const here = snapped(at, state.snap);
+	const d = state.draft?.kind === 'arc' ? state.draft : null;
+	if (!d) return { ...state, selected: null, draft: { kind: 'arc', points: [here], bulges: [], through: null, hover: here } };
+	const last = d.points[d.points.length - 1]!;
+	if (!d.through) return distance(here, last) < 1e-9 ? state : { ...state, draft: { ...d, through: here } };
+	const closing = d.points.length >= 2 && distance(at, d.points[0]!) <= reach;
+	const end = closing ? d.points[0]! : here;
+	const bulge = bulgeThrough(last, d.through, end);
+	if (bulge === null) return state;
+	if (closing) return withOutline(state, arcOutline(d, sideOf(bulge)));
+	if (d.points.length >= MAX_SKETCH_POINTS) return state;
+	return { ...state, draft: { ...d, points: [...d.points, end], bulges: [...d.bulges, bulge], through: null, hover: end } };
+}
+
 function press(state: SketchEditorState, at: SketchPoint, reach: number): SketchEditorState {
 	if (state.tool === 'select') return pressSelect(state, at, reach);
-	if (state.tool === 'line') return pressLine(state, at, reach);
+	if (state.tool === 'line' || state.tool === 'spline') return pressLine(state, at, reach);
+	if (state.tool === 'arc') return pressArc(state, at, reach);
 	if (state.outlines.length >= MAX_SKETCH_OUTLINES) return state;
 	const from = snapped(at, state.snap);
 	return { ...state, selected: null, draft: { kind: 'shape', from, to: from } };
 }
 
-/** `base` with the dragged point, or the whole dragged outline, moved to follow the pointer from where it was pressed. */
+/** Side `segment` of `outline` bent so its arc goes through `through` (a line when that is on the chord); the outline as it was if there is no such arc. */
+function bent(outline: SketchOutline, segment: number, through: SketchPoint): SketchOutline {
+	const [a, b] = [outline.points[segment]!, outline.points[(segment + 1) % outline.points.length]!];
+	const bulge = bulgeThrough(a, through, b);
+	return bulge === null ? outline : withSide(outline, segment, sideOf(bulge));
+}
+
+/** `base` with the dragged point, side or whole outline moved to follow the pointer from where it was pressed. */
 function dragged(state: SketchEditorState, draft: Extract<Draft, { kind: 'edit' }>, at: SketchPoint): SketchOutline[] {
-	const { outline, point } = draft.target;
+	const { outline, point, segment } = draft.target;
 	const to = snapped(at, state.snap);
 	const shift: SketchPoint = [at[0] - draft.start[0], at[1] - draft.start[1]];
 	const step = state.snap > 0 ? snapped(shift, state.snap) : shift;
 	return draft.base.map((o, i) => {
 		if (i !== outline) return o;
-		return { points: o.points.map((p, k): SketchPoint => (point === undefined ? [p[0] + step[0], p[1] + step[1]] : k === point ? to : p)) };
+		if (segment !== undefined) return bent(o, segment, to);
+		const moved = o.points.map((p, k): SketchPoint => (point === undefined ? [p[0] + step[0], p[1] + step[1]] : k === point ? to : p));
+		return { ...o, points: moved };
 	});
 }
 
 function track(state: SketchEditorState, at: SketchPoint): SketchEditorState {
 	const draft = state.draft;
-	if (draft?.kind === 'shape') return { ...state, draft: { ...draft, to: snapped(at, state.snap) } };
-	if (draft?.kind === 'line') return { ...state, draft: { ...draft, hover: snapped(at, state.snap) } };
+	const hover = snapped(at, state.snap);
+	if (draft?.kind === 'shape') return { ...state, draft: { ...draft, to: hover } };
+	if (draft?.kind === 'line' || draft?.kind === 'arc') return { ...state, draft: { ...draft, hover } };
 	if (draft?.kind === 'edit') {
 		const outlines = dragged(state, draft, at);
 		return { ...state, outlines, draft: { ...draft, moved: JSON.stringify(outlines) !== JSON.stringify(draft.base) } };
@@ -198,16 +303,40 @@ function cancel(state: SketchEditorState): SketchEditorState {
 	return { ...state, draft: null, outlines: draft?.kind === 'edit' ? draft.base : state.outlines };
 }
 
+/** Delete: a selected side goes straight again; a selected corner goes (the outline keeps three, or two with a curved side); otherwise the outline goes. */
 function deleteSelected(state: SketchEditorState): SketchEditorState {
 	const sel = state.selected;
 	const outline = sel ? state.outlines[sel.outline] : undefined;
 	if (!sel || !outline) return state;
-	const keepsShape = sel.point !== undefined && outline.points.length > 3;
-	const outlines = state.outlines.flatMap((o, i) => {
-		if (i !== sel.outline) return [o];
-		return keepsShape ? [{ points: o.points.filter((_, k) => k !== sel.point) }] : [];
-	});
-	return { ...commit(state, outlines), selected: keepsShape ? { outline: sel.outline } : null };
+	if (sel.segment !== undefined) return replaceSelected(state, withSide(outline, sel.segment, 'line'), sel);
+	const keepsShape = sel.point !== undefined && outline.points.length > (hasCurves(outline) ? 2 : 3);
+	if (keepsShape) return replaceSelected(state, withoutPoint(outline, sel.point!), { outline: sel.outline });
+	return {
+		...commit(
+			state,
+			state.outlines.filter((_, i) => i !== sel.outline),
+		),
+		selected: null,
+	};
+}
+
+/** The selected outline replaced (one undo step), and what is selected afterwards; the same state if nothing changed. */
+function replaceSelected(state: SketchEditorState, outline: SketchOutline, selected: Selected): SketchEditorState {
+	const was = state.outlines[selected.outline]!;
+	if (JSON.stringify(was) === JSON.stringify(outline)) return state;
+	return {
+		...commit(
+			state,
+			state.outlines.map((o, i) => (i === selected.outline ? outline : o)),
+		),
+		selected,
+	};
+}
+
+/** Straighten or Smooth: every side of the selected outline made a line, or a smooth curve. */
+function reshape(state: SketchEditorState, change: (o: SketchOutline) => SketchOutline): SketchEditorState {
+	const outline = state.selected ? state.outlines[state.selected.outline] : undefined;
+	return state.selected && outline && !state.draft ? replaceSelected(state, change(outline), { outline: state.selected.outline }) : state;
 }
 
 function undo(state: SketchEditorState): SketchEditorState {
@@ -229,19 +358,28 @@ function redo(state: SketchEditorState): SketchEditorState {
 	return { ...state, outlines: after, past: [...state.past, state.outlines], future: rest, selected: null, draft: null };
 }
 
-/** Enter closes a line that has three points or more. */
+/** Enter closes a line (three points or more), a curve being drawn with the Spline tool (the same), or a path of arcs (two points or more, with a straight side back). */
 function closeLine(state: SketchEditorState): SketchEditorState {
-	const line = state.draft?.kind === 'line' ? state.draft : null;
-	return line && line.points.length >= 3 ? withOutline(state, { points: line.points }) : state;
+	const d = state.draft;
+	if (d?.kind === 'arc') return d.points.length >= 2 ? withOutline(state, arcOutline(d, 'line')) : state;
+	return d?.kind === 'line' && d.points.length >= 3 ? withOutline(state, lineOutline(state, d.points)) : state;
 }
 
-/** Backspace takes the last point back from a line being drawn (the line goes with its last point), else deletes the selection. */
+/** Backspace takes the last point back from a line or path being drawn (all of it goes with its first point), else deletes the selection. */
 function backspace(state: SketchEditorState): SketchEditorState {
-	if (state.draft?.kind === 'line') {
-		const points = state.draft.points.slice(0, -1);
-		return { ...state, draft: points.length ? { ...state.draft, points } : null };
+	const d = state.draft;
+	if (d?.kind === 'line') {
+		const points = d.points.slice(0, -1);
+		return { ...state, draft: points.length ? { ...d, points } : null };
 	}
-	return state.draft ? state : deleteSelected(state);
+	if (d?.kind === 'arc') return { ...state, draft: backedArc(d) };
+	return d ? state : deleteSelected(state);
+}
+
+/** An arc path with its point to pass through taken back, or else its last arc, or (with one point left) nothing. */
+function backedArc(d: Extract<Draft, { kind: 'arc' }>): Draft | null {
+	if (d.through) return { ...d, through: null };
+	return d.points.length > 1 ? { ...d, points: d.points.slice(0, -1), bulges: d.bulges.slice(0, -1) } : null;
 }
 
 /** Ctrl+Z undoes, Ctrl+Shift+Z and Ctrl+Y redo. */
@@ -286,5 +424,9 @@ export function sketchReducer(state: SketchEditorState, action: SketchAction): S
 			return undo(state);
 		case 'redo':
 			return redo(state);
+		case 'straighten':
+			return reshape(state, straightened);
+		case 'smooth':
+			return reshape(state, smoothed);
 	}
 }

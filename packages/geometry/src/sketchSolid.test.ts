@@ -6,6 +6,7 @@ import {
 	type Design,
 	flipNodes,
 	groupNodes,
+	outlineArea,
 	rectangleOutline,
 	type SketchOutline,
 	setNodeMode,
@@ -81,11 +82,7 @@ describe('a Sketch shape in the CSG engine', () => {
 
 	it('is a round plate for a circle: the polygon’s area times the height', () => {
 		const c = circleOutline([0, 0], 10);
-		const area =
-			c.points.reduce(
-				(s, [x, y], i) => s + (x * c.points[(i + 1) % c.points.length]![1] - c.points[(i + 1) % c.points.length]![0] * y),
-				0,
-			) / 2;
+		const area = outlineArea(c); // what the engine fills: the circle cut into pieces at the sketch tolerance
 		expect(volume(evaluateGroup(M, sketch([c], 6), 's'))).toBeCloseTo(area * 6, 3);
 	});
 
@@ -173,5 +170,111 @@ describe('a Sketch shape in the CSG engine', () => {
 		const damaged = { ...d, nodes: { ...d.nodes, s: { ...d.nodes.s!, sketch: undefined } } } as unknown as Design;
 		expect(() => evaluateGroup(M, damaged, 's')).not.toThrow();
 		expect(volume(evaluateGroup(M, damaged, 's'))).toBe(0);
+	});
+});
+
+describe('a Sketch shape with curves in the CSG engine', () => {
+	const rel = (got: number, want: number, share = 0.004) => expect(Math.abs(got - want) / want).toBeLessThan(share);
+
+	it('is a true round plate for a circle: pi r squared times the thickness, to within the cutting tolerance', () => {
+		const m = evaluateGroup(M, sketch([circleOutline([0, 0], 10)], 6), 's')!;
+		rel(volume(m), Math.PI * 100 * 6);
+		const b = bounds(m);
+		expect(b.max[0]).toBeCloseTo(10, 1); // the cut pieces stay within the tolerance (0.02 mm) of the circle
+		expect(b.min[1]).toBeCloseTo(-10, 1);
+	});
+
+	it('makes a hole of a circle inside a rectangle: the plate less pi r squared', () => {
+		const d = sketch([rectangleOutline([0, 0], [40, 40]), circleOutline([20, 20], 8)], 5);
+		rel(volume(evaluateGroup(M, d, 's')), (1600 - Math.PI * 64) * 5);
+	});
+
+	it('is a D for an arc and a chord: half a disc, 20 wide and 10 deep', () => {
+		const d = sketch(
+			[
+				{
+					points: [
+						[0, 0],
+						[20, 0],
+					],
+					segments: [1, 'line'],
+				},
+			],
+			4,
+		);
+		const m = evaluateGroup(M, d, 's')!;
+		rel(volume(m), ((Math.PI * 100) / 2) * 4);
+		const b = bounds(m);
+		expect(b.max[0]! - b.min[0]!).toBeCloseTo(20, 1);
+		expect(b.max[1]! - b.min[1]!).toBeCloseTo(10, 1);
+	});
+
+	it('stretches a circle into a true ellipse: made 40 wide and 10 deep it has the area of pi a b', () => {
+		const d = setShapeSize(sketch([circleOutline([0, 0], 10)], 3), 's', { width: 40, depth: 10 });
+		rel(volume(evaluateGroup(M, d, 's')), Math.PI * 20 * 5 * 3);
+	});
+
+	it('is the mirror image when a D is flipped, with the same volume', () => {
+		const d = sketch(
+			[
+				{
+					points: [
+						[0, 0],
+						[20, 6],
+						[4, 14],
+					],
+					segments: [0.6, 'line', 'line'],
+				},
+			],
+			2,
+		);
+		const flipped = flipNodes(d, ['s'], 'x');
+		rel(volume(evaluateGroup(M, flipped, 's')), volume(evaluateGroup(M, d, 's')), 1e-6);
+		const [a, b] = [bounds(evaluateGroup(M, d, 's')!), bounds(evaluateGroup(M, flipped, 's')!)];
+		expect(b.min[0]).toBeCloseTo(-a.max[0]!, 4);
+		expect(b.max[0]).toBeCloseTo(-a.min[0]!, 4);
+	});
+
+	it('is a smooth blob for a spline: it passes through its points, is bigger than the polygon of them, and has no holes', () => {
+		const pts: [number, number][] = [
+			[0, 0],
+			[30, 0],
+			[30, 30],
+			[0, 30],
+		];
+		const smooth = sketch([{ points: pts, segments: ['curve', 'curve', 'curve', 'curve'] }], 5);
+		const polygon = sketch([{ points: pts }], 5);
+		const [vs, vp] = [volume(evaluateGroup(M, smooth, 's')), volume(evaluateGroup(M, polygon, 's'))];
+		expect(vs).toBeGreaterThan(vp);
+		expect(vs).toBeLessThan(vp * 1.5); // a smooth curve through the corners of a square rounds out past its sides
+	});
+
+	it('is part of the cache key: bending a side changes the shape', () => {
+		const flat = sketch(
+			[
+				{
+					points: [
+						[0, 0],
+						[20, 0],
+						[10, 15],
+					],
+				},
+			],
+			3,
+		);
+		const bent = sketch(
+			[
+				{
+					points: [
+						[0, 0],
+						[20, 0],
+						[10, 15],
+					],
+					segments: [0.5, 'line', 'line'],
+				},
+			],
+			3,
+		);
+		expect(subtreeHash(flat, 's')).not.toBe(subtreeHash(bent, 's'));
 	});
 });

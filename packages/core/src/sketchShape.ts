@@ -3,7 +3,7 @@ import { MAX_SHAPE_SIZE } from './limits.ts';
 import { multiplyMat4 } from './mat4.ts';
 import { addShape, shapeBounds, translation } from './ops.ts';
 import { composeTransform } from './rotation.ts';
-import { normalizeSketch, type SketchOutline, type SketchPoint, sketchBox } from './sketch.ts';
+import { normalizeSketch, outlinePolygon, type SketchOutline, type SketchPoint, sketchBox } from './sketch.ts';
 import { isUsablePlane, planeFrame, planePoint, type WorkPlane } from './surfacePlane.ts';
 
 /**
@@ -49,17 +49,39 @@ export function addSketchShape(
 /** Whether the shape is shown mirrored in its own x (it was flipped), which a drawing needs since it is not the same seen left to right. */
 const isFlipped = (node: Pick<ShapeNode, 'params'>) => node.params.mirror === 1;
 
+/** How the drawing is stretched to the shape's width and depth, and whether it is mirrored. */
+function stretchOf(node: Pick<ShapeNode, 'params' | 'sketch'>): { sx: number; sy: number; mirror: 1 | -1 } {
+	const box = node.sketch ? sketchBox(node.sketch) : { width: 0, depth: 0 };
+	return {
+		sx: box.width > 0 ? Number(node.params.width) / box.width : 1,
+		sy: box.depth > 0 ? Number(node.params.depth) / box.depth : 1,
+		mirror: isFlipped(node) ? -1 : 1,
+	};
+}
+
 /**
  * A sketch shape's outlines as they are now, in its own frame: stretched to its width and depth (it may have been resized since it was
- * drawn) and mirrored if it was flipped. This is what is drawn, built, exported and edited; the stored drawing is left as it was made.
+ * drawn) and mirrored if it was flipped. This is what is shown and edited; the stored drawing is left as it was made. The sides stay
+ * what they were (an arc keeps its bulge, which a mirror turns round), so a stretched arc is only close to a true stretch: what is built
+ * (`sketchPolygons`) is the exact stretch.
  */
 export function sketchShown(node: Pick<ShapeNode, 'params' | 'sketch'>): SketchOutline[] {
 	if (!node.sketch) return [];
-	const box = sketchBox(node.sketch);
-	const sx = box.width > 0 ? Number(node.params.width) / box.width : 1;
-	const sy = box.depth > 0 ? Number(node.params.depth) / box.depth : 1;
-	const mirror = isFlipped(node) ? -1 : 1;
-	return node.sketch.outlines.map((o) => ({ points: o.points.map(([x, y]): SketchPoint => [mirror * x * sx + 0, y * sy + 0]) }));
+	const { sx, sy, mirror } = stretchOf(node);
+	return node.sketch.outlines.map((o) => ({
+		points: o.points.map(([x, y]): SketchPoint => [mirror * x * sx + 0, y * sy + 0]),
+		...(o.segments && { segments: o.segments.map((kind) => (typeof kind === 'number' ? mirror * kind + 0 : kind)) }),
+	}));
+}
+
+/**
+ * The polygons a sketch shape is built from: each outline with its curves cut into short pieces (see `SKETCH_TOLERANCE`) and then
+ * stretched and mirrored, so a curve stretched wider is exactly the stretched curve (a circle twice as wide is an ellipse).
+ */
+export function sketchPolygons(node: Pick<ShapeNode, 'params' | 'sketch'>): SketchPoint[][] {
+	if (!node.sketch) return [];
+	const { sx, sy, mirror } = stretchOf(node);
+	return node.sketch.outlines.map((o) => outlinePolygon(o).map(([x, y]): SketchPoint => [mirror * x * sx + 0, y * sy + 0]));
 }
 
 /**

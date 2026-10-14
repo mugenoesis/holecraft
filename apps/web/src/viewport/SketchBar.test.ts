@@ -14,12 +14,15 @@ const render = (over: Partial<Parameters<typeof SketchBar>[0]> = {}) =>
 			hint: 'Drag from one corner to the opposite one',
 			canFinish: true,
 			canDelete: false,
+			canReshape: false,
 			editing: false,
 			onTool: noop,
 			onSides: noop,
 			onSnap: noop,
 			onHeight: noop,
 			onDelete: noop,
+			onStraighten: noop,
+			onSmooth: noop,
 			onCancel: noop,
 			onFinish: noop,
 			...over,
@@ -63,5 +66,22 @@ describe('the Sketch bar', () => {
 			/<button[^>]*disabled=""[^>]*class="primary"[^>]*>Finish<\/button>|<button[^>]*class="primary"[^>]*disabled=""[^>]*>Finish<\/button>/,
 		);
 		expect(render({ editing: true })).toMatch(/<button[^>]*class="primary"[^>]*>Finish<\/button>/);
+	});
+});
+
+describe('the Sketch bar with curves', () => {
+	it('has the Arc and Spline tools after Line', () => {
+		const html = render({ tool: 'arc' });
+		const names = [...html.matchAll(/<button[^>]*aria-pressed="(?:true|false)"[^>]*>([A-Za-z]+)<\/button>/g)].map((m) => m[1]);
+		expect(names).toEqual(['Select', 'Rectangle', 'Circle', 'Polygon', 'Line', 'Arc', 'Spline']);
+		expect(html).toMatch(/<button[^>]*aria-pressed="true"[^>]*>Arc<\/button>/);
+	});
+
+	it('has Straighten sides and Smooth corners only when an outline is selected', () => {
+		expect(render({ canReshape: false })).not.toContain('Straighten sides');
+		expect(render({ canReshape: false })).not.toContain('Smooth corners');
+		const html = render({ canReshape: true });
+		expect(html).toMatch(/<button[^>]*>Straighten sides<\/button>/);
+		expect(html).toMatch(/<button[^>]*>Smooth corners<\/button>/);
 	});
 });

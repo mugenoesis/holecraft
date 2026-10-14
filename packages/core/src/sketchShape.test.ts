@@ -7,8 +7,8 @@ import { addLibraryShape, libraryShapeOf } from './libraryShape.ts';
 import { addShape, shapeBounds } from './ops.ts';
 import { filterShapes } from './shapeSearch.ts';
 import { getShapeDef, isShapeType } from './shapes.ts';
-import { rectangleOutline, type SketchOutline } from './sketch.ts';
-import { addSketchShape, setShapeSketch, sketchShown } from './sketchShape.ts';
+import { circleOutline, rectangleOutline, type SketchOutline } from './sketch.ts';
+import { addSketchShape, setShapeSketch, sketchPolygons, sketchShown } from './sketchShape.ts';
 import type { WorkPlane } from './surfacePlane.ts';
 import { parseDesign } from './validate.ts';
 import { setLocked } from './visibility.ts';
@@ -181,7 +181,7 @@ describe('setShapeSketch', () => {
 
 describe('saving and copying a sketch', () => {
 	it('keeps the drawing through saving and reading back, and the format is 5', () => {
-		expect(DESIGN_FORMAT_VERSION).toBe(5);
+		expect(DESIGN_FORMAT_VERSION).toBeGreaterThanOrEqual(5); // sketches came in with format 5
 		const d = made(FLOOR, [rectangleOutline([0, 0], [20, 20]), rectangleOutline([5, 5], [10, 10])]);
 		const back = parseDesign(JSON.parse(JSON.stringify(d)));
 		expect((back.nodes.s as ShapeNode).sketch).toEqual(node(d).sketch);
@@ -297,5 +297,144 @@ describe('a sketch in the library and in groups', () => {
 		const grouped = groupNodes(withBox, ['s', 'b'], { id: 'g' }).design;
 		expect((grouped.nodes.s as ShapeNode).sketch).toEqual(node(d).sketch);
 		expect(grouped.nodes.g!.kind).toBe('group');
+	});
+});
+
+describe('a sketch with curves', () => {
+	const disc = () => made(FLOOR, [circleOutline([30, 20], 10)], 6);
+	const dShape = (): SketchOutline[] => [
+		{
+			points: [
+				[0, 0],
+				[20, 0],
+			],
+			segments: [1, 'line'],
+		},
+	];
+
+	it('is boxed by its curve: a circle of radius 10 makes a 20 x 20 shape, and a D of width 20 is 20 x 10', () => {
+		expect(sizeOf(disc())).toEqual([expect.closeTo(20, 6), expect.closeTo(20, 1), 6]);
+		const d = made(FLOOR, dShape(), 4);
+		expect(node(d).params.width).toBeCloseTo(20, 6);
+		expect(node(d).params.depth).toBeCloseTo(10, 1);
+	});
+
+	it('keeps its sides with the drawing, and stands where it was drawn: the circle’s middle is at (30, 20)', () => {
+		const d = disc();
+		expect(node(d).sketch!.outlines[0]!.segments).toEqual([1, 1]);
+		const b = shapeBounds(node(d));
+		expect((b.min[0] + b.max[0]) / 2).toBeCloseTo(30, 6);
+		expect((b.min[1] + b.max[1]) / 2).toBeCloseTo(20, 1);
+	});
+
+	it('shows the same sides stretched with the shape, and an arc keeps its bulge', () => {
+		const wide = setShapeSize(disc(), 's', { width: 40 });
+		const shown = sketchShown(node(wide))[0]!;
+		expect(shown.segments).toEqual([1, 1]);
+		expect(shown.points[1]![0]).toBeCloseTo(20, 6);
+	});
+
+	it('shows a flipped arc bent the other way (a mirror image), and a smooth curve as it was', () => {
+		const d = made(
+			FLOOR,
+			[
+				{
+					points: [
+						[0, 0],
+						[20, 0],
+						[10, 15],
+					],
+					segments: [0.5, 'curve', 'line'],
+				},
+			],
+			3,
+		);
+		const flipped = flipNodes(d, ['s'], 'x');
+		const [a, b] = [sketchShown(node(d))[0]!, sketchShown(node(flipped))[0]!];
+		expect(b.segments![0]).toBeCloseTo(-0.5, 9);
+		expect(b.segments![1]).toBe('curve');
+		expect(b.segments![2]).toBe('line');
+		for (const [i, p] of a.points.entries()) expect(b.points[i]![0]).toBeCloseTo(-p[0], 9);
+	});
+
+	it('is built as the exact stretch of the curve: a circle made twice as wide is an ellipse, points all on it', () => {
+		const wide = setShapeSize(disc(), 's', { width: 40 });
+		const polygons = sketchPolygons(node(wide));
+		for (const [x, y] of polygons[0]!) expect(Math.abs((x / 20) ** 2 + (y / 10) ** 2 - 1)).toBeLessThan(0.002);
+		expect(polygons[0]!.length).toBeGreaterThan(30);
+	});
+
+	it('is built from the straight points when there are no curves, and mirrored when flipped', () => {
+		const d = made();
+		expect(sketchPolygons(node(d))[0]).toEqual(node(d).sketch!.outlines[0]!.points);
+		const triangle = made(FLOOR, [
+			{
+				points: [
+					[0, 0],
+					[30, 0],
+					[0, 10],
+				],
+			},
+		]);
+		const flipped = flipNodes(triangle, ['s'], 'x');
+		const [a, b] = [sketchPolygons(node(triangle))[0]!, sketchPolygons(node(flipped))[0]!];
+		for (const [i, p] of a.entries()) expect(b[i]).toEqual([-p[0] + 0, p[1]]);
+	});
+
+	it('is redrawn with its curves kept, and where it was in the world', () => {
+		const d = disc();
+		const redrawn = setShapeSketch(d, 's', [...sketchShown(node(d)), rectangleOutline([-3, -3], [3, 3])]);
+		expect(node(redrawn).sketch!.outlines[0]!.segments).toEqual([1, 1]);
+		expect(node(redrawn).sketch!.outlines).toHaveLength(2);
+		const b = shapeBounds(node(redrawn));
+		expect((b.min[0] + b.max[0]) / 2).toBeCloseTo(30, 6);
+	});
+
+	it('is saved and read back with its sides, and a file with a side that is not one is refused', () => {
+		const d = made(
+			FLOOR,
+			[
+				{
+					points: [
+						[0, 0],
+						[20, 0],
+						[10, 15],
+					],
+					segments: [0.5, 'curve', 'line'],
+				},
+			],
+			3,
+		);
+		expect((parseDesign(JSON.parse(JSON.stringify(d))).nodes.s as ShapeNode).sketch).toEqual(node(d).sketch);
+		const bad = (change: (o: Record<string, unknown>) => void) => {
+			const raw = JSON.parse(JSON.stringify(d));
+			change(raw.nodes.s.sketch.outlines[0]);
+			return () => parseDesign(raw);
+		};
+		expect(bad((o) => (o.segments = [0.5, 'curve']))).toThrow(/segments/); // one per point
+		expect(bad((o) => (o.segments = [0.5, 'wiggle', 'line']))).toThrow(/side/);
+		expect(bad((o) => (o.segments = [9, 'curve', 'line']))).toThrow(/side/);
+		expect(bad((o) => (o.segments = [Number.NaN, 'curve', 'line']))).toThrow(/side/);
+		expect(bad(() => {})).not.toThrow();
+		expect(
+			bad((o) => {
+				o.points = [
+					[0, 0],
+					[10, 0],
+				];
+				o.segments = ['line', 'line'];
+			}),
+		).toThrow(/points/);
+	});
+
+	it('may have two points when a side is curved (a D, a circle), and not otherwise', () => {
+		const raw = JSON.parse(JSON.stringify(made(FLOOR, dShape(), 3)));
+		expect(() => parseDesign(raw)).not.toThrow();
+		raw.nodes.s.sketch.outlines[0].segments = ['line', 'line'];
+		expect(() => parseDesign(raw)).toThrow(/points/);
+	});
+
+	it('is the format 6', () => {
+		expect(DESIGN_FORMAT_VERSION).toBe(6);
 	});
 });

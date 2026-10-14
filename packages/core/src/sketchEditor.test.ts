@@ -1,17 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { outlineArea, rectangleOutline, type SketchOutline, type SketchPoint } from './sketch.ts';
+import { circleOutline, outlineArea, rectangleOutline, type SketchOutline, type SketchPoint } from './sketch.ts';
+import { segmentMidpoint } from './sketchCurves.ts';
 import {
 	createSketchEditor,
+	draftArc,
 	draftLine,
 	draftOutline,
+	draftSpline,
 	MAX_SIDES,
 	MIN_SIDES,
+	outlineHandles,
 	type SketchAction,
 	type SketchEditorState,
 	selectedOutline,
 	sketchReducer,
 } from './sketchEditor.ts';
 
+const close2 = (got: readonly number[], want: readonly number[]) => {
+	for (const [i, v] of got.entries()) expect(v).toBeCloseTo(want[i]!, 6);
+};
 const REACH = 0.8; // how close (mm) a press must be to a point to hit it
 const run = (state: SketchEditorState, ...actions: SketchAction[]) => actions.reduce(sketchReducer, state);
 const start = (over: Partial<SketchEditorState> = {}) => ({ ...createSketchEditor(), snap: 1, ...over });
@@ -296,5 +303,290 @@ describe('the editor’s limits and setup', () => {
 		const s = run(createSketchEditor(given), { type: 'tool', tool: 'select' }, ...drag([0, 0], [4, 4]));
 		expect(s.outlines[0]!.points[0]).toEqual([4, 4]);
 		expect(JSON.stringify(given)).toBe(copy);
+	});
+});
+
+describe('the Arc tool', () => {
+	const arcs = (...points: SketchPoint[]) => run(start({ tool: 'arc' }), ...points.flatMap(click));
+
+	it('takes the start, a point the arc passes through and then its end, and shows the arc so far while it is drawn', () => {
+		const s = arcs([-10, 0], [0, -10], [10, 0]);
+		expect(s.outlines).toHaveLength(0);
+		const draft = draftArc(s)!;
+		expect(draft.points).toEqual([
+			[-10, 0],
+			[10, 0],
+		]);
+		expect(draft.bulges).toHaveLength(1);
+		expect(draft.bulges[0]).toBeCloseTo(1, 9); // a half circle below the chord, anticlockwise
+		expect(draft.through).toBeNull();
+		expect(draft.placed.length).toBeGreaterThan(10); // the arc as points to draw
+	});
+
+	it('shows the next arc as the pointer moves: a line to the pointer until a point to pass through is clicked, then the arc through it', () => {
+		let s = run(arcs([-10, 0], [0, -10], [10, 0]), move([20, 10]));
+		expect(draftArc(s)!.preview).toEqual([
+			[10, 0],
+			[20, 10],
+		]);
+		s = run(s, ...click([15, 10]), move([20, 0]));
+		const draft = draftArc(s)!;
+		expect(draft.through).toEqual([15, 10]);
+		expect(draft.preview!.length).toBeGreaterThan(3);
+		expect(draft.preview![0]).toEqual([10, 0]);
+		expect(draft.preview![draft.preview!.length - 1]).toEqual([20, 0]);
+	});
+
+	it('closes with a straight side on Enter: a start, a point through and an end make a D', () => {
+		const s = run(arcs([-10, 0], [0, -10], [10, 0]), key('Enter'));
+		expect(s.outlines).toHaveLength(1);
+		const o = s.outlines[0]!;
+		expect(o.points).toEqual([
+			[-10, 0],
+			[10, 0],
+		]);
+		expect(o.segments![0]).toBeCloseTo(1, 9);
+		expect(o.segments![1]).toBe('line');
+		expect(outlineArea(o)).toBeGreaterThan((Math.PI * 100) / 2 - 3);
+		expect(draftArc(s)).toBeNull();
+	});
+
+	it('closes with an arc by clicking back on the first point after a point to pass through: a circle from two arcs', () => {
+		const s = run(arcs([-10, 0], [0, -10], [10, 0]), ...click([0, 10]), ...click([-10.3, 0.2]));
+		expect(s.outlines).toHaveLength(1);
+		const o = s.outlines[0]!;
+		expect(o.points).toEqual([
+			[-10, 0],
+			[10, 0],
+		]);
+		expect(o.segments![0]).toBeCloseTo(1, 9);
+		expect(o.segments![1]).toBeCloseTo(1, 9);
+		expect(outlineArea(o)).toBeGreaterThan(Math.PI * 100 * 0.99);
+	});
+
+	it('chains arcs: each next arc starts where the last ended', () => {
+		const s = arcs([0, 0], [5, -3], [10, 0], [15, 3], [20, 0]);
+		const d = draftArc(s)!;
+		expect(d.points).toEqual([
+			[0, 0],
+			[10, 0],
+			[20, 0],
+		]);
+		expect(d.bulges).toHaveLength(2);
+		expect(Math.sign(d.bulges[0]!)).toBe(1);
+		expect(Math.sign(d.bulges[1]!)).toBe(-1);
+	});
+
+	it('takes the point to pass through back first with Backspace, then the last arc, then the whole path; Escape cancels it all', () => {
+		let s = arcs([0, 0], [5, -3], [10, 0], [15, 3]);
+		expect(draftArc(s)!.through).toEqual([15, 3]);
+		s = run(s, key('Backspace'));
+		expect(draftArc(s)!.through).toBeNull();
+		expect(draftArc(s)!.points).toHaveLength(2);
+		s = run(s, key('Backspace'));
+		expect(draftArc(s)!.points).toEqual([[0, 0]]);
+		expect(draftArc(run(s, key('Backspace')))).toBeNull();
+		expect(draftArc(run(arcs([0, 0], [5, -3]), key('Escape')))).toBeNull();
+	});
+
+	it('makes a straight side when the point to pass through is on the way, and ignores an end that is not possible (out past the start)', () => {
+		const straight = arcs([0, 0], [5, 0], [10, 0]);
+		expect(draftArc(straight)!.bulges).toEqual([0]);
+		const out = run(arcs([0, 0], [5, 3]), ...click([-20, 0])); // an arc through (5, 3) cannot end on the far side of the start along the line
+		expect(draftArc(out)!.points).toEqual([[0, 0]]);
+	});
+
+	it('snaps the points it takes, and does nothing with Enter before there is an arc', () => {
+		const s = arcs([0.4, 0.3], [5.2, -3.1], [10.4, 0.2]);
+		expect(draftArc(s)!.points).toEqual([
+			[0, 0],
+			[10, 0],
+		]);
+		expect(run(arcs([0, 0], [5, -3]), key('Enter')).outlines).toHaveLength(0);
+	});
+
+	it('is cancelled by changing tool, and the finished outline is one undo step', () => {
+		expect(draftArc(run(arcs([0, 0], [5, -3]), { type: 'tool', tool: 'line' }))).toBeNull();
+		const s = run(arcs([-10, 0], [0, -10], [10, 0]), key('Enter'));
+		expect(run(s, { type: 'undo' }).outlines).toHaveLength(0);
+	});
+});
+
+describe('the Spline tool', () => {
+	const spline = (...points: SketchPoint[]) => run(start({ tool: 'spline' }), ...points.flatMap(click));
+	const square: SketchPoint[] = [
+		[0, 0],
+		[20, 0],
+		[20, 20],
+		[0, 20],
+	];
+
+	it('is closed by clicking back on the first point once there are three, and every side is a smooth curve', () => {
+		const s = run(spline(...square), ...click([0.2, 0.1]));
+		expect(s.outlines).toHaveLength(1);
+		expect(s.outlines[0]!.points).toEqual(square);
+		expect(s.outlines[0]!.segments).toEqual(['curve', 'curve', 'curve', 'curve']);
+	});
+
+	it('is closed by Enter too, with three points or more', () => {
+		expect(run(spline(...square), key('Enter')).outlines[0]!.segments).toHaveLength(4);
+		expect(run(spline([0, 0], [10, 0]), key('Enter')).outlines).toHaveLength(0);
+	});
+
+	it('shows a smooth curve through the points so far and the pointer while it is drawn', () => {
+		const s = run(spline([0, 0], [20, 0], [20, 20]), move([0, 20]));
+		const preview = draftSpline(s)!;
+		expect(preview.points).toEqual([
+			[0, 0],
+			[20, 0],
+			[20, 20],
+		]);
+		expect(preview.curve.length).toBeGreaterThan(10);
+		const near = (p: SketchPoint) => Math.min(...preview.curve.map((q) => Math.hypot(q[0] - p[0], q[1] - p[1])));
+		for (const p of [
+			[0, 0],
+			[20, 0],
+			[20, 20],
+			[0, 20],
+		] as SketchPoint[])
+			expect(near(p)).toBeLessThan(1e-9);
+	});
+
+	it('takes the last point back with Backspace and all of it with Escape, like the line', () => {
+		expect(draftSpline(run(spline(...square), key('Backspace')))!.points).toHaveLength(3);
+		expect(draftSpline(run(spline(...square), key('Escape')))).toBeNull();
+	});
+});
+
+describe('the circle tool makes a true circle', () => {
+	it('two points and two half circles, of the radius dragged', () => {
+		const o = draw('circle', [10, 10], [15, 10]).outlines[0]!;
+		expect(o.points).toEqual([
+			[5, 10],
+			[15, 10],
+		]);
+		expect(o.segments).toEqual([1, 1]);
+	});
+});
+
+describe('bending sides and smoothing', () => {
+	/** A 20 x 20 square, selected. */
+	const square = () => run({ ...start(), outlines: [square20()] }, ...click([10, 10]));
+	function square20(): SketchOutline {
+		return rectangleOutline([0, 0], [20, 20]);
+	}
+
+	it('gives the selected outline a handle in the middle of each side, and the corners', () => {
+		const handles = outlineHandles(square20());
+		expect(handles.points).toEqual(square20().points);
+		expect(handles.mids).toEqual([
+			[10, 0],
+			[20, 10],
+			[10, 20],
+			[0, 10],
+		]);
+		const circle = outlineHandles(circleOutline([0, 0], 10));
+		expect(circle.mids[0]![0]).toBeCloseTo(0, 6);
+		expect(circle.mids[0]![1]).toBeCloseTo(-10, 6);
+		expect(circle.mids[1]![1]).toBeCloseTo(10, 6);
+	});
+
+	it('bends a side into an arc when its middle is dragged: the arc goes through where it is dropped, and it is one undo step', () => {
+		let s = run(square(), ...drag([10, 0], [10, -5]));
+		expect(s.selected).toEqual({ outline: 0, segment: 0 });
+		const o = s.outlines[0]!;
+		expect(o.points).toEqual(square20().points);
+		expect(o.segments![0]).toBeGreaterThan(0); // the first side runs left to right, bulging down (to its right) is anticlockwise: positive
+		expect(o.segments!.slice(1)).toEqual(['line', 'line', 'line']);
+		close2(segmentMidpoint(o, 0), [10, -5]);
+		s = run(s, { type: 'undo' });
+		expect(s.outlines[0]!.segments).toBeUndefined();
+	});
+
+	it('bends it the other way when dragged to the other side, and snaps the point it goes through', () => {
+		const o = run(square(), ...drag([10, 0], [10.3, 4.8])).outlines[0]!;
+		expect(o.segments![0]).toBeLessThan(0);
+		close2(segmentMidpoint(o, 0), [10, 5]);
+	});
+
+	it('straightens the side again when it is dragged back onto the line, and drops the sides when all are lines', () => {
+		let s = run(square(), ...drag([10, 0], [10, -5]));
+		s = run(s, ...drag([10, -5], [10, 0]));
+		expect(s.outlines[0]!.segments).toBeUndefined();
+	});
+
+	it('does nothing for a click on a side’s handle with no drag (no undo step), and the handles are only there for the selected outline', () => {
+		const before = square();
+		const clicked = run(before, ...click([10, 0]));
+		expect(clicked.outlines).toEqual(before.outlines);
+		expect(clicked.selected).toEqual({ outline: 0, segment: 0 });
+		expect(run(clicked, { type: 'undo' }).outlines).toEqual(before.outlines);
+		// an outline that is not selected has no handles on its sides: a press there is a press on its body (or nothing)
+		const two = run({ ...start(), outlines: [square20(), rectangleOutline([40, 0], [60, 20])] }, ...click([10, 10]), ...click([50, 0]));
+		expect(two.selected).not.toEqual({ outline: 1, segment: 0 });
+	});
+
+	it('keeps the sides when a corner or the whole outline is moved', () => {
+		let s = run(square(), ...drag([10, 0], [10, -5]));
+		const before = s.outlines[0]!.segments!;
+		s = run(s, ...drag([20, 20], [24, 24]));
+		expect(s.outlines[0]!.segments).toEqual(before);
+		s = run(s, ...drag([5, 15], [7, 17]));
+		expect(s.outlines[0]!.segments).toEqual(before);
+	});
+
+	it('straightens just the selected side with Delete', () => {
+		let s = run(square(), ...drag([10, 0], [10, -5]), ...drag([20, 10], [25, 10]));
+		expect(s.outlines[0]!.segments![1]).not.toBe('line');
+		s = run(s, key('Delete'));
+		expect(s.outlines[0]!.segments![1]).toBe('line');
+		expect(s.outlines[0]!.segments![0]).not.toBe('line');
+		expect(s.outlines).toHaveLength(1);
+	});
+
+	it('straightens every side of the selected outline with the Straighten action, as one step, and does nothing if they are straight', () => {
+		let s = run(square(), ...drag([10, 0], [10, -5]), ...drag([20, 10], [25, 10]));
+		s = run(s, { type: 'straighten' });
+		expect(s.outlines[0]!.segments).toBeUndefined();
+		expect(run(s, { type: 'undo' }).outlines[0]!.segments).toBeDefined();
+		expect(run(s, { type: 'straighten' })).toBe(s);
+		expect(run({ ...start(), outlines: [square20()] }, { type: 'straighten' }).outlines[0]!.segments).toBeUndefined(); // nothing selected
+	});
+
+	it('smooths every corner of the selected outline with the Smooth action, as one step', () => {
+		let s = run(square(), { type: 'smooth' });
+		expect(s.outlines[0]!.segments).toEqual(['curve', 'curve', 'curve', 'curve']);
+		expect(run(s, { type: 'smooth' })).toBe(s);
+		s = run(s, { type: 'undo' });
+		expect(s.outlines[0]!.segments).toBeUndefined();
+		const d = run(
+			{
+				...start(),
+				outlines: [
+					{
+						points: [
+							[0, 0],
+							[10, 0],
+						],
+						segments: [1, 'line'],
+					},
+				],
+			},
+			...click([5, -4]),
+		);
+		expect(run(d, { type: 'smooth' }).outlines[0]!.segments).toEqual([1, 'line']); // two points cannot be a smooth curve
+	});
+
+	it('joins the two sides either side of a deleted corner: a line, unless both were smooth curves', () => {
+		const make = (segments: SketchOutline['segments']) =>
+			run(
+				{ ...start(), outlines: [{ ...square20(), ...(segments && { segments }) }] },
+				...click([10, 10]),
+				...click([20, 0]),
+				key('Delete'),
+			);
+		expect(make([0.5, 'curve', 'curve', 'line']).outlines[0]!.segments).toEqual(['line', 'curve', 'line']);
+		expect(make(['curve', 'curve', 'line', 'line']).outlines[0]!.segments).toEqual(['curve', 'line', 'line']);
+		expect(make(['line', 'line', 'line', 'line']).outlines[0]!.segments).toBeUndefined();
 	});
 });

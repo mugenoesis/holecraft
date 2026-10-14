@@ -31,6 +31,7 @@ export * from './rulerSnap.ts';
 export * from './shapeSearch.ts';
 export * from './shapes.ts';
 export * from './sketch.ts';
+export * from './sketchCurves.ts';
 export * from './sketchEditor.ts';
 export * from './sketchFrame.ts';
 export * from './sketchShape.ts';
