@@ -1,5 +1,6 @@
 import type { Vec3 } from './camera.ts';
 import type { BrushDab, Design, NodeId, PaintFill } from './design.ts';
+import { isStretched } from './groupFrame.ts';
 import { MAX_FILL_ANGLE } from './paintRegions.ts';
 import { isHexColor } from './palette.ts';
 
@@ -11,10 +12,14 @@ export const MAX_PAINT_FILLS = 1000;
 const stamp = (now?: Date) => (now ?? new Date()).toISOString();
 const finite = (v: Vec3) => v.every((n) => Number.isFinite(n));
 
-/** Whether a node can take paint: a top-level solid shape or group that is shown and not locked. Paint is on the finished surface of what is printed as one body. */
+/**
+ * Whether a node can take paint: a top-level solid shape or group that is shown and not locked. Paint is on the finished surface of what is
+ * printed as one body. A group with a stretch of its own cannot take new paint (the tool works in its unstretched frame).
+ */
 export function canPaint(design: Design, id: NodeId): boolean {
 	const node = design.nodes[id];
 	if (!node || node.kind === 'mesh' || !design.roots.includes(id)) return false;
+	if (node.kind === 'group' && isStretched(node)) return false;
 	return node.mode === 'solid' && !node.hidden && !node.locked;
 }
 

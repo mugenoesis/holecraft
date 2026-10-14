@@ -1,10 +1,12 @@
 import {
 	canResizeGroup,
+	canUngroup,
 	type Design,
 	type DesignNode,
 	descendantIds,
 	eulerOfTransform,
 	groupGeometry,
+	isStretched,
 	isThreadedType,
 	lengthOffset,
 	type NodeId,
@@ -29,7 +31,7 @@ function whyNotResizable(design: Design, id: NodeId): string {
 	});
 	return thread
 		? 'It holds a thread, nut, washer or standoff, which keeps its real size, so the group cannot be resized.'
-		: 'Resizing needs every shape inside turned in quarter turns (0, 90, 180, 270 degrees).';
+		: 'This group cannot be resized.';
 }
 
 const fmt = (n: number) => String(Number(n.toFixed(2)));
@@ -204,6 +206,12 @@ export function PropertiesPanel({ design, selection, dispatch, library, onEditSk
 						))}
 				</div>
 				{box && !resizable && <p className="muted hint">{whyNotResizable(design, only.id)}</p>}
+				{isStretched(only) && !canUngroup(design, [only.id]) && (
+					<p className="muted hint">
+						It has been stretched and holds shapes turned at other angles, so it cannot be split back into shapes without distorting them.
+						Undo the stretch to ungroup it.
+					</p>
+				)}
 				<p>Contains {shapes} shapes</p>
 				{typeToggle}
 				{color}

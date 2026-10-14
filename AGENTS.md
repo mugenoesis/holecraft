@@ -202,6 +202,13 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   copy gets `step · copy`; afterwards `sources` = the copies it was made from. Anything else selected, or a source that was deleted,
   falls back to the plain 10 mm offset. Size changes are deliberately not repeated.
 
+## Group stretch (a group's own `scale`)
+- `GroupNode.scale?: [sx, sy, sz]` (format 7; `parseStretch` in validate.ts, 0.001 to 10000 each, left out when all 1) is a stretch **along the group's own axes, about its origin, after its holes are cut**: a node inside is at `transform * diag(scale) * its own transform`. `transform` stays rotation + position only, so `rotationOfTransform`, Rotate fields and the rings are unchanged. **Anything that places a group's contents must use `groupFrame(node)` / `nodeFrame(node)` (core/groupFrame.ts), not `node.transform`**: `boundsWithin`, `ungroupNodes`, `groupGeometry`, `setGroupRotation`'s pivot, `groupRings`, the geometry worker's `placed` (so exports) and nested-group hash, `DesignScene` (the THREE group carries the scale, so drawing, picking and marquee follow), ruler snapping (`useSnapEdges`).
+- It is only used when it has to be. `groupResizeMode(design, id)`: `'rewrite'` (every inner node in quarter turns, no thread, nothing already stretched: shapes get new sizes via `stretched`, as before), `'stretch'` (otherwise: `stretchGroup` sets the scale and moves the group's origin so the box's base centre lands on the handle's geometry, nothing inside touched) or null (a thread inside: it keeps its real size; not a group). Once a group has a scale it stays in stretch mode, and a scale of all 1 is dropped.
+- The group's own `scale` is **not in `subtreeHash`** for the root group (so a stretch never recomputes the cut) but **is for a group nested inside another** (its shape is part of the outer one's).
+- `bakeStretch(design, id)` folds a stretch into the shapes (exact only for the rewrite case) and `ungroupNodes` uses it; `canUngroup` is false for a stretched group that cannot be baked, and Properties says why. `canPaint` and `edgeToolTarget` refuse a stretched group (those tools work in the unstretched frame, via `toLocal`/`worldEdges` assuming a rigid transform); paint and treatments it already had are still applied before the stretch.
+- Not done: unlocking the stretch of a group that holds a fastener (next slice), and paint or edge treatments on a stretched group.
+
 ## Hide and lock
 - `hidden` / `locked` live on every node (core/visibility.ts: `setHidden`, `setLocked`, `showAll`, `hasHiddenNodes`). Every edit that
   must skip locked nodes uses `isEditable`; code that asks "where is it" goes through `nodeBoundsIn`, which returns null for hidden nodes,

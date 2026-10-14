@@ -11,6 +11,7 @@ import {
 	type MeshData,
 	mirrorMeshX,
 	type NodeId,
+	nodeFrame,
 	type PaintedMesh,
 	type PaintFill,
 	paintTriangles,
@@ -91,7 +92,7 @@ class Evaluation {
 		const painted = (fills?.length ?? 0) > 0;
 		const result = this.built(root, placeRoot && !painted);
 		const built = result && !result.isEmpty() ? toGroupMesh(result) : null;
-		const mesh = built && painted ? paintedMesh(built, fills!, placeRoot ? root!.transform : null) : built;
+		const mesh = built && painted ? paintedMesh(built, fills!, placeRoot ? nodeFrame(root!) : null) : built;
 		return mesh && this.skipped.length ? { ...mesh, skippedEdges: [...this.skipped] } : mesh;
 	}
 
@@ -262,10 +263,10 @@ class Evaluation {
 		return this.treated(cut, group.edges);
 	}
 
-	/** A nested group as seen from its parent: its contents, moved by its own transform. */
+	/** A group as seen from outside: its contents, stretched by its own stretch if it has one, then moved by its own transform. */
 	private placed(id: NodeId): Manifold | null {
 		const inner = this.contents(id);
-		return inner ? this.track(inner.transform(asMat4(this.design.nodes[id]!.transform))) : null;
+		return inner ? this.track(inner.transform(asMat4(nodeFrame(this.design.nodes[id]!)))) : null;
 	}
 }
 

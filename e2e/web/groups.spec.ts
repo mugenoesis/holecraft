@@ -152,7 +152,9 @@ test.describe('grouping', () => {
 		expect(Number(await field(page, 'Rotate X').inputValue())).toBeCloseTo(40, 4);
 	});
 
-	test('a group holding a shape turned some other way than in quarter turns has no resize handles', async ({ page }) => {
+	test('a group holding a shape turned at an odd angle is stretched as a whole, which cannot then be split back into shapes', async ({
+		page,
+	}) => {
 		await twoSelected(page);
 		await page.getByTestId('object-list').locator('li').first().locator('button').first().click();
 		await field(page, 'Rotate Z').fill('45');
@@ -161,8 +163,26 @@ test.describe('grouping', () => {
 		await page.keyboard.press('Control+a');
 		await groupButton(page).click();
 		await expect(field(page, 'Name')).toHaveValue('Group 1');
-		await expect(page.getByTestId(/^handle-/)).toHaveCount(0);
-		await expect(page.getByTestId(/^rotate-/)).toHaveCount(3); // it can still be turned
+		await expect(page.getByTestId('handle-side-px')).toBeVisible(); // it keeps its handles whatever is inside it
+		await expect(ungroupButton(page)).toBeEnabled();
+
+		const width = async () => Number(await field(page, 'Width').inputValue());
+		const depth = async () => Number(await field(page, 'Depth').inputValue());
+		const w0 = await width();
+		const d0 = await depth();
+		const from = await center(page.getByTestId('handle-side-px'));
+		await drag(page, from, { x: from.x + 70, y: from.y }, { steps: 12 });
+		await expect.poll(width).toBeGreaterThan(w0 + 1);
+		expect(await depth()).toBeCloseTo(d0, 4);
+		await expect(page.getByText('Objects: 1')).toBeVisible();
+
+		// stretched with a turned shape inside, it cannot be taken apart without distorting that shape
+		await expect(ungroupButton(page)).toBeDisabled();
+		await expect(properties(page)).toContainText(/stretched/);
+
+		await page.getByRole('button', { name: 'Undo' }).click(); // one undo step takes the stretch off again
+		await expect.poll(width).toBeCloseTo(w0, 4);
+		await expect(ungroupButton(page)).toBeEnabled();
 	});
 
 	test('undoing a group turn puts the angle back', async ({ page }) => {

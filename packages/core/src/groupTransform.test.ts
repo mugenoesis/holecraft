@@ -182,15 +182,22 @@ describe('canResizeGroup', () => {
 		expect(canResizeGroup(turned, g)).toBe(true);
 	});
 
-	it('is false when a shape inside is turned some other way', () => {
+	it('is still true when a shape inside is turned some other way: the group is then stretched instead of rewritten', () => {
 		const { d, g } = pair();
-		expect(canResizeGroup(setNodeEuler(d, 'a', [0, 0, 45]), g)).toBe(false);
+		expect(canResizeGroup(setNodeEuler(d, 'a', [0, 0, 45]), g)).toBe(true);
+	});
+
+	it('is false for a group holding a thread (it keeps its real size), and for something that is not a group', () => {
+		let t = addShape(createEmptyDesign('t'), 'threaded-rod', [0, 0], { id: 'r' }).design;
+		t = addShape(t, 'box', [60, 0], { id: 'x' }).design;
+		expect(canResizeGroup(groupNodes(t, ['r', 'x'], { id: 'tg' }).design, 'tg')).toBe(false);
+		expect(canResizeGroup(pair().d, 'a')).toBe(false);
 	});
 
 	it('does not mind the group itself being tipped: its contents are still in quarter turns in its own frame', () => {
 		const { d, g } = pair();
 		expect(canResizeGroup(setGroupRotation(d, g, eulerToMatrix([20, 0, 0])), g)).toBe(true);
-		expect(canResizeGroup(setNodeEuler(setGroupRotation(d, g, eulerToMatrix([20, 0, 0])), 'a', [0, 0, 45]), g)).toBe(false);
+		expect(canResizeGroup(setNodeEuler(setGroupRotation(d, g, eulerToMatrix([20, 0, 0])), 'a', [0, 0, 45]), g)).toBe(true);
 	});
 
 	it('looks inside nested groups too, and refuses shapes', () => {
@@ -200,7 +207,7 @@ describe('canResizeGroup', () => {
 		const inner = groupNodes(d, ['c', 'e'], { id: 'inner' });
 		const outer = groupNodes(inner.design, ['g', 'inner'], { id: 'outer' });
 		expect(canResizeGroup(outer.design, 'outer')).toBe(true);
-		expect(canResizeGroup(setNodeEuler(outer.design, 'c', [0, 0, 30]), 'outer')).toBe(false);
+		expect(canResizeGroup(setNodeEuler(outer.design, 'c', [0, 0, 30]), 'outer')).toBe(true); // stretched instead of rewritten
 		expect(canResizeGroup(outer.design, 'a')).toBe(false);
 	});
 });
@@ -291,7 +298,7 @@ describe('setGroupGeometry', () => {
 		expect(setGroupGeometry(tipped, g, { ...geo, z: -5 })).not.toBe(tipped);
 	});
 
-	it('refuses bad numbers, sizes that are too big or too small, locked groups, and what cannot be scaled exactly', () => {
+	it('refuses bad numbers, sizes that are too big or too small, and locked groups', () => {
 		const { d, g } = pair();
 		const geo = groupGeometry(d, g)!;
 		expect(setGroupGeometry(d, g, { ...geo, width: 0 })).toBe(d);
@@ -300,8 +307,6 @@ describe('setGroupGeometry', () => {
 		expect(setGroupGeometry(d, g, { ...geo, width: 0.01 })).toBe(d); // a shape would shrink below 0.1 mm
 		const locked = { ...d, nodes: { ...d.nodes, [g]: { ...d.nodes[g]!, locked: true } } };
 		expect(setGroupGeometry(locked, g, { ...geo, width: 100 })).toBe(locked);
-		const skewed = setNodeEuler(d, 'a', [0, 0, 45]);
-		expect(setGroupGeometry(skewed, g, { ...geo, width: 100 })).toBe(skewed);
 		expect(setGroupGeometry(d, 'a', geo)).toBe(d);
 	});
 

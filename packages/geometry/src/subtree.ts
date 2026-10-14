@@ -66,7 +66,7 @@ function describe(nodes: Record<NodeId, DesignNode>, id: NodeId, isRoot: boolean
 	// The root group's own transform and mode only matter to whoever places it, not to its shape.
 	return isRoot
 		? ['g', node.op, children, node.edges ?? null, paintOf(node)]
-		: ['g', node.mode, node.transform, node.op, children, node.edges ?? null];
+		: ['g', node.mode, node.transform, node.scale ?? null, node.op, children, node.edges ?? null];
 }
 
 /** cyrb53: a fast, well-spread 53-bit string hash. Collisions are not a practical concern here. */
