@@ -1,6 +1,6 @@
 {
 	"name": "@holecraft/server",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"private": true,
 	"description": "holecraft HTTP server: serves the web app and the design storage API",
 	"license": "AGPL-3.0-only",

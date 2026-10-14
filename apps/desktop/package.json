@@ -1,7 +1,7 @@
 {
 	"name": "@holecraft/desktop",
 	"productName": "Holecraft",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"private": true,
 	"description": "Holecraft desktop app for Linux",
 	"license": "AGPL-3.0-only",
