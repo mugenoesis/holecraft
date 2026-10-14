@@ -2073,3 +2073,86 @@ button.primary:disabled {
 	stroke: #e8a317;
 	stroke-width: 2;
 }
+
+/* The keyboard shortcut sheet, opened with ? */
+.shortcuts-backdrop {
+	position: fixed;
+	inset: 0;
+	z-index: 50;
+	display: grid;
+	place-items: center;
+	background: rgba(20, 30, 36, 0.45);
+}
+.shortcuts {
+	background: var(--surface);
+	border-radius: 10px;
+	padding: 16px 20px;
+	width: min(760px, 92vw);
+	max-height: 86vh;
+	overflow: auto;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+.shortcuts header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 8px;
+}
+.shortcuts h2 {
+	margin: 0;
+	font-size: 1.2rem;
+}
+.shortcuts-cols {
+	columns: 2;
+	column-gap: 28px;
+}
+.shortcuts section {
+	break-inside: avoid;
+	margin-bottom: 12px;
+}
+.shortcuts h3 {
+	margin: 0 0 4px;
+	font-size: 0.8rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--muted);
+}
+.shortcuts dl {
+	margin: 0;
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 3px 12px;
+	align-items: center;
+}
+.shortcuts dt {
+	text-align: right;
+	white-space: nowrap;
+}
+.shortcuts dd {
+	margin: 0;
+}
+.shortcuts kbd {
+	display: inline-block;
+	border: 1px solid var(--border);
+	border-bottom-width: 2px;
+	border-radius: 4px;
+	padding: 0 5px;
+	margin-left: 3px;
+	font:
+		12px ui-monospace,
+		monospace;
+	background: var(--bg);
+}
+.shortcuts p {
+	margin: 4px 0 0;
+	font-size: 0.85rem;
+}
+@media (max-width: 640px) {
+	.shortcuts-cols {
+		columns: 1;
+	}
+}
+.help-button {
+	min-width: 2em;
+	font-weight: 600;
+}

@@ -23,10 +23,12 @@ interface Props {
 	save: { status: SaveStatus; problem: string | null; lastError: string | undefined };
 	/** The compact layout: arrows for undo and redo, and group and ungroup left to the bar over the view. */
 	compact: boolean;
+	/** Opens the keyboard shortcut sheet. */
+	onHelp: () => void;
 }
 
 /** The bar across the top of the editor: back link, undo/redo, group, name, import/export and save status. */
-export function TopBar({ state, dispatch, meshes, onImported, save, compact }: Props) {
+export function TopBar({ state, dispatch, meshes, onImported, save, compact, onHelp }: Props) {
 	const design = state.history.present;
 	const selection: readonly NodeId[] = state.selection;
 
@@ -84,6 +86,9 @@ export function TopBar({ state, dispatch, meshes, onImported, save, compact }: P
 				{STATUS_LABEL[save.status]}
 				{save.status === 'error' && save.problem ? `: ${save.problem}` : ''}
 			</span>
+			<button type="button" className="help-button" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={onHelp}>
+				?
+			</button>
 			<ServerStatus />
 		</header>
 	);

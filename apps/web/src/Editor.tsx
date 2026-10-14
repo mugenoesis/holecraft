@@ -11,6 +11,7 @@ import { PanelTabs } from './PanelTabs.tsx';
 import { PropertiesPanel } from './PropertiesPanel.tsx';
 import { SelectionBar } from './SelectionBar.tsx';
 import { ObjectList, ShapesPanel } from './ShapesPanel.tsx';
+import { ShortcutSheet } from './ShortcutSheet.tsx';
 import { TopBar } from './TopBar.tsx';
 import { useAutosave } from './useAutosave.ts';
 import { useLibrary } from './useLibrary.ts';
@@ -72,7 +73,10 @@ function EditorView({ initial }: { initial: Design }) {
 	const { meshes, add: addMesh } = useMeshes(design);
 	const save = useAutosave(design, initial);
 	useDocumentTitle(design.name);
-	useEditorShortcuts(dispatch);
+	const [help, setHelp] = useState(false);
+	const openHelp = useCallback(() => setHelp(true), []);
+	const closeHelp = useCallback(() => setHelp(false), []);
+	useEditorShortcuts(dispatch, openHelp);
 
 	// The Workplane tool's plane (not saved): new shapes stand on it instead of on the floor.
 	const [plane, setPlane] = useState<WorkPlane | null>(null);
@@ -118,6 +122,7 @@ function EditorView({ initial }: { initial: Design }) {
 				dispatch={dispatch}
 				meshes={meshes}
 				save={save}
+				onHelp={openHelp}
 				onImported={(input, mesh) => {
 					addMesh(input.ref, mesh);
 					dispatch({ type: 'addMesh', input });
@@ -210,6 +215,7 @@ function EditorView({ initial }: { initial: Design }) {
 				<span>Objects: {design.roots.length}</span>
 				{state.selection.length > 0 && <span>Selected: {state.selection.length}</span>}
 			</footer>
+			{help && <ShortcutSheet onClose={closeHelp} />}
 		</div>
 	);
 }
