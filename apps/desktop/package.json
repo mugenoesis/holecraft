@@ -18,7 +18,7 @@
 		"dist": "electron-builder --linux AppImage deb"
 	},
 	"devDependencies": {
-		"@holecraft/server": "0.1.0",
+		"@holecraft/server": "0.1.1",
 		"electron": "44.7.0",
 		"electron-builder": "^26.15.3"
 	},
