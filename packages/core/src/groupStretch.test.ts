@@ -5,7 +5,16 @@ import { edgeToolTarget } from './edgeTool.ts';
 import { duplicateNodes, moveNodes, setNodeEuler } from './edit.ts';
 import { groupFrame, groupStretch, isStretched, nodeFrame } from './groupFrame.ts';
 import { canUngroup, groupNodes, ungroupNodes } from './groups.ts';
-import { bakeStretch, canResizeGroup, groupGeometry, groupRings, setGroupGeometry, setGroupSize } from './groupTransform.ts';
+import {
+	bakeStretch,
+	canResizeGroup,
+	groupGeometry,
+	groupResizeMode,
+	groupRings,
+	holdsFastener,
+	setGroupGeometry,
+	setGroupSize,
+} from './groupTransform.ts';
 import { transformPoint } from './mat4.ts';
 import { addShape, nodeBoundsIn } from './ops.ts';
 import { canPaint } from './paintEdits.ts';
@@ -313,5 +322,71 @@ describe('what a stretched group cannot be used for', () => {
 		const target = edgeToolTarget(d, [g]);
 		expect('problem' in target && target.problem).toMatch(/stretched/);
 		expect(edgeToolTarget(odd().d, [g])).toEqual({ id: g });
+	});
+});
+
+describe('a group holding a fastener (a thread, nut, washer or standoff)', () => {
+	/** A threaded rod and a box side by side, grouped. */
+	function withRod(): { d: Design; g: string } {
+		let d = createEmptyDesign('d');
+		d = addShape(d, 'threaded-rod', [0, 0], { id: 'rod' }).design;
+		d = addShape(d, 'box', [60, 0], { id: 'x' }).design;
+		const g = groupNodes(d, ['rod', 'x'], { id: 'g' });
+		return { d: g.design, g: g.id! };
+	}
+	const open = { fasteners: true };
+
+	it('is told apart from one that holds none', () => {
+		expect(holdsFastener(withRod().d, 'g')).toBe(true);
+		expect(holdsFastener(pair().d, 'g')).toBe(false);
+		expect(holdsFastener(withRod().d, 'x')).toBe(false);
+	});
+
+	it('is locked by default: no handles, no typed size, nothing changes', () => {
+		const { d, g } = withRod();
+		expect(canResizeGroup(d, g)).toBe(false);
+		expect(groupResizeMode(d, g)).toBeNull();
+		const geo = groupGeometry(d, g)!;
+		expect(setGroupGeometry(d, g, { ...geo, width: geo.width * 2 })).toBe(d);
+		expect(setGroupSize(d, g, { height: 50 })).toBe(d);
+	});
+
+	it('can be stretched once unlocked, and always by giving the group a stretch: the thread itself is not rewritten', () => {
+		const { d, g } = withRod();
+		expect(canResizeGroup(d, g, open)).toBe(true);
+		expect(groupResizeMode(d, g, open)).toBe('stretch');
+		const geo = groupGeometry(d, g)!;
+		const out = setGroupGeometry(d, g, { ...geo, width: geo.width * 2 }, undefined, open);
+		expect(out).not.toBe(d);
+		expect(groupStretch(out.nodes[g] as GroupNode)[0]).toBeCloseTo(2);
+		expect(out.nodes.rod).toEqual(d.nodes.rod); // its width, depth and height are the ones its Size and Fit give
+		expect(extent(out, g).size[0]).toBeCloseTo(extent(d, g).size[0]! * 2);
+	});
+
+	it('takes a typed size once unlocked', () => {
+		const { d, g } = withRod();
+		const out = setGroupSize(d, g, { height: 55 }, undefined, open);
+		expect(groupGeometry(out, g)!.height).toBeCloseTo(55);
+	});
+
+	it('stays stretched when it is locked again, but cannot be changed further', () => {
+		const { d, g } = withRod();
+		const out = setGroupGeometry(d, g, { ...groupGeometry(d, g)!, width: 120 }, undefined, open);
+		expect(canResizeGroup(out, g)).toBe(false);
+		expect(setGroupGeometry(out, g, { ...groupGeometry(out, g)!, width: 90 })).toBe(out);
+		expect(isStretched(out.nodes[g] as GroupNode)).toBe(true);
+	});
+
+	it('cannot be ungrouped once stretched (the thread would be stretched, not rewritten), and says so by being unavailable', () => {
+		const { d, g } = withRod();
+		expect(canUngroup(d, [g])).toBe(true);
+		const out = setGroupGeometry(d, g, { ...groupGeometry(d, g)!, width: 120 }, undefined, open);
+		expect(canUngroup(out, [g])).toBe(false);
+	});
+
+	it('still refuses a locked group even when unlocked for fasteners', () => {
+		const { d, g } = withRod();
+		const locked = { ...d, nodes: { ...d.nodes, [g]: { ...d.nodes[g]!, locked: true } } };
+		expect(setGroupGeometry(locked, g, { ...groupGeometry(locked, g)!, width: 120 }, undefined, open)).toBe(locked);
 	});
 });

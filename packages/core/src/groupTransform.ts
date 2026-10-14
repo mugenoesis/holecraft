@@ -126,8 +126,19 @@ export function groupGeometry(design: Design, id: NodeId): ShapeGeometry | null 
  * which is only exact while each one is turned in quarter turns within its group, and no thread is inside (a thread keeps its real size) (then its width, depth and height
  * line up with the group's axes). The group itself may be turned any way: the stretch is worked out in its own frame.
  */
-export function canResizeGroup(design: Design, id: NodeId): boolean {
-	return groupResizeMode(design, id) !== null;
+export function canResizeGroup(design: Design, id: NodeId, options?: GroupResizeOptions): boolean {
+	return groupResizeMode(design, id, options) !== null;
+}
+
+/** Whether a group holds a fastener: a thread, nut, washer or standoff, which keep their real size and so are not stretched unless asked. */
+export function holdsFastener(design: Design, id: NodeId): boolean {
+	return innerNodes(design, id).some((n) => n.kind === 'shape' && isThreadedType(n.shapeType));
+}
+
+/** What a resize of a group may do beyond the usual. */
+export interface GroupResizeOptions {
+	/** Stretch a group that holds a fastener too (it is locked until the user unlocks it); the fastener is then stretched with the group. */
+	fasteners?: boolean;
 }
 
 /**
@@ -135,10 +146,10 @@ export function canResizeGroup(design: Design, id: NodeId): boolean {
  * a `stretch` of its own (when a shape is turned at an odd angle). Null when it cannot be resized at all: it holds a thread, which keeps its
  * real size, or is not a group.
  */
-export function groupResizeMode(design: Design, id: NodeId): 'rewrite' | 'stretch' | null {
+export function groupResizeMode(design: Design, id: NodeId, options?: GroupResizeOptions): 'rewrite' | 'stretch' | null {
 	const node = design.nodes[id];
 	if (node?.kind !== 'group' || !groupLocalBounds(design, id)) return null;
-	if (innerNodes(design, id).some((n) => n.kind === 'shape' && isThreadedType(n.shapeType))) return null;
+	if (holdsFastener(design, id)) return options?.fasteners ? 'stretch' : null; // a fastener's own size cannot be rewritten
 	return !isStretched(node) && canRewriteContents(design, id) ? 'rewrite' : 'stretch';
 }
 
@@ -241,10 +252,10 @@ function stretched(
  * own axes, and what is inside is left alone. Refused (same design back) for a locked group, one that holds a thread, bad numbers, a
  * level group's base below the workplane (a tipped one's base centre may dip, as a tipped shape's can), or sizes the group cannot take.
  */
-export function setGroupGeometry(design: Design, id: NodeId, g: ShapeGeometry, now?: Date): Design {
+export function setGroupGeometry(design: Design, id: NodeId, g: ShapeGeometry, now?: Date, options?: GroupResizeOptions): Design {
 	const node = design.nodes[id];
 	const from = groupLocalBounds(design, id);
-	const mode = groupResizeMode(design, id);
+	const mode = groupResizeMode(design, id, options);
 	const sizes = [g.width, g.depth, g.height];
 	if (node?.kind !== 'group' || node.locked || !from || !mode) return design;
 	const belowFloor = g.z < 0 && isUpright(rotationOfTransform(node.transform));
@@ -295,7 +306,13 @@ function stretchGroup(design: Design, node: GroupNode, from: { min: Vec3; max: V
  * are: everything inside is stretched to match, exactly as when a resize handle is dragged to that size. Refused (same design back) for
  * anything `setGroupGeometry` refuses, and for sizes that are not above 0.
  */
-export function setGroupSize(design: Design, id: NodeId, size: Partial<Record<'width' | 'depth' | 'height', number>>, now?: Date): Design {
+export function setGroupSize(
+	design: Design,
+	id: NodeId,
+	size: Partial<Record<'width' | 'depth' | 'height', number>>,
+	now?: Date,
+	options?: GroupResizeOptions,
+): Design {
 	const g = groupGeometry(design, id);
 	if (!g) return design;
 	const next = { ...g };
@@ -303,5 +320,5 @@ export function setGroupSize(design: Design, id: NodeId, size: Partial<Record<'w
 		const v = size[key];
 		if (v !== undefined) next[key] = v;
 	}
-	return setGroupGeometry(design, id, next, now);
+	return setGroupGeometry(design, id, next, now, options);
 }

@@ -79,6 +79,8 @@ export interface EditorState {
 	drag: { base: Design; ids: NodeId[] } | null;
 	/** The last duplicate: what was copied and the copies made. Duplicating those copies again repeats whatever was done to them. */
 	lastDuplicate: { sources: NodeId[]; copies: NodeId[] } | null;
+	/** Groups holding a fastener whose stretching has been unlocked this session (never saved with the design, not an undo step). */
+	unlockedStretch: NodeId[];
 }
 
 export type EditorAction =
@@ -105,6 +107,8 @@ export type EditorAction =
 	// A resize or lift handle being dragged: previews the shape's whole geometry. Runs between
 	// moveStart and moveEnd, like a move.
 	| { type: 'setGeometry'; id: NodeId; geometry: ShapeGeometry }
+	// Allow (or stop allowing) a group that holds a thread, nut, washer or standoff to be stretched; for this session only.
+	| { type: 'setStretchUnlocked'; id: NodeId; unlocked: boolean }
 	| { type: 'dropToPlane' }
 	// The eye and padlock in the Objects list (by id, not the selection), and the "Show all" button.
 	| { type: 'setHidden'; ids: NodeId[]; hidden: boolean }
@@ -166,7 +170,7 @@ export type EditorAction =
 export const canUndoState = (state: EditorState): boolean => canUndo(state.history);
 
 export function createEditorState(design: Design): EditorState {
-	return { history: createHistory(design), selection: [], drag: null, lastDuplicate: null };
+	return { history: createHistory(design), selection: [], drag: null, lastDuplicate: null, unlockedStretch: [] };
 }
 
 /** Records `next` as a new undoable step; returns `state` itself when nothing changed. */
@@ -184,8 +188,16 @@ type DragAction = ActionOf<
 /** The colour wheel's drag: like any other drag it ends with moveEnd or cancelDrag. */
 type ColourDragAction = ActionOf<'colourStart' | 'previewColor' | 'previewPalette'>;
 type HistoryAction = ActionOf<'undo' | 'redo'>;
+type StretchLockAction = ActionOf<'setStretchUnlocked'>;
 /** Everything else: edits to the document itself, each one an undoable step. */
-type EditAction = Exclude<EditorAction, SelectionAction | DragAction | ColourDragAction | HistoryAction>;
+type EditAction = Exclude<EditorAction, SelectionAction | DragAction | ColourDragAction | HistoryAction | StretchLockAction>;
+
+/** Allowing (or stopping) the stretch of a group that holds a fastener: a setting of this editing session, not part of the document or its history. */
+function reduceStretchLock(state: EditorState, action: StretchLockAction): EditorState {
+	if (state.unlockedStretch.includes(action.id) === action.unlocked) return state;
+	const unlockedStretch = action.unlocked ? [...state.unlockedStretch, action.id] : state.unlockedStretch.filter((id) => id !== action.id);
+	return { ...state, unlockedStretch };
+}
 
 /** Changes to what is selected. */
 function reduceSelection(state: EditorState, action: SelectionAction): EditorState {
@@ -233,7 +245,9 @@ function reduceDrag(state: EditorState, action: DragAction): EditorState {
 		}
 
 		case 'setGeometry':
-			return preview(state, action.id, (base) => setShapeGeometry(base, action.id, action.geometry));
+			return preview(state, action.id, (base) =>
+				setShapeGeometry(base, action.id, action.geometry, undefined, { fasteners: state.unlockedStretch.includes(action.id) }),
+			);
 
 		case 'setRotation':
 			return preview(state, action.id, (base) => setNodeRotation(base, action.id, action.rotation));
@@ -413,7 +427,10 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 			return commit(state, setShapeSize(design, action.id, action.size));
 
 		case 'setGroupSize':
-			return commit(state, setGroupSize(design, action.id, action.size));
+			return commit(
+				state,
+				setGroupSize(design, action.id, action.size, undefined, { fasteners: state.unlockedStretch.includes(action.id) }),
+			);
 
 		case 'setChamfer':
 			return commit(
@@ -498,6 +515,9 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 		case 'undo':
 		case 'redo':
 			return reduceHistory(state, action);
+
+		case 'setStretchUnlocked':
+			return reduceStretchLock(state, action);
 
 		default:
 			return reduceEdit(state, action);

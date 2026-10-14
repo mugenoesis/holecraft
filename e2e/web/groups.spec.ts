@@ -475,4 +475,33 @@ test.describe('typing a group’s size', () => {
 		await expect(properties(page)).toContainText('thread');
 		await expect(page.getByTestId('handle-corner-pp')).toHaveCount(0);
 	});
+
+	test('a group holding a thread can be unlocked for stretching, for this session, and locked again', async ({ page }) => {
+		await page.getByRole('region', { name: 'Shapes' }).getByRole('button', { name: 'Threaded Rod', exact: true }).click();
+		await dropShape(page, 'Box', 200, 0);
+		await page.keyboard.press('Control+a');
+		await groupButton(page).click();
+		const width = () => properties(page).getByLabel('Width', { exact: true });
+		await expect(width()).toBeDisabled();
+		await expect(page.getByTestId('handle-side-px')).toHaveCount(0);
+
+		await properties(page).getByRole('button', { name: 'Unlock stretching' }).click();
+		await expect(properties(page)).toContainText(/unlocked/i);
+		await expect(width()).toBeEnabled();
+		await expect(page.getByTestId('handle-side-px')).toBeVisible();
+		const w0 = Number(await width().inputValue());
+		const from = await center(page.getByTestId('handle-side-px'));
+		await drag(page, from, { x: from.x + 70, y: from.y }, { steps: 12 });
+		await expect.poll(async () => Number(await width().inputValue())).toBeGreaterThan(w0 + 1);
+
+		// locking again stops further stretching but keeps what was done; it cannot be split back into shapes
+		await properties(page).getByRole('button', { name: 'Lock stretching' }).click();
+		await expect(width()).toBeDisabled();
+		await expect(page.getByTestId('handle-side-px')).toHaveCount(0);
+		await expect(ungroupButton(page)).toBeDisabled();
+		await expect(properties(page)).toContainText(/stretched/);
+		await page.getByRole('button', { name: 'Undo' }).click(); // the stretch is one undo step
+		await expect.poll(async () => Number(await width().inputValue())).toBeCloseTo(w0, 4);
+		await expect(ungroupButton(page)).toBeEnabled();
+	});
 });

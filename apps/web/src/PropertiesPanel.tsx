@@ -6,6 +6,7 @@ import {
 	descendantIds,
 	eulerOfTransform,
 	groupGeometry,
+	holdsFastener,
 	isStretched,
 	isThreadedType,
 	lengthOffset,
@@ -23,15 +24,22 @@ import { ShapeParamFields } from './ShapeParamFields.tsx';
 import { useDraft } from './useDraft.ts';
 import type { Library } from './useLibrary.ts';
 
-/** Why a group's size fields are switched off. */
-function whyNotResizable(design: Design, id: NodeId): string {
-	const thread = descendantIds(design, id).some((c) => {
-		const n = design.nodes[c];
-		return n?.kind === 'shape' && isThreadedType(n.shapeType);
-	});
-	return thread
-		? 'It holds a thread, nut, washer or standoff, which keeps its real size, so the group cannot be resized.'
-		: 'This group cannot be resized.';
+/** The reason a group holding a fastener cannot be stretched, and the switch that allows it (for this session; nothing is saved with the design). */
+function FastenerLock({ unlocked, onChange }: { unlocked: boolean; onChange: (unlocked: boolean) => void }) {
+	return (
+		<>
+			<p className="muted hint">
+				{unlocked
+					? 'Stretching is unlocked. The thread is stretched with the group, so it may no longer fit a real screw or nut.'
+					: 'It holds a thread, nut, washer or standoff, which keeps its real size, so stretching is locked.'}
+			</p>
+			<div className="button-row">
+				<button type="button" onClick={() => onChange(!unlocked)}>
+					{unlocked ? 'Lock stretching' : 'Unlock stretching'}
+				</button>
+			</div>
+		</>
+	);
 }
 
 const fmt = (n: number) => String(Number(n.toFixed(2)));
@@ -44,6 +52,8 @@ interface Props {
 	library: Library;
 	/** Takes the sketch shape back into the Sketch tool to redraw it. */
 	onEditSketch?: (id: NodeId) => void;
+	/** The groups holding a fastener whose stretching has been unlocked this session. */
+	unlockedStretch?: readonly NodeId[];
 }
 
 /** The settings a kind of shape has besides its size (each shows only for the shapes it belongs to). */
@@ -108,7 +118,7 @@ function ShapeColour({ design, ids, value, dispatch }: { design: Design; ids: No
 	return <ColourField label="Color" inputLabel="Color" value={value} designColours={design.palette} {...events} />;
 }
 
-export function PropertiesPanel({ design, selection, dispatch, library, onEditSketch }: Props) {
+export function PropertiesPanel({ design, selection, dispatch, library, onEditSketch, unlockedStretch = [] }: Props) {
 	const nodes = selection.flatMap((id) => (design.nodes[id] ? [design.nodes[id]] : []));
 
 	if (nodes.length === 0) {
@@ -178,7 +188,9 @@ export function PropertiesPanel({ design, selection, dispatch, library, onEditSk
 		const groupEuler = eulerOfTransform(only.transform);
 		// the box around what it holds (null while it is tipped over): typing a size stretches everything inside, as dragging a handle does
 		const box = groupGeometry(design, only.id);
-		const resizable = canResizeGroup(design, only.id);
+		const fastener = holdsFastener(design, only.id);
+		const unlocked = unlockedStretch.includes(only.id);
+		const resizable = canResizeGroup(design, only.id, { fasteners: unlocked });
 		return (
 			<section aria-label="Properties">
 				<h2>Properties</h2>
@@ -205,11 +217,13 @@ export function PropertiesPanel({ design, selection, dispatch, library, onEditSk
 							/>
 						))}
 				</div>
-				{box && !resizable && <p className="muted hint">{whyNotResizable(design, only.id)}</p>}
+				{fastener && (
+					<FastenerLock unlocked={unlocked} onChange={(open) => dispatch({ type: 'setStretchUnlocked', id: only.id, unlocked: open })} />
+				)}
 				{isStretched(only) && !canUngroup(design, [only.id]) && (
 					<p className="muted hint">
-						It has been stretched and holds shapes turned at other angles, so it cannot be split back into shapes without distorting them.
-						Undo the stretch to ungroup it.
+						It has been stretched and holds parts that cannot be stretched exactly (a thread, or shapes turned at other angles), so it
+						cannot be split back into shapes without distorting them. Undo the stretch to ungroup it.
 					</p>
 				)}
 				<p>Contains {shapes} shapes</p>

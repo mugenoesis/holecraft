@@ -116,6 +116,13 @@ describe('selectedHandles', () => {
 		expect(selectedHandles(grouped, ['g'])?.id).toBe('g');
 	});
 
+	it('gives a group holding a thread its handles once that group is unlocked, and only that group', () => {
+		const withRod = groupNodes(addShape(scene(), 'threaded-rod', [200, 0], { id: 'r' }).design, ['a', 'r'], { id: 'tg' }).design;
+		expect(selectedHandles(withRod, ['tg'], ['tg'])?.id).toBe('tg');
+		expect(selectedHandles(withRod, ['tg'], ['other'])).toBeNull();
+		expect(selectedHandles(withRod, ['tg'], [])).toBeNull();
+	});
+
 	it('is null for a group holding a thread (it keeps its real size), and the usual nothing cases', () => {
 		const d = scene();
 		const withRod = groupNodes(addShape(d, 'threaded-rod', [200, 0], { id: 'r' }).design, ['a', 'r'], { id: 'tg' }).design;

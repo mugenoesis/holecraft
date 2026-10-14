@@ -136,6 +136,7 @@ function EditorView({ initial }: { initial: Design }) {
 					thumbnailReady={save.status === 'saved'}
 					onThumbnail={(picture) => uploadThumbnail(design.id, picture)}
 					selection={state.selection}
+					unlockedStretch={state.unlockedStretch}
 					onDropShape={addAt}
 					onDropSaved={addSaved}
 					plane={plane}
@@ -193,6 +194,7 @@ function EditorView({ initial }: { initial: Design }) {
 							dispatch={dispatch}
 							library={library}
 							onEditSketch={setSketchEdit}
+							unlockedStretch={state.unlockedStretch}
 						/>
 						<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
 					</div>
