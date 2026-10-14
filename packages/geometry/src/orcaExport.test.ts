@@ -117,7 +117,18 @@ describe('write3mf for OrcaSlicer (with a palette)', () => {
 		it('fills them with the OrcaSlicer preset values, the same for every filament', () => {
 			const settings = settingsFor(PALETTE);
 			expect(settings.filament_type).toEqual(['PLA', 'PLA', 'PLA', 'PLA']);
-			for (const [key, value] of Object.entries(ORCA_FILAMENT_DEFAULTS)) expect(settings[key], key).toEqual([value, value, value, value]);
+			for (const [key, value] of Object.entries(ORCA_FILAMENT_DEFAULTS)) {
+				if (key !== 'filament_self_index') expect(settings[key], key).toEqual([value, value, value, value]);
+			}
+		});
+
+		it("numbers each filament's own position 1 to N (filament_self_index), which the engine refuses to slice if they are all 1", () => {
+			// Every filament set to 1 loads, but the engine then dies slicing with two or more
+			// ("ConfigOptionVector::set_with_restore_2(): invalid size found"), found in Trident.
+			for (const n of [1, 2, 4, 16]) {
+				const palette = Array.from({ length: n }, (_, i) => `#${(i + 16).toString(16)}0000`);
+				expect(settingsFor(palette).filament_self_index).toEqual(Array.from({ length: n }, (_, i) => String(i + 1)));
+			}
 		});
 
 		it("writes only filament settings, so opening the file never replaces the user's printer or print profile", () => {

@@ -83,6 +83,9 @@ function modelSettings(bodies: readonly ExportBody[], filaments: readonly string
 function projectSettings(filaments: readonly string[]): string {
 	const settings: Record<string, string[]> = { filament_colour: filaments.map((c) => c.toUpperCase()) };
 	for (const [key, value] of Object.entries(ORCA_FILAMENT_DEFAULTS)) settings[key] = filaments.map(() => value);
+	// Each filament's own position, 1 to N. The preset's "1" repeated is in range so the engine keeps it, and then
+	// dies slicing with two or more filaments (ConfigOptionVector::set_with_restore_2: invalid size found).
+	settings.filament_self_index = filaments.map((_, i) => String(i + 1));
 	return JSON.stringify(settings, null, 2);
 }
 

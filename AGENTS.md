@@ -394,9 +394,11 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   `orcaFilamentDefaults.ts` is GENERATED from the real engine by `scripts/update-orca-filament-defaults.sh`
   (150 settings; each is repeated N times at export). Never hand-edit it, never write a partial settings
   file, and never add printer/process keys (that would overwrite the user's profile on open).
+- **`filament_self_index` must be 1 to N, not the preset's "1" repeated**: the engine keeps an in-range value, loads the file, then dies slicing with two or more filaments
+  (`ConfigOptionVector::set_with_restore_2(): invalid size found`). `projectSettings` writes it itself; loading a file is not proof it slices.
 - Prove changes with `scripts/verify-orca-export.sh` (needs the local `mugenoesis/trident` image; runs
   `docker run --rm` containers only): Trident's reader AND the real engine must load 4- and 16-colour files and
-  keep the filaments. The engine re-arranges objects on re-export, so only filaments/colours are compared there.
+  keep the filaments, and the 4-colour file must **slice** on the four-nozzle Snapmaker U1 (`scripts/lib/slice-check.sh`, through a throwaway Trident container). The engine re-arranges objects on re-export, so only filaments/colours are compared there.
   Container commands with a shell entrypoint must live in a script file (the sandbox refuses them inline).
 
 ## Thumbnails
