@@ -93,7 +93,7 @@ The **Export** button in the top bar downloads the whole design as (tick **Only 
 |---|---|
 | **STL** | Slicers and printing. Binary, in millimetres |
 | **OBJ** | Other 3D programs. Text, in millimetres, one named object per shape |
-| **3MF** | Modern slicers. Keeps each object's name and colour, in millimetres |
+| **3MF** | Viewers and other 3D programs. Keeps each object's name and colour, in millimetres. Slicers such as OrcaSlicer and Trident ignore these colours: use **3MF for OrcaSlicer** for multi-colour printing |
 | **3MF for OrcaSlicer** | Multi-colour printing in OrcaSlicer, Bambu Studio and Trident: each object is assigned the filament of its colour (see below) |
 
 What you get is what you see: holes are cut out of the solids they share a group with, every
