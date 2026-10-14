@@ -212,6 +212,15 @@ describe('sending a model to Trident', () => {
 		expect(names[0]).not.toContain('/');
 	});
 
+	it('reads the name the page sent percent-encoded (a header cannot carry spaces and accents as they are), keeping letters', async () => {
+		const trident = await start(accepting());
+		await save({ url: trident.url });
+		await send('x', { 'x-file-name': encodeURIComponent('Br\u00fccke 2 (final).3mf') });
+		await send('x', { 'x-file-name': '100%.3mf' }); // not valid percent-encoding: used as it is, tidied
+		expect(trident.seen[0]?.body.includes(Buffer.from('filename="Br\u00fccke 2 (final).3mf"'))).toBe(true);
+		expect(trident.seen[1]?.body.toString('latin1')).toMatch(/filename="100_\.3mf"/);
+	});
+
 	it('says the key was not accepted, naming what to check', async () => {
 		const trident = await start(answering(401, { detail: 'Invalid API key' }));
 		await save({ url: trident.url, key: 'wrong' });

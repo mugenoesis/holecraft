@@ -76,12 +76,22 @@ export class TridentStore {
 
 const publicView = (s: TridentSettings | null) => ({ url: s?.url ?? null, hasKey: Boolean(s?.key) });
 
-/** A file name Trident can take: a plain name, ending .3mf. */
+/** The header's text as the page meant it: it sends the name percent-encoded (a header cannot carry spaces and accents as they are). */
+function decoded(raw: unknown): string {
+	if (typeof raw !== 'string') return '';
+	try {
+		return decodeURIComponent(raw);
+	} catch {
+		return raw; // not valid percent-encoding: take it as it is
+	}
+}
+
+/** A file name Trident can take: a plain name (letters, digits and a few marks), ending .3mf. */
 function sendableName(raw: unknown): string {
-	const base = (typeof raw === 'string' ? raw : '').split(/[\\/]/).pop() ?? '';
+	const base = decoded(raw).split(/[\\/]/).pop() ?? '';
 	const stem = base
 		.replace(/\.[^.]*$/, '')
-		.replace(/[^\w .()-]/g, '_')
+		.replace(/[^\p{L}\p{N}_ .()-]/gu, '_')
 		.trim()
 		.slice(0, 100);
 	return `${stem || 'model'}.3mf`;
