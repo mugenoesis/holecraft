@@ -24,6 +24,7 @@ export * from './parametricShapes.ts';
 export * from './picking.ts';
 export * from './repeat.ts';
 export * from './resize.ts';
+export * from './resizeTilted.ts';
 export * from './ring.ts';
 export * from './rotation.ts';
 export * from './ruler.ts';

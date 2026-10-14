@@ -204,15 +204,63 @@ test.describe('turned shapes', () => {
 		expect(await rot(page, 'Z')()).toBeCloseTo(90, 6);
 	});
 
-	test('a tipped shape hides its resize and lift handles, and says why', async ({ page }) => {
-		await type(page, 'Rotate X', '30');
-		await expect(page.getByTestId('handle-corner-pp')).toHaveCount(0);
-		await expect(page.getByTestId('handle-lift')).toHaveCount(0);
-		await expect(rotate(page, 'x')).toBeVisible();
-		await expect(page.getByRole('region', { name: 'Properties' })).toContainText(/tilted/i);
+	/** The direction on screen from the middle of the shape's base to a handle, as a unit vector. */
+	async function outwards(page: Page, id: string) {
+		const a = await centerOf(handle(page, 'side-px'));
+		const b = await centerOf(handle(page, 'side-nx'));
+		const at = await centerOf(handle(page, id));
+		const dx = at.x - (a.x + b.x) / 2;
+		const dy = at.y - (a.y + b.y) / 2;
+		const len = Math.hypot(dx, dy) || 1;
+		return { from: at, dx: dx / len, dy: dy / len };
+	}
 
-		await type(page, 'Rotate X', '0');
-		await expect(page.getByTestId('handle-corner-pp')).toBeVisible();
+	test('a tipped shape keeps its resize and lift handles, and nothing says they are hidden', async ({ page }) => {
+		await type(page, 'Rotate X', '30');
+		for (const id of ['corner-pp', 'corner-nn', 'side-px', 'side-py', 'height', 'lift']) await expect(handle(page, id)).toBeVisible();
+		await expect(rotate(page, 'x')).toBeVisible();
+		await expect(page.getByRole('region', { name: 'Properties' })).not.toContainText(/tilted|hidden/i);
+	});
+
+	test('dragging a side of a tipped shape changes only the size that side belongs to, and keeps it tipped', async ({ page }) => {
+		await type(page, 'Rotate X', '40');
+		const { from, dx, dy } = await outwards(page, 'side-px');
+		await drag(page, from, { x: from.x + dx * 60, y: from.y + dy * 60 }, { steps: 10 });
+		await expect.poll(num(page, 'Width')).toBeGreaterThan(20);
+		expect(await num(page, 'Depth')()).toBe(20);
+		expect(await num(page, 'Height')()).toBe(20);
+		expect(await rot(page, 'X')()).toBeCloseTo(40, 4);
+	});
+
+	test('dragging the height handle of a tipped shape stretches it along its own up', async ({ page }) => {
+		await type(page, 'Rotate X', '40');
+		const { from, dx, dy } = await outwards(page, 'height');
+		await drag(page, from, { x: from.x + dx * 70, y: from.y + dy * 70 }, { steps: 10 });
+		await expect.poll(num(page, 'Height')).toBeGreaterThan(20);
+		expect(await num(page, 'Width')()).toBe(20);
+		expect(await num(page, 'Depth')()).toBe(20);
+		expect(await rot(page, 'X')()).toBeCloseTo(40, 4);
+	});
+
+	test('the lift handle raises a tipped shape without changing its size or its turn', async ({ page }) => {
+		await type(page, 'Rotate X', '40');
+		const z0 = await num(page, 'Z')();
+		const from = await centerOf(handle(page, 'lift'));
+		await drag(page, from, { x: from.x, y: from.y - 60 }, { steps: 10 });
+		await expect.poll(num(page, 'Z')).toBeGreaterThan(z0 + 1);
+		expect(await num(page, 'Width')()).toBe(20);
+		expect(await num(page, 'Height')()).toBe(20);
+		expect(await rot(page, 'X')()).toBeCloseTo(40, 4);
+	});
+
+	test('a tipped shape resized with its handles is one undo step', async ({ page }) => {
+		await type(page, 'Rotate X', '40');
+		const { from, dx, dy } = await outwards(page, 'side-px');
+		await drag(page, from, { x: from.x + dx * 60, y: from.y + dy * 60 }, { steps: 10 });
+		await expect.poll(num(page, 'Width')).toBeGreaterThan(20);
+		await page.getByRole('button', { name: 'Undo' }).click();
+		await expect.poll(num(page, 'Width')).toBe(20);
+		expect(await rot(page, 'X')()).toBeCloseTo(40, 4);
 	});
 
 	test('dropping a tipped shape rests its lowest corner on the workplane', async ({ page }) => {

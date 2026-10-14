@@ -10,7 +10,7 @@ import { MESH_SHAPE_TYPE } from './meshShape.ts';
 import { nodeBoundsIn, shapeBounds, translationOf } from './ops.ts';
 import { stretchPaint } from './paintEdits.ts';
 import type { ShapeGeometry } from './resize.ts';
-import { composeTransform, eulerToMatrix, shapeCenter } from './rotation.ts';
+import { composeTransform, eulerToMatrix, isUpright, rotationOfTransform, shapeCenter } from './rotation.ts';
 import { getShapeDef, type ShapeType } from './shapes.ts';
 import { isThreadedType, minThreadHeight, threadFootprint } from './threadStandards.ts';
 
@@ -148,7 +148,9 @@ export function setShapeGeometry(design: Design, id: NodeId, g: ShapeGeometry, n
 	if (node?.kind === 'group') return setGroupGeometry(design, id, g, now);
 	if (!isEditable(node) || node.kind !== 'shape') return design;
 	const sizes = [g.width, g.depth, g.height];
-	if (![g.x, g.y, g.z, ...sizes].every(Number.isFinite) || g.z < 0 || sizes.some((v) => v <= 0 || v > MAX_SHAPE_SIZE)) return design;
+	// an upright shape's base is its lowest point, so it stays on or above the workplane; a tilted one reaches below its base centre
+	const belowFloor = g.z < 0 && isUpright(rotationOfTransform(node.transform));
+	if (![g.x, g.y, g.z, ...sizes].every(Number.isFinite) || belowFloor || sizes.some((v) => v <= 0 || v > MAX_SHAPE_SIZE)) return design;
 
 	const [x, y, z] = translationOf(node.transform);
 	const params = lockFootprint(node, { ...node.params, width: g.width, depth: g.depth, height: g.height });

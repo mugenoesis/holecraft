@@ -336,8 +336,12 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - Rotation always pivots about the shape's **centre** (`setNodeRotation`), which means a tipped
   shape's base point (the X/Y/Z fields) moves. Use `shapeBounds` / `nodeBounds`, never raw
   translation + size, to ask where a shape actually is.
-- Resize and lift handles only exist while `isUpright` (turned about Z only). Their maths is the
-  `*Yawed` variants in `resize.ts`.
+- Resize and lift handles for a **shape** exist at any turn. While `isUpright` (turned about Z only) the maths is the `*Yawed` variants in `resize.ts`;
+  once it is tipped about X or Y (`selectedHandles(...).tilted`) it is `handlePositionTilted` / `dragHandleTilted` / `lowestPointOffset` in `resizeTilted.ts`,
+  worked in the shape's own frame from its whole row-major turn (sides and corners aimed at the plane of its own base, the height handle at its own up axis via
+  `closestParamOnLine`, the lift handle at the world vertical and never below the floor: `-lowestPointOffset`). `setShapeGeometry` lets a tipped shape's base centre dip
+  below z = 0 (an upright one's base is its lowest point). How a pointer aims each kind of handle is `handleAim.ts` (`floor`, `vertical`, `plane`, `axis`). A **group** still
+  needs to stand level and hold only quarter turns (`canResizeGroup`).
 - Ring drags use `Viewport.pickPlane` and ignore moves where the ring plane is edge-on.
 
 ## Input fields
