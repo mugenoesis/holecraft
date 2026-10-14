@@ -6,10 +6,8 @@ import {
 	eulerOfTransform,
 	groupGeometry,
 	isThreadedType,
-	isUpright,
 	lengthOffset,
 	type NodeId,
-	rotationOfTransform,
 	type ShapeNode,
 	translationOf,
 } from '@holecraft/core';
@@ -217,7 +215,6 @@ export function PropertiesPanel({ design, selection, dispatch, library, onEditSk
 
 	const [x, y, z] = translationOf(only.transform);
 	const euler = eulerOfTransform(only.transform);
-	const tilted = !isUpright(rotationOfTransform(only.transform));
 	const turn = (axis: 0 | 1 | 2) => (v: number) => {
 		const next: [number, number, number] = [...euler];
 		next[axis] = v;
@@ -266,11 +263,6 @@ export function PropertiesPanel({ design, selection, dispatch, library, onEditSk
 				{typeToggle}
 				{color}
 			</div>
-			{tilted && (
-				<p className="muted hint">
-					This shape is tilted, so its resize and lift handles are hidden. Set Rotate X and Y back to 0 to use them.
-				</p>
-			)}
 			{actions}
 			{saveBox}
 		</section>

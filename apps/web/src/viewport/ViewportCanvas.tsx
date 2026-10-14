@@ -303,6 +303,8 @@ export function ViewportCanvas(props: Props) {
 							nodeId={handles.id}
 							geometry={handles.geometry}
 							yaw={handles.yaw}
+							rotation={handles.rotation}
+							tilted={handles.tilted}
 							lengthOnly={handles.lengthOnly}
 							snap={design.grid.snap}
 							getViewport={() => viewportRef.current}

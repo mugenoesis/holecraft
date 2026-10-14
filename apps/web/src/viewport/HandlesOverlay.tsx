@@ -1,13 +1,16 @@
 import {
+	dragHandleTilted,
 	dragHandleYawed,
 	HANDLE_IDS,
 	type HandleId,
+	handlePositionTilted,
 	handlePositionYawed,
 	type NodeId,
 	type ShapeGeometry,
 	type Vec3,
 } from '@holecraft/core';
 import { type PointerEvent, useRef } from 'react';
+import { type Aim, aimKind, aimOffset, aimTarget } from './handleAim.ts';
 import { describeDrag, handleAriaLabel } from './handleLabel.ts';
 import type { Viewport } from './Viewport.ts';
 
@@ -19,6 +22,10 @@ interface Props {
 	geometry: ShapeGeometry;
 	/** Degrees the shape is turned about the vertical axis through its centre. */
 	yaw: number;
+	/** The shape's whole turn (row-major 3x3), used when it is `tilted`. */
+	rotation: readonly number[];
+	/** Tipped over, not just turned about the vertical: the handles then work along the shape's own axes. */
+	tilted: boolean;
 	/** A thread keeps its width and depth: only the height and lift handles are offered. */
 	lengthOnly: boolean;
 	snap: number;
@@ -32,47 +39,43 @@ interface Props {
 
 interface Grab {
 	id: HandleId;
-	start: ShapeGeometry;
+	aim: Aim;
 	/** Difference between the handle's position and where the pointer first touched it. */
 	offset: Vec3;
 }
-
-const isVertical = (id: HandleId) => id === 'height' || id === 'lift';
 
 /**
  * Resize and lift handles for the selected shape, drawn as buttons over the 3D view so they
  * keep a constant size and are reachable by assistive technology. All the maths is in core.
  */
-export function HandlesOverlay({ nodeId, geometry, yaw, lengthOnly, snap, getViewport, onStart, onGeometry, onEnd, onLabel }: Props) {
+export function HandlesOverlay({
+	nodeId,
+	geometry,
+	yaw,
+	rotation,
+	tilted,
+	lengthOnly,
+	snap,
+	getViewport,
+	onStart,
+	onGeometry,
+	onEnd,
+	onLabel,
+}: Props) {
 	const grab = useRef<Grab | null>(null);
 	const viewport = getViewport();
 	if (!viewport) return null;
 
-	/** The world position the pointer is dragging the handle towards, or null if it points nowhere useful. */
-	const pointerTarget = (g: Grab, e: PointerEvent): Vec3 | null => {
-		const vp = getViewport();
-		if (!vp) return null;
-		if (isVertical(g.id)) {
-			const z = vp.pickHeight(e.clientX, e.clientY, [g.start.x, g.start.y]);
-			return z === null ? null : [g.start.x, g.start.y, z + g.offset[2]];
-		}
-		const hit = vp.pickWorkplane(e.clientX, e.clientY, g.start.z);
-		return hit ? [hit[0] + g.offset[0], hit[1] + g.offset[1], g.start.z] : null;
-	};
+	const positionOf = (g: ShapeGeometry, id: HandleId) => (tilted ? handlePositionTilted(g, rotation, id) : handlePositionYawed(g, yaw, id));
 
 	const onPointerDown = (id: HandleId, e: PointerEvent<HTMLButtonElement>) => {
 		if (e.button !== 0) return;
 		e.preventDefault();
 		e.stopPropagation();
 		const start = { ...geometry };
-		const at = handlePositionYawed(start, yaw, id);
-		const g: Grab = { id, start, offset: [0, 0, 0] };
+		const aim: Aim = { kind: aimKind(id, tilted), start, rotation, at: positionOf(start, id) };
 		const v = getViewport();
-		const touched = isVertical(id)
-			? v?.pickHeight(e.clientX, e.clientY, [start.x, start.y])
-			: v?.pickWorkplane(e.clientX, e.clientY, start.z);
-		if (typeof touched === 'number') g.offset = [0, 0, at[2] - touched];
-		else if (touched) g.offset = [at[0] - touched[0], at[1] - touched[1], 0];
+		const g: Grab = { id, aim, offset: v ? aimOffset(v, aim, id, tilted, e) : [0, 0, 0] };
 
 		e.currentTarget.setPointerCapture(e.pointerId);
 		grab.current = g;
@@ -82,9 +85,13 @@ export function HandlesOverlay({ nodeId, geometry, yaw, lengthOnly, snap, getVie
 	const onPointerMove = (e: PointerEvent<HTMLButtonElement>) => {
 		const g = grab.current;
 		if (!g) return;
-		const target = pointerTarget(g, e);
+		const vp = getViewport();
+		const target = vp && aimTarget(vp, g.aim, g.id, tilted, g.offset, e);
 		if (!target) return;
-		const next = dragHandleYawed(g.start, yaw, g.id, target, { snap, uniform: e.shiftKey, fromCenter: e.altKey });
+		const options = { snap, uniform: e.shiftKey, fromCenter: e.altKey };
+		const next = tilted
+			? dragHandleTilted(g.aim.start, rotation, g.id, target, options)
+			: dragHandleYawed(g.aim.start, yaw, g.id, target, options);
 		onGeometry(nodeId, next);
 		onLabel(describeDrag(g.id, next));
 	};
@@ -100,7 +107,7 @@ export function HandlesOverlay({ nodeId, geometry, yaw, lengthOnly, snap, getVie
 	return (
 		<div className="handles" role="group" aria-label="Shape handles">
 			{HANDLE_IDS.filter((id) => !lengthOnly || id === 'height' || id === 'lift').map((id) => {
-				const p = viewport.project(handlePositionYawed(geometry, yaw, id));
+				const p = viewport.project(positionOf(geometry, id));
 				if (!p) return null;
 				const y = id === 'lift' ? p.y - LIFT_OFFSET_PX : p.y;
 				return (

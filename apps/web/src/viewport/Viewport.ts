@@ -1,5 +1,6 @@
 import {
 	applyViewPreset,
+	closestParamOnLine,
 	type Design,
 	designBounds,
 	fitDistance,
@@ -263,6 +264,16 @@ export class Viewport {
 			cam.y - at[1],
 		]);
 		return hit ? hit[2] : null;
+	}
+
+	/**
+	 * Where along the line from `origin` in unit direction `dir` a screen position points, as a distance from `origin`: the
+	 * closest point of the line to the pointer's ray. For a tipped shape's own up axis. Null when looking along the line.
+	 */
+	pickAlongAxis(clientX: number, clientY: number, origin: Vec3, dir: Vec3): number | null {
+		if (!this.aim(clientX, clientY)) return null;
+		const { origin: o, direction: d } = this.raycaster.ray;
+		return closestParamOnLine([o.x, o.y, o.z], [d.x, d.y, d.z], origin, dir);
 	}
 
 	/** Where a screen position meets the plane through `point` with normal `normal`, or null (edge-on, or behind). */

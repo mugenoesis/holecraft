@@ -65,22 +65,39 @@ export function selectedRings(
 
 /**
  * What the resize and lift handles need for the single selected shape or group: the box they work on (a group's is the box
- * around its contents) and its turn about the vertical. Null when none should show: tipped shapes, and groups that
- * can't be scaled exactly (see `canResizeGroup`).
+ * around its contents) and its turn: about the vertical (`yaw`) when it stands upright, or the whole `rotation` when it is tipped (`tilted`),
+ * in which case the handles work along the shape's own axes. Null when none should show: groups that can't be scaled exactly
+ * (see `canResizeGroup`), and locked or hidden things.
  */
 export function selectedHandles(
 	design: Design,
 	selection: readonly NodeId[],
-): { id: NodeId; geometry: ShapeGeometry; yaw: number; lengthOnly: boolean } | null {
+): { id: NodeId; geometry: ShapeGeometry; yaw: number; rotation: number[]; tilted: boolean; lengthOnly: boolean } | null {
 	const id = selection.length === 1 ? selection[0]! : undefined;
 	const node = id !== undefined ? design.nodes[id] : undefined;
 	if (!id || !node || node.locked || node.hidden) return null;
 	if (node.kind === 'group') {
 		const geometry = canResizeGroup(design, id) ? groupGeometry(design, id) : null;
-		return geometry && { id, geometry, yaw: eulerOfTransform(node.transform)[2], lengthOnly: false };
+		return (
+			geometry && {
+				id,
+				geometry,
+				yaw: eulerOfTransform(node.transform)[2],
+				rotation: rotationOfTransform(node.transform),
+				tilted: false,
+				lengthOnly: false,
+			}
+		);
 	}
 	const shape = selectedShape(design, selection);
-	return shape?.upright
-		? { id, geometry: shape.geometry, yaw: shape.yaw, lengthOnly: node.kind === 'shape' && isThreadedType(node.shapeType) }
-		: null;
+	return (
+		shape && {
+			id,
+			geometry: shape.geometry,
+			yaw: shape.yaw,
+			rotation: shape.rotation,
+			tilted: !shape.upright,
+			lengthOnly: node.kind === 'shape' && isThreadedType(node.shapeType),
+		}
+	);
 }

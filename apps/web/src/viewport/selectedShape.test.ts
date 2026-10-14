@@ -1,4 +1,13 @@
-import { addShape, createEmptyDesign, type Design, groupNodes, setHidden, setLocked, setNodeEuler } from '@holecraft/core';
+import {
+	addShape,
+	createEmptyDesign,
+	type Design,
+	groupNodes,
+	rotationOfTransform,
+	setHidden,
+	setLocked,
+	setNodeEuler,
+} from '@holecraft/core';
 import { describe, expect, it } from 'vitest';
 import { selectedHandles, selectedRings, selectedShape } from './selectedShape.ts';
 
@@ -81,9 +90,18 @@ describe('selectedHandles', () => {
 		expect(h.yaw).toBeCloseTo(0);
 	});
 
-	it('is null for a tipped shape, a group that cannot be scaled exactly, and the usual nothing cases', () => {
+	it('gives a tipped shape its geometry too, with its turn, so its handles work along its own axes', () => {
+		const tipped = setNodeEuler(scene(), 'a', [30, 0, 0]);
+		const h = selectedHandles(tipped, ['a'])!;
+		expect(h.id).toBe('a');
+		expect(h.tilted).toBe(true);
+		expect(h.geometry.width).toBe(20);
+		expect(h.rotation).toEqual(rotationOfTransform(tipped.nodes.a!.transform));
+		expect(selectedHandles(setNodeEuler(scene(), 'a', [0, 0, 30]), ['a'])!.tilted).toBe(false);
+	});
+
+	it('is null for a group that cannot be scaled exactly, and the usual nothing cases', () => {
 		const d = scene();
-		expect(selectedHandles(setNodeEuler(d, 'a', [30, 0, 0]), ['a'])).toBeNull();
 		const grouped = groupNodes(setNodeEuler(d, 'a', [0, 0, 45]), ['a', 'b'], { id: 'g' }).design;
 		expect(selectedHandles(grouped, ['g'])).toBeNull();
 		expect(selectedHandles(d, [])).toBeNull();
