@@ -57,10 +57,12 @@ test.describe('multi-select with a finger', () => {
 	});
 
 	test('with it on, dragging a selected object does not move it (a drag is for the selection box)', async ({ page }) => {
-		const { left } = await threeShapes(page);
+		const { left, right } = await threeShapes(page);
 		await toggle(page).click();
 		const fingers = await Fingers.on(page);
 		await fingers.tap(left);
+		// two are selected, so there are no resize or rotation handles over the finger (a single selected shape has them, and they take a drag)
+		await fingers.tap(right);
 		const listed = () => row(page, 0).innerText(); // "Box 1 (x, y)"
 		const before = await listed();
 		await fingers.drag([left], [{ x: left.x + 60, y: left.y + 40 }]);
