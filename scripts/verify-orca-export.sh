@@ -4,7 +4,8 @@
 # throwaway containers made from the local Trident image (which bundles OrcaSlicer's engine), checks that:
 #   1. Trident's own 3MF reader sees every object with the right filament and the whole palette;
 #   2. the real OrcaSlicer engine loads the file WITHOUT crashing (an inconsistent file segfaults it),
-#      and the project it writes back out still has every object's filament and every palette colour.
+#      and the project it writes back out still has every object's filament and every palette colour;
+#   3. the four-colour file slices on a four-nozzle printer (scripts/lib/slice-check.sh): a file can load and still crash the engine when sliced.
 # Nothing running is touched: the containers are `docker run --rm`.
 #
 # Usage: scripts/verify-orca-export.sh [trident-image]     (default mugenoesis/trident:latest)
@@ -44,6 +45,11 @@ for sample in "orca.3mf 4" "orca16.3mf 16"; do
   fi
   echo "what the engine kept:"
   python_in_image /checks/verify-orca-export.py "/files/engine-$file" "$colours" filaments-only
+  # the printer here has four nozzles, so only the four-colour sample can be sliced on it
+  if [ "$colours" = "4" ]; then
+    echo "slicing it (loading is not enough):"
+    scripts/lib/slice-check.sh "$IMAGE" "$OUT/$file" "$colours"
+  fi
 done
 echo "== paint.3mf (a box with its top face painted in filament 2) =="
 echo "what we wrote:"

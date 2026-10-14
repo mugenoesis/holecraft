@@ -248,7 +248,7 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/audit.sh` (`npm run audit:deps`) | Dependency vulnerabilities: anything that ships must be clean, build tools are only reported |
 | `scripts/docker-lint.sh [image]` | hadolint on the Dockerfile and trivy on its configuration and the built image (HIGH/CRITICAL with a fix fail it) |
 | `npm run lint` / `npm run format` | Biome: check formatting, lint rules and the complexity limit (15 per function); `format` fixes what it can. `scripts/check.sh` runs `lint` first |
-| `scripts/verify-orca-export.sh` | Write the OrcaSlicer-flavoured 3MF and have the real OrcaSlicer engine (from the local Trident image, in throwaway containers) load it, checking it does not crash and keeps every object's filament, the palette and the painted triangles |
+| `scripts/verify-orca-export.sh` | Write the OrcaSlicer-flavoured 3MF and have the real OrcaSlicer engine (from the local Trident image, in throwaway containers) slice it and load it, checking it does not crash and keeps every object's filament, the palette and the painted triangles |
 | `scripts/update-orca-filament-defaults.sh` | Regenerate `orcaFilamentDefaults.ts` (the per-filament project settings) from the real engine; run after changing the Trident/OrcaSlicer version |
 | `scripts/verify-exports.sh` | Write sample STL/OBJ/3MF files with the real writers and check them with an independent mesh library (trimesh, in a Python container) |
 | `scripts/deploy-local.sh` | Rebuild the Docker image from `origin/main` and restart the local test container (default port 8200, keeps its data volume) |
