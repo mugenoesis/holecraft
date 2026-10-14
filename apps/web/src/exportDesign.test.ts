@@ -26,6 +26,14 @@ describe('EXPORT_FORMATS', () => {
 		expect(EXPORT_FORMATS.map((f) => f.id)).toEqual(['stl', 'obj', '3mf', 'orca3mf']);
 		for (const f of EXPORT_FORMATS) expect(f.label.length).toBeGreaterThan(0);
 	});
+
+	it('says plain 3MF colours are for viewers, and sends multi-colour printing to the OrcaSlicer option', () => {
+		const hint = (id: string) => EXPORT_FORMATS.find((f) => f.id === id)?.hint ?? '';
+		expect(hint('3mf')).toMatch(/not slicers/i);
+		expect(hint('orca3mf')).toMatch(/multi-colou?r/i);
+		// the menu is a row of label + hint with no wrapping, so a long hint widens it
+		for (const f of EXPORT_FORMATS) expect(f.hint.length).toBeLessThanOrEqual(32);
+	});
 });
 
 describe('runExport', () => {

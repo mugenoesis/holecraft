@@ -8,8 +8,8 @@ export type ExportFormat = 'stl' | 'obj' | '3mf' | 'orca3mf';
 export const EXPORT_FORMATS: ReadonlyArray<{ id: ExportFormat; label: string; hint: string; mime: string; extension: string }> = [
 	{ id: 'stl', label: 'STL', hint: 'Best for 3D printing', mime: 'model/stl', extension: 'stl' },
 	{ id: 'obj', label: 'OBJ', hint: 'Widely supported mesh', mime: 'text/plain', extension: 'obj' },
-	{ id: '3mf', label: '3MF', hint: 'Keeps names and colours', mime: 'model/3mf', extension: '3mf' },
-	{ id: 'orca3mf', label: '3MF for OrcaSlicer', hint: 'Colours become filaments', mime: 'model/3mf', extension: '3mf' },
+	{ id: '3mf', label: '3MF', hint: 'For viewers, not slicers', mime: 'model/3mf', extension: '3mf' },
+	{ id: 'orca3mf', label: '3MF for OrcaSlicer', hint: 'Multi-colour filaments', mime: 'model/3mf', extension: '3mf' },
 ];
 
 export interface ExportDeps {
