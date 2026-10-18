@@ -5,6 +5,7 @@ import { addShape } from './ops.ts';
 import {
 	addSupportPoint,
 	clearSupportPoints,
+	exportObjectCount,
 	MAX_SUPPORT_POINTS,
 	moveSupportPoint,
 	objectIndexOf,
@@ -227,5 +228,15 @@ describe('saving a design with support points', () => {
 		const f = JSON.parse(JSON.stringify(setSupportPoints(twoBoxes(), ONE_OBJECT)));
 		f.supports.points[0].type = 'wild';
 		expect(() => parseDesign(f)).toThrow();
+	});
+});
+
+describe('exportObjectCount', () => {
+	it('counts the objects an export has: visible solid top-level shapes and groups', () => {
+		const d = twoBoxes();
+		expect(exportObjectCount(d)).toBe(2);
+		expect(exportObjectCount({ ...d, nodes: { ...d.nodes, a: { ...d.nodes.a!, hidden: true } } })).toBe(1);
+		expect(exportObjectCount({ ...d, nodes: { ...d.nodes, b: { ...d.nodes.b!, mode: 'hole' } } })).toBe(1);
+		expect(exportObjectCount(createEmptyDesign('e'))).toBe(0);
 	});
 });

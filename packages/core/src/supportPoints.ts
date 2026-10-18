@@ -167,3 +167,11 @@ export function objectIndexOf(design: Design, id: NodeId): number | null {
 	}
 	return null;
 }
+
+/** How many objects an export of the design has (see objectIndexOf): the number of lists of points to send. */
+export function exportObjectCount(design: Design): number {
+	return design.roots.filter((id) => {
+		const node = design.nodes[id];
+		return !!node && !node.hidden && node.mode === 'solid' && node.kind !== 'mesh';
+	}).length;
+}

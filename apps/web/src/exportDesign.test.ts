@@ -1,8 +1,8 @@
-import { addShape, createEmptyDesign, type Design, renameDesign } from '@holecraft/core';
+import { addShape, createEmptyDesign, type Design, renameDesign, setSupportPoints } from '@holecraft/core';
 import type { ExportBody } from '@holecraft/geometry';
 import { readStoredZip } from '@holecraft/geometry';
 import { describe, expect, it, vi } from 'vitest';
-import { EXPORT_FORMATS, exportStlBytes, hasExportableShapes, runExport } from './exportDesign.ts';
+import { EXPORT_FORMATS, exportStlBytes, hasExportableShapes, onlySelected, runExport } from './exportDesign.ts';
 
 const body = (name = 'Box 1'): ExportBody => ({
 	name,
@@ -125,5 +125,18 @@ describe('exportStlBytes', () => {
 
 	it('says there is nothing to export when nothing solid is left', async () => {
 		await expect(exportStlBytes(design(), deps([]))).rejects.toThrow(/nothing to export/i);
+	});
+});
+
+describe('onlySelected and support points', () => {
+	it('leaves the points out: they are numbered for the whole design, not for a selection', () => {
+		const withPoints = setSupportPoints(
+			addShape(addShape(createEmptyDesign('t'), 'box', [0, 0], { id: 'a' }).design, 'box', [50, 0], { id: 'b' }).design,
+			{
+				objects: [{ points: [{ x: 0, y: 0, z: 0, radius: 0.4, type: 'island' }] }, { points: [] }],
+			},
+		);
+		expect(withPoints.supports).toBeDefined();
+		expect(onlySelected(withPoints, ['b']).supports).toBeUndefined();
 	});
 });

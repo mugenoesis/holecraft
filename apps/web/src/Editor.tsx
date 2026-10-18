@@ -1,4 +1,12 @@
-import type { Design, NodeId, ShapeType, Vec3, WorkPlane } from '@holecraft/core';
+import {
+	DEFAULT_SUPPORT_RADIUS,
+	type Design,
+	type NodeId,
+	objectIndexOf,
+	type ShapeType,
+	type Vec3,
+	type WorkPlane,
+} from '@holecraft/core';
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { ArrangePanel } from './ArrangePanel.tsx';
 import { type PanelTab, useCompactLayout, usePanelTab } from './compactLayout.ts';
@@ -17,6 +25,8 @@ import { TopBar } from './TopBar.tsx';
 import { useAutosave } from './useAutosave.ts';
 import { useLibrary } from './useLibrary.ts';
 import { useMeshes } from './useMeshes.ts';
+import { useSupportsUi } from './useSupportsUi.ts';
+import type { SupportsView } from './viewport/supportsView.ts';
 import { ViewportCanvas } from './viewport/ViewportCanvas.tsx';
 
 type Load = { kind: 'loading' } | { kind: 'ready'; design: Design } | { kind: 'missing' } | { kind: 'failed'; message: string };
@@ -72,6 +82,7 @@ function EditorView({ initial }: { initial: Design }) {
 	const [state, dispatch] = useReducer(editorReducer, initial, createEditorState);
 	const design = state.history.present;
 	const { meshes, add: addMesh } = useMeshes(design);
+	const supportsUi = useSupportsUi(design);
 	const save = useAutosave(design, initial);
 	useDocumentTitle(design.name);
 	const [help, setHelp] = useState(false);
@@ -108,6 +119,23 @@ function EditorView({ initial }: { initial: Design }) {
 		},
 		[multiSelect],
 	);
+
+	const supportsView: SupportsView = {
+		points: design.supports?.points ?? [],
+		selected: supportsUi.selected,
+		show: supportsUi.show,
+		adding: supportsUi.adding,
+		onSelect: supportsUi.setSelected,
+		onDragStart: () => dispatch({ type: 'supportDragStart' }),
+		onMove: (id, to) => dispatch({ type: 'supportMove', id, to }),
+		onDragEnd: () => dispatch({ type: 'moveEnd' }),
+		onRemove: (id) => dispatch({ type: 'supportRemove', id }),
+		onAdd: ([x, y, z], id) => {
+			const object = objectIndexOf(design, id);
+			if (object !== null) dispatch({ type: 'supportAdd', point: { object, x, y, z, radius: DEFAULT_SUPPORT_RADIUS } });
+		},
+		onStopAdding: () => supportsUi.setAdding(false),
+	};
 
 	const [width, depth] = design.grid.size;
 	// Phones, folding phones and tablets: one panel tab at a time, and the selection's edits as buttons over the view.
@@ -171,6 +199,7 @@ function EditorView({ initial }: { initial: Design }) {
 								: { type: 'addSketch', plane: { origin: frame.origin, normal: frame.normal }, outlines, height },
 						)
 					}
+					supports={supportsView}
 					compact={compact}
 					selectionBar={compact && <SelectionBar design={design} selection={state.selection} dispatch={dispatch} />}
 				/>
@@ -197,7 +226,14 @@ function EditorView({ initial }: { initial: Design }) {
 							onEditSketch={setSketchEdit}
 							unlockedStretch={state.unlockedStretch}
 						/>
-						<ResinPanel design={design} selection={state.selection} dispatch={dispatch} meshes={meshes} onMeshAdded={addMesh} />
+						<ResinPanel
+							design={design}
+							selection={state.selection}
+							dispatch={dispatch}
+							meshes={meshes}
+							onMeshAdded={addMesh}
+							supportsUi={supportsUi}
+						/>
 						<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
 					</div>
 					<div className="panel-tab" hidden={!shown('colours')}>

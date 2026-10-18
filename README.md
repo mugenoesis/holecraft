@@ -126,7 +126,7 @@ The **Resin** section of the side panel (under Properties) has tools for printin
   for the hollow model that comes back, in the same place and the same size, as one undo step (Undo brings the original back). It becomes a mesh shape, so
   it can be moved, turned, resized, coloured and grouped like an imported model, but its parts can no longer be edited: do the editing first, or for a partial
   hollow, a different inner shape or ribs make the cavity yourself with hole shapes. The panel says how much resin is saved. The button is off, with the reason,
-  until a Trident is set up; the key Trident gives Holecraft has to be a **Holecraft: upload models and hollow them** key (or a full-access one), and
+  until a Trident is set up; the key Trident gives Holecraft has to be a **Holecraft resin tools** key (or a full-access one), and
   Trident needs to be a version that can hollow. Hollowing a very complex model can take a while.
 - **Drain holes.** A hollow resin print fills with liquid resin, which has to run out (and air has to get in) or the print is sucked against the film.
   **Add drain hole** puts a round hole (**Diameter**, 3.5 mm to start, 0.5 to 30) in the middle of the bottom of the selection, and **Add vent hole** one in the
@@ -136,6 +136,14 @@ The **Resin** section of the side panel (under Properties) has tools for printin
   are all just shapes), then add the holes. Each press is one undo step.
 - **Orientation.** **Tilt 15°, 30° or 45°** turns the selection about the X axis (on top of any turn it has), about its middle, and sets it back on the plane.
   A model laid on a slant is peeled from the film a thin line at a time instead of all at once, which is gentler on the print and the film. Press again to tilt further.
+- **Supports.** Choose the resin printer you will print on (the list comes from your Trident) and press **Generate support points**: Trident's slicer works out where
+  the supports would touch the model, and the points show over it (through the model: light blue were made by Trident, dark blue are yours, orange is the one
+  chosen). Click a point to choose it, drag it over the model to move it (it stays on the model), change its **Tip radius**, press **Delete** or **Delete point**
+  to take it away, or **Add point** and click the model to put one where you want it (Escape stops adding). **Delete all** takes every point away and **Back to
+  generated** has Trident work them out again. **Show points** hides them. Every change is one undo step, and the points are saved with the design. If you change
+  the shape afterwards the panel warns that the points are out of date: generate them again. **Send to Trident** then sends the points with the model, and
+  Trident prints with exactly those supports (its resin screen has a tick box to use its own instead). Points go with the whole design, not with a selection.
+  The key needs the **Holecraft resin tools** access, and Trident must be a version that places supports.
 
 ## Your designs
 
