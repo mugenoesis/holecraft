@@ -9,12 +9,14 @@ import {
 	addShape,
 	addShapeOnPlane,
 	addSketchShape,
+	addSupportPoint,
 	alignNodes,
 	type ChamferEdges,
 	type CountersinkEnd,
 	canPaint,
 	canUndo,
 	clearPaint,
+	clearSupportPoints,
 	createHistory,
 	type Design,
 	deleteNodes,
@@ -27,6 +29,7 @@ import {
 	type MeshShapeInput,
 	moveNodes,
 	moveSelection,
+	moveSupportPoint,
 	type NodeId,
 	type PaintFill,
 	pruneSelection,
@@ -35,6 +38,7 @@ import {
 	redo,
 	removeEdgeTreatments,
 	removePaletteColor,
+	removeSupportPoint,
 	renameDesign,
 	renameNode,
 	repeatDuplicate,
@@ -44,6 +48,7 @@ import {
 	type ShapeType,
 	type SketchOutline,
 	type SolidMode,
+	type SupportPointsDocument,
 	selectAll,
 	setEdgeTreatments,
 	setGroupSize,
@@ -62,6 +67,8 @@ import {
 	setShapeSize,
 	setShapeSketch,
 	setShapeText,
+	setSupportPoints,
+	setSupportRadius,
 	showAll,
 	standOnPlane,
 	suggestPaletteColor,
@@ -124,6 +131,15 @@ export type EditorAction =
 	| { type: 'resinHole'; kind: ResinHoleKind; diameter: number }
 	| { type: 'tilt'; degrees: number }
 	| { type: 'replaceWithMesh'; id: NodeId; input: MeshShapeInput }
+	// Support points for resin printing: the ones the slicer made, one added or taken away, and a point dragged (supportDragStart, then
+	// supportMove as it goes, then moveEnd to keep it or cancelDrag to take it back).
+	| { type: 'supportsMade'; doc: SupportPointsDocument }
+	| { type: 'supportAdd'; point: { object: number; x: number; y: number; z: number; radius: number } }
+	| { type: 'supportRemove'; id: string }
+	| { type: 'supportRadius'; id: string; radius: number }
+	| { type: 'supportsClear' }
+	| { type: 'supportDragStart' }
+	| { type: 'supportMove'; id: string; to: [number, number, number] }
 	| { type: 'group' }
 	| { type: 'ungroup' }
 	| { type: 'renameDesign'; name: string }
@@ -199,7 +215,14 @@ type StretchLockAction = ActionOf<'setStretchUnlocked'>;
 /** Everything else: edits to the document itself, each one an undoable step. */
 /** The resin printing tools: holes for the resin to drain through, and tilting a model to peel more gently. */
 type ResinAction = ActionOf<'resinHole' | 'tilt' | 'replaceWithMesh'>;
-type EditAction = Exclude<EditorAction, SelectionAction | DragAction | ColourDragAction | HistoryAction | StretchLockAction | ResinAction>;
+/** Support points: the slicer's, and the user's own. */
+type SupportAction = ActionOf<
+	'supportsMade' | 'supportAdd' | 'supportRemove' | 'supportRadius' | 'supportsClear' | 'supportDragStart' | 'supportMove'
+>;
+type EditAction = Exclude<
+	EditorAction,
+	SelectionAction | DragAction | ColourDragAction | HistoryAction | StretchLockAction | ResinAction | SupportAction
+>;
 
 /** Allowing (or stopping) the stretch of a group that holds a fastener: a setting of this editing session, not part of the document or its history. */
 function reduceStretchLock(state: EditorState, action: StretchLockAction): EditorState {
@@ -352,6 +375,29 @@ function reduceAdd(state: EditorState, action: ActionOf<'add' | 'addOnPlane' | '
 			const added = addSketchShape(design, action.plane, action.outlines, action.height);
 			return added.id ? commit(state, added.design, [added.id]) : state;
 		}
+	}
+}
+
+/** Support points: edits are undoable steps, a dragged point is a live preview like a move. */
+function reduceSupports(state: EditorState, action: SupportAction): EditorState {
+	const design = state.history.present;
+	switch (action.type) {
+		case 'supportsMade':
+			return commit(state, setSupportPoints(design, action.doc));
+		case 'supportAdd':
+			return commit(state, addSupportPoint(design, action.point));
+		case 'supportRemove':
+			return commit(state, removeSupportPoint(design, action.id));
+		case 'supportRadius':
+			return commit(state, setSupportRadius(design, action.id, action.radius));
+		case 'supportsClear':
+			return commit(state, clearSupportPoints(design));
+		case 'supportDragStart':
+			return state.drag || !design.supports?.points.length ? state : { ...state, drag: { base: design, ids: [] } };
+		case 'supportMove':
+			return state.drag
+				? { ...state, history: replacePresent(state.history, moveSupportPoint(state.drag.base, action.id, action.to)) }
+				: state;
 	}
 }
 
@@ -546,6 +592,15 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 		case 'tilt':
 		case 'replaceWithMesh':
 			return reduceResin(state, action);
+
+		case 'supportsMade':
+		case 'supportAdd':
+		case 'supportRemove':
+		case 'supportRadius':
+		case 'supportsClear':
+		case 'supportDragStart':
+		case 'supportMove':
+			return reduceSupports(state, action);
 
 		default:
 			return reduceEdit(state, action);

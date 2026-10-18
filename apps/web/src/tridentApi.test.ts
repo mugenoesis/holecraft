@@ -2,7 +2,19 @@ import { addPaletteColor, addShape, createEmptyDesign, type Design, renameDesign
 import { type ExportBody, readStoredZip } from '@holecraft/geometry';
 import { describe, expect, it, vi } from 'vitest';
 import { exportOrcaBytes } from './exportDesign.ts';
-import { defaultTridentAddress, forgetTrident, getTrident, hollowModel, hostLabel, saveTrident, sendToTrident } from './tridentApi.ts';
+import {
+	defaultTridentAddress,
+	forgetTrident,
+	getTrident,
+	hollowModel,
+	hostLabel,
+	listResinPrinters,
+	modelIdOf,
+	placeSupports,
+	saveTrident,
+	sendToTrident,
+	storeSupportPoints,
+} from './tridentApi.ts';
 
 const reply = (status: number, body: unknown) => vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status }));
 const callOf = (f: ReturnType<typeof vi.fn>) => {
@@ -159,5 +171,57 @@ describe('hollowing a model', () => {
 		await expect(hollowModel({ fileName: 'a.stl', data: new Uint8Array([1]) }, { wall: 2, quality: 0.5 }, f)).rejects.toThrow(
 			/reach Holecraft/,
 		);
+	});
+});
+
+describe('support points, as the page asks for them', () => {
+	const DOC = { objects: [{ points: [{ x: 1, y: 2, z: 0, radius: 0.4, type: 'island' as const }] }] };
+
+	it('lists the printers to place points for', async () => {
+		const f = reply(200, [{ name: 'Elegoo Mars 3', vendor: 'Elegoo' }]);
+		expect(await listResinPrinters(f)).toEqual([{ name: 'Elegoo Mars 3', vendor: 'Elegoo' }]);
+		expect(callOf(f).url).toBe('/api/trident/resin-printers');
+	});
+
+	it('posts the model as a 3MF with the printer, and answers with the points', async () => {
+		const f = reply(200, DOC);
+		const out = await placeSupports({ fileName: 'Box 1.3mf', data: new Uint8Array([1, 2, 3]) }, 'Elegoo Mars 3', f);
+		const { url, init } = callOf(f);
+		expect(url).toBe('/api/trident/supports?printer=Elegoo%20Mars%203');
+		expect(init.method).toBe('POST');
+		expect(init.headers).toEqual({ 'content-type': 'model/3mf', 'x-file-name': encodeURIComponent('Box 1.3mf') });
+		expect(out).toEqual(DOC);
+	});
+
+	it('stores the points against the model on Trident', async () => {
+		const f = reply(200, { count: 1 });
+		expect(await storeSupportPoints('abc123', DOC, f)).toBe(1);
+		const { url, init } = callOf(f);
+		expect(url).toBe('/api/trident/support-points?model=abc123');
+		expect(init.method).toBe('PUT');
+		expect(init.headers).toEqual({ 'content-type': 'application/json' });
+		expect(JSON.parse(String(init.body))).toEqual(DOC);
+	});
+
+	it('throws the server’s own message when it refuses', async () => {
+		await expect(
+			placeSupports({ fileName: 'a.3mf', data: new Uint8Array([1]) }, 'X', reply(422, { error: 'does not fit' })),
+		).rejects.toThrow(/does not fit/);
+		await expect(storeSupportPoints('abc', DOC, reply(502, { error: 'no longer has this model' }))).rejects.toThrow(/no longer/);
+		await expect(listResinPrinters(reply(409, { error: 'not set up' }))).rejects.toThrow(/not set up/);
+	});
+
+	it('says something useful when the server cannot be reached', async () => {
+		const f = vi.fn().mockRejectedValue(new TypeError('failed'));
+		await expect(listResinPrinters(f)).rejects.toThrow(/reach Holecraft/);
+		await expect(placeSupports({ fileName: 'a.3mf', data: new Uint8Array([1]) }, 'X', f)).rejects.toThrow(/reach Holecraft/);
+		await expect(storeSupportPoints('abc', DOC, f)).rejects.toThrow(/reach Holecraft/);
+	});
+
+	it('finds the model id in the address Trident opens it at', () => {
+		expect(modelIdOf('http://t.lan:8000/?model=abc123')).toBe('abc123');
+		expect(modelIdOf('http://t.lan:8000/?model=a%20b')).toBe('a b');
+		expect(modelIdOf('http://t.lan:8000/')).toBeNull();
+		expect(modelIdOf('not a url')).toBeNull();
 	});
 });

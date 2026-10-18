@@ -409,3 +409,146 @@ describe('hollowing a model with Trident', () => {
 		expect(res.json().error).toContain('http://127.0.0.1:9');
 	});
 });
+
+describe('support points with Trident', () => {
+	const POINTS = { objects: [{ points: [{ x: 1, y: 2, z: 0, radius: 0.4, type: 'island' }] }] };
+	const supportsReply = (res: http.ServerResponse) => {
+		res.writeHead(200, { 'content-type': 'application/json' });
+		res.end(JSON.stringify(POINTS));
+	};
+	const supports = (
+		query = '?printer=Elegoo%20Mars%203',
+		bytes: Uint8Array | string = 'PK-3mf-bytes',
+		headers: Record<string, string> = {},
+	) =>
+		app.inject({
+			method: 'POST',
+			url: `/api/trident/supports${query}`,
+			payload: Buffer.from(bytes),
+			headers: { 'content-type': 'model/3mf', 'x-file-name': 'Box%201.3mf', ...headers },
+		});
+
+	it('asks the printers Trident can write files for, by name, and nothing else about them', async () => {
+		const trident = await start((res) => {
+			res.writeHead(200, { 'content-type': 'application/json' });
+			res.end(
+				JSON.stringify([
+					{ name: 'Elegoo Mars 3', vendor: 'Elegoo', model: 'Mars 3', supported: true, format: 'ctb', pixels_x: 4098 },
+					{ name: 'Elegoo Old', vendor: 'Elegoo', model: 'Old', supported: false, format: 'lgs' },
+					{ name: 'My printer', vendor: 'My printers', model: 'x', supported: true },
+				]),
+			);
+		});
+		await save({ url: trident.url, key: 'trident_secret' });
+		const res = await app.inject({ method: 'GET', url: '/api/trident/resin-printers' });
+		expect(res.statusCode).toBe(200);
+		expect(res.json()).toEqual([
+			{ name: 'Elegoo Mars 3', vendor: 'Elegoo' },
+			{ name: 'My printer', vendor: 'My printers' },
+		]);
+		expect(trident.seen[0]?.url).toBe('/resin/printers');
+		expect(trident.seen[0]?.authorization).toBe('Bearer trident_secret');
+	});
+
+	it('says it is not set up when there is no address', async () => {
+		expect((await app.inject({ method: 'GET', url: '/api/trident/resin-printers' })).statusCode).toBe(409);
+		expect((await supports()).statusCode).toBe(409);
+		const put = await app.inject({ method: 'PUT', url: '/api/trident/support-points?model=abc', payload: POINTS });
+		expect(put.statusCode).toBe(409);
+	});
+
+	it('sends the model and the printer, and gives back the points Trident made', async () => {
+		const trident = await start(supportsReply);
+		await save({ url: trident.url, key: 'trident_secret' });
+		const res = await supports();
+		expect(res.statusCode).toBe(200);
+		expect(res.json()).toEqual(POINTS);
+		const [seen] = trident.seen;
+		expect(seen?.method).toBe('POST');
+		expect(seen?.url).toBe('/resin/supports');
+		expect(seen?.authorization).toBe('Bearer trident_secret');
+		const text = seen?.body.toString('latin1') ?? '';
+		expect(text).toMatch(/name="printer"\r\n\r\nElegoo Mars 3\r\n/);
+		expect(text).toMatch(/name="file"; filename="Box 1\.3mf"/);
+		expect(text).toContain('PK-3mf-bytes');
+	});
+
+	it('refuses a request with no printer, or no file, without asking Trident', async () => {
+		const trident = await start(supportsReply);
+		await save({ url: trident.url });
+		expect((await supports('')).statusCode).toBe(400);
+		expect((await supports('?printer=')).statusCode).toBe(400);
+		expect((await supports('?printer=X', '')).statusCode).toBe(400);
+		const wrong = await app.inject({
+			method: 'POST',
+			url: '/api/trident/supports?printer=X',
+			payload: '{}',
+			headers: { 'content-type': 'application/json' },
+		});
+		expect(wrong.statusCode).toBe(415);
+		expect(trident.seen).toHaveLength(0);
+	});
+
+	it('passes on why Trident could not place points (a 422)', async () => {
+		const trident = await start(answering(422, { detail: "The objects do not fit on the printer's display." }));
+		await save({ url: trident.url });
+		const res = await supports();
+		expect(res.statusCode).toBe(422);
+		expect(res.json().error).toBe("The objects do not fit on the printer's display.");
+	});
+
+	it('says what to do when the key may not place supports (403), or Trident is too old (404)', async () => {
+		const trident = await start(answering(403));
+		await save({ url: trident.url, key: 'k' });
+		const forbidden = await supports();
+		expect(forbidden.statusCode).toBe(502);
+		expect(forbidden.json().error).toMatch(/not allowed to place supports/i);
+		expect(forbidden.json().error).toMatch(/resin tools/i);
+		await fake?.close();
+		const old = await start(answering(404, { detail: 'Not Found' }));
+		await save({ url: old.url });
+		expect((await supports()).json().error).toMatch(/update/i);
+	});
+
+	it('stores the points Trident is to print with against its copy of the model', async () => {
+		const trident = await start((res) => {
+			res.writeHead(200, { 'content-type': 'application/json' });
+			res.end(JSON.stringify({ model_id: 'abc123', filename: 'x.3mf', support_point_count: 1 }));
+		});
+		await save({ url: trident.url, key: 'trident_secret' });
+		const res = await app.inject({ method: 'PUT', url: '/api/trident/support-points?model=abc123', payload: POINTS });
+		expect(res.statusCode).toBe(200);
+		expect(res.json()).toEqual({ count: 1 });
+		const [seen] = trident.seen;
+		expect(seen?.method).toBe('PUT');
+		expect(seen?.url).toBe('/models/abc123/support-points');
+		expect(seen?.authorization).toBe('Bearer trident_secret');
+		expect(JSON.parse(seen?.body.toString() ?? '')).toEqual(POINTS);
+	});
+
+	it('refuses a model id that could be a path, and points that are not a list of objects', async () => {
+		const trident = await start(supportsReply);
+		await save({ url: trident.url });
+		for (const model of ['', '../x', 'a/b', 'a%2Fb', 'x'.repeat(100)]) {
+			const res = await app.inject({ method: 'PUT', url: `/api/trident/support-points?model=${model}`, payload: POINTS });
+			expect(res.statusCode, model).toBe(400);
+		}
+		const bad = await app.inject({ method: 'PUT', url: '/api/trident/support-points?model=abc', payload: { objects: 3 } });
+		expect(bad.statusCode).toBe(400);
+		expect(trident.seen).toHaveLength(0);
+	});
+
+	it('says when Trident no longer has the model (404) or would not take the points (422)', async () => {
+		const missing = await start(answering(404, { detail: 'model_id not found' }));
+		await save({ url: missing.url });
+		const gone = await app.inject({ method: 'PUT', url: '/api/trident/support-points?model=abc', payload: POINTS });
+		expect(gone.statusCode).toBe(502);
+		expect(gone.json().error).toMatch(/no longer|not found|update/i);
+		await fake?.close();
+		const bad = await start(answering(422, { detail: 'support_points is not usable' }));
+		await save({ url: bad.url });
+		const refused = await app.inject({ method: 'PUT', url: '/api/trident/support-points?model=abc', payload: POINTS });
+		expect(refused.statusCode).toBe(422);
+		expect(refused.json().error).toBe('support_points is not usable');
+	});
+});

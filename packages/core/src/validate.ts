@@ -10,6 +10,8 @@ import {
 	type PaintFill,
 	type ShapeNode,
 	type SolidMode,
+	type SupportPlan,
+	type SupportPoint,
 } from './design.ts';
 import { MAX_SHAPE_SIZE } from './edit.ts';
 import type { GridSettings } from './grid.ts';
@@ -27,6 +29,7 @@ import {
 	type SketchSegment,
 } from './sketch.ts';
 import { MAX_BULGE } from './sketchCurves.ts';
+import { MAX_SUPPORT_POINTS, MAX_SUPPORT_RADIUS } from './supportPoints.ts';
 
 /** A saved design that cannot be trusted, with where in it the problem is. */
 export class DesignValidationError extends Error {
@@ -357,6 +360,8 @@ const MIGRATIONS: Record<number, (design: Record<string, unknown>) => Record<str
 	5: (design) => design,
 	// 6 -> 7: a group may carry a stretch along its own axes (`scale`). Nothing to change in older files.
 	6: (design) => design,
+	// 7 -> 8: a design may carry support points for resin printing (`supports`). Nothing to change in older files.
+	7: (design) => design,
 };
 
 function migrate(raw: Record<string, unknown>): Record<string, unknown> {
@@ -366,6 +371,48 @@ function migrate(raw: Record<string, unknown>): Record<string, unknown> {
 	let current = raw;
 	for (let v = version as number; v < DESIGN_FORMAT_VERSION; v++) current = MIGRATIONS[v]!(current);
 	return current;
+}
+
+const SUPPORT_TYPES = ['manual', 'island', 'slope'] as const;
+
+function parseSupportPoint(raw: unknown, path: string): SupportPoint {
+	if (!isRecord(raw)) fail(path, 'must be an object');
+	const coord = (key: 'x' | 'y' | 'z') => {
+		const v = raw[key];
+		if (!isFiniteNumber(v) || Math.abs(v) > MAX_COORDINATE) fail(`${path}.${key}`, 'must be a number');
+		return v;
+	};
+	const radius = raw.radius;
+	if (!isFiniteNumber(radius) || radius <= 0 || radius > MAX_SUPPORT_RADIUS)
+		fail(`${path}.radius`, `must be above 0 and at most ${MAX_SUPPORT_RADIUS}`);
+	const object = raw.object;
+	if (!Number.isInteger(object) || (object as number) < 0 || (object as number) > MAX_NODES)
+		fail(`${path}.object`, 'must be a whole number');
+	const type = SUPPORT_TYPES.find((t) => t === raw.type);
+	if (!type) fail(`${path}.type`, 'must be "manual", "island" or "slope"');
+	return {
+		id: str(raw.id, `${path}.id`, MAX_TREATMENT_ID),
+		object: object as number,
+		x: coord('x'),
+		y: coord('y'),
+		z: coord('z'),
+		radius,
+		type,
+	};
+}
+
+function parseSupports(raw: unknown): SupportPlan | undefined {
+	if (raw === undefined) return undefined;
+	if (!isRecord(raw) || !Array.isArray(raw.points) || raw.points.length > MAX_SUPPORT_POINTS)
+		fail('supports', `must have a list of at most ${MAX_SUPPORT_POINTS} points`);
+	const ids = new Set<string>();
+	const points = raw.points.map((p, i) => {
+		const point = parseSupportPoint(p, `supports.points[${i}]`);
+		if (ids.has(point.id)) fail(`supports.points[${i}].id`, 'is used twice');
+		ids.add(point.id);
+		return point;
+	});
+	return { points, key: str(raw.key, 'supports.key', MAX_STRING_PARAM) };
 }
 
 function parsePalette(v: unknown): string[] {
@@ -389,6 +436,7 @@ function parsePalette(v: unknown): string[] {
 export function parseDesign(input: unknown): Design {
 	if (!isRecord(input)) fail('', 'a design must be an object');
 	const raw = migrate(input);
+	const supports = parseSupports(raw.supports);
 
 	const units = raw.units;
 	if (units !== 'mm' && units !== 'in') fail('units', 'must be "mm" or "in"');
@@ -430,6 +478,7 @@ export function parseDesign(input: unknown): Design {
 		grid: parseGrid(raw.grid),
 		nodes: reached,
 		roots: [...roots],
+		...(supports ? { supports } : {}),
 		createdAt: date(raw.createdAt),
 		updatedAt: date(raw.updatedAt),
 	};
