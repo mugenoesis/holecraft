@@ -1858,6 +1858,37 @@ button.primary:disabled {
 	flex: 1;
 }
 
+/* Resin panel: drain holes and tilting */
+.resin-group h3 {
+	font-size: 13px;
+	margin: 10px 0 6px;
+}
+.resin-field {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	font-size: 12px;
+	max-width: 50%;
+	margin-bottom: 6px;
+}
+.resin-unit-field {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+.resin-unit-field input {
+	min-width: 0;
+	width: 100%;
+}
+.resin-buttons {
+	display: flex;
+	gap: 4px;
+}
+.resin-buttons button {
+	flex: 1;
+	padding: 4px 6px;
+}
+
 /* Ruler: the line and points over the view, and the readout under it */
 .ruler-lines {
 	position: absolute;

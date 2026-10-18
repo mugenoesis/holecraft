@@ -24,6 +24,8 @@ export * from './palette.ts';
 export * from './parametricShapes.ts';
 export * from './picking.ts';
 export * from './repeat.ts';
+export * from './resinHoles.ts';
+export * from './resinTilt.ts';
 export * from './resize.ts';
 export * from './resizeTilted.ts';
 export * from './ring.ts';

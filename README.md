@@ -117,6 +117,19 @@ https while Trident is on http. The address and key are kept in `trident.json` i
 the key is never sent back to the browser. Holecraft has no login, so anyone who can open it can send to that Trident or change the settings: keep both on a
 trusted network.
 
+## Resin printing
+
+The **Resin** section of the side panel (under Properties) has tools for printing with resin. Select one shape or group first.
+
+- **Drain holes.** A hollow resin print fills with liquid resin, which has to run out (and air has to get in) or the print is sucked against the film.
+  **Add drain hole** puts a round hole (**Diameter**, 3.5 mm to start, 0.5 to 30) in the middle of the bottom of the selection, and **Add vent hole** one in the
+  middle of the top. Each goes in as an **ordinary hole** grouped with the shape so it cuts: you see it, move it, resize it or delete it like any other shape,
+  and a second hole joins the same group. It goes a quarter of the height in (3 to 15 mm, never past the shape) and starts 1 mm outside the face so it cuts clean
+  through. Holes only help a model that is hollow: make the cavity yourself with a hole shape inside the model (a partial hollow, a different inner shape and ribs
+  are all just shapes), then add the holes. Each press is one undo step.
+- **Orientation.** **Tilt 15°, 30° or 45°** turns the selection about the X axis (on top of any turn it has), about its middle, and sets it back on the plane.
+  A model laid on a slant is peeled from the film a thin line at a time instead of all at once, which is gentler on the print and the film. Press again to tilt further.
+
 ## Your designs
 
 Holecraft opens on a list of your designs. **New design** makes one and opens it; click a name to

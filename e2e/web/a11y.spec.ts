@@ -32,6 +32,21 @@ test.describe('accessibility (axe, WCAG A and AA)', () => {
 		}
 	});
 
+	test('the Resin panel with a shape selected, and with a diameter that cannot be used', async ({ page }) => {
+		await newDesign(page);
+		await page.getByRole('button', { name: /^Box/ }).first().click();
+		await openPanel(page, 'Objects');
+		await page
+			.getByTestId('object-list')
+			.getByRole('button', { name: /^Box 1 / })
+			.click();
+		await openPanel(page, 'Edit');
+		await page.getByRole('button', { name: 'Add drain hole' }).click();
+		expect(await problems(page)).toEqual([]);
+		await page.getByLabel('Diameter').fill('0.1');
+		expect(await problems(page)).toEqual([]);
+	});
+
 	test('the shortcut sheet', async ({ page }) => {
 		await newDesign(page);
 		await page.keyboard.press('?');
