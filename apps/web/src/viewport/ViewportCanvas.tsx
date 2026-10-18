@@ -28,9 +28,11 @@ import { RotationRings } from './RotationRings.tsx';
 import { RulerOverlay } from './RulerOverlay.tsx';
 import { SketchTool } from './SketchTool.tsx';
 import { SkippedEdgesNotice } from './SkippedEdgesNotice.tsx';
+import { SupportsLayer } from './SupportsLayer.tsx';
 import { selectedHandles, selectedRings } from './selectedShape.ts';
 import { shapeDropHandlers } from './shapeDrop.ts';
 import { skippedEdgeNotices } from './skippedEdges.ts';
+import type { SupportsView } from './supportsView.ts';
 import type { SurfaceTool } from './surfaceTool.ts';
 import { useSimpleThreads } from './useSimpleThreads.ts';
 import { ViewCube } from './ViewCube.tsx';
@@ -89,6 +91,8 @@ interface Props {
 	/** Buttons for the selection, shown over the bottom of the view while no tool is (tools have their own bar there). */
 	selectionBar?: ReactNode;
 	/** The sketch shape being redrawn (set by its Edit sketch button), or null; the tool tells when it is done. */
+	/** The support points to show and edit over the model, when the design has any (or Add point is on). */
+	supports?: SupportsView;
 	sketchEdit: NodeId | null;
 	onSketchEditChange: (id: NodeId | null) => void;
 	/** A drawing is finished: make a new Sketch shape on the frame's plane, or redraw `editId`. */
@@ -299,6 +303,7 @@ export function ViewportCanvas(props: Props) {
 					/>
 					{!tool && props.selectionBar}
 					<ViewCube camera={state} onSelect={(view) => viewportRef.current?.setView(view)} />
+					<SupportsLayer supports={props.supports} active={!tool} getViewport={getViewport} camera={camera} />
 					{!tool && handles && (
 						<HandlesOverlay
 							key={handles.id}

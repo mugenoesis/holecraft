@@ -1,6 +1,7 @@
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { registerSupportRoutes } from './tridentSupports.ts';
 
 /**
  * "Send to Trident": Holecraft's server hands the model to a Trident slicer (https://github.com/mugenoesis/Trident) itself, so the
@@ -13,12 +14,12 @@ const MAX_SEND_BYTES = 200 * 1024 * 1024;
 const MAX_KEY_LENGTH = 300;
 const SEND_TIMEOUT_MS = 120_000;
 
-interface TridentSettings {
+export interface TridentSettings {
 	url: string;
 	key: string | null;
 }
 
-const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+export const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 class SettingsError extends Error {}
 
@@ -87,7 +88,7 @@ function decoded(raw: unknown): string {
 }
 
 /** A file name Trident can take: a plain name (letters, digits and a few marks) with the given ending. */
-function sendableName(raw: unknown, extension = '3mf'): string {
+export function sendableName(raw: unknown, extension = '3mf'): string {
 	const base = decoded(raw).split(/[\\/]/).pop() ?? '';
 	const stem = base
 		.replace(/\.[^.]*$/, '')
@@ -108,8 +109,13 @@ function queryNumber(raw: unknown, fallback: number, min: number, max: number, m
 	return Number.isFinite(n) && (minExclusive ? n > min : n >= min) && n <= max ? n : null;
 }
 
-function sendFailure(reply: FastifyReply, error: string) {
+export function sendFailure(reply: FastifyReply, error: string) {
 	return reply.code(502).send({ error });
+}
+
+/** What to tell the user when a Trident cannot be reached. */
+export function unreachable(settings: TridentSettings): string {
+	return `Could not reach Trident at ${settings.url}. Is it running, and is the address right?`;
 }
 
 /** What to tell the user when Trident answered with something other than success. */
@@ -174,7 +180,7 @@ function hollowRefusal(status: number): string {
 	if (status === 401)
 		return 'Trident did not accept the API key (401). Check it in Trident under API keys, or change it in Trident settings.';
 	if (status === 403)
-		return 'Trident says this API key is not allowed to hollow models (403). Make a key in Trident under API keys with "Holecraft: upload models and hollow them", or a full-access one.';
+		return 'Trident says this API key is not allowed to hollow models (403). Make a key in Trident under API keys with "Holecraft resin tools: upload models, hollow them, place supports", or a full-access one.';
 	if (status === 404) return 'This Trident cannot hollow models: update it to its latest version.';
 	if (status === 413) return 'The model is too large for Trident.';
 	if (status >= 300 && status < 400)
@@ -183,6 +189,7 @@ function hollowRefusal(status: number): string {
 }
 
 export function registerTridentRoutes(app: FastifyInstance, store: TridentStore): void {
+	registerSupportRoutes(app, store);
 	app.get('/api/trident', async () => publicView(await store.get()));
 
 	app.put('/api/trident', async (request, reply) => {

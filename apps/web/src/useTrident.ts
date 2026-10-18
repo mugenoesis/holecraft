@@ -1,7 +1,7 @@
-import type { Design, MeshData } from '@holecraft/core';
+import { type Design, exportObjectCount, type MeshData, supportPointsDocument, supportsStale } from '@holecraft/core';
 import { useCallback, useEffect, useState } from 'react';
 import { exportDeps, exportOrcaBytes } from './exportDesign.ts';
-import { forgetTrident, getTrident, saveTrident, sendToTrident, type TridentStatus } from './tridentApi.ts';
+import { forgetTrident, getTrident, modelIdOf, saveTrident, sendToTrident, storeSupportPoints, type TridentStatus } from './tridentApi.ts';
 
 /** Opens the new tab at once, while the click that asked for it is still happening (browsers allow it then, and not after waiting for the network). */
 function openTab(): Window | null {
@@ -38,6 +38,10 @@ export function useTrident(source: Design, meshes: ReadonlyMap<string, MeshData>
 			try {
 				const file = await exportOrcaBytes(source, exportDeps(meshes));
 				const sent = await sendToTrident(file);
+				// the support points go after the model and before it is opened, so Trident has them when the page asks
+				const points = source.supports && !supportsStale(source) ? supportPointsDocument(source, exportObjectCount(source)) : null;
+				const modelId = modelIdOf(sent.openUrl);
+				if (points && modelId) await storeSupportPoints(modelId, points);
 				if (tab) {
 					tab.location.href = sent.openUrl;
 					onSent();

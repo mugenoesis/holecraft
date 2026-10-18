@@ -6,7 +6,7 @@ import type { Sketch } from './sketch.ts';
 import type { Units } from './units.ts';
 
 /** Bump when the on-disk design format changes, and add a migration. */
-export const DESIGN_FORMAT_VERSION = 7;
+export const DESIGN_FORMAT_VERSION = 8;
 
 /** What the designs list shows about each saved design. */
 export interface DesignSummary {
@@ -135,6 +135,28 @@ export interface GroupNode extends BaseNode {
 
 export type DesignNode = ShapeNode | MeshNode | GroupNode;
 
+export type SupportPointType = 'manual' | 'island' | 'slope';
+
+/** One place a resin printer's support touches the model: the point (mm, in the world), the width of the tip, and which exported object it is on. */
+export interface SupportPoint {
+	id: string;
+	/** The number of the exported object (see objectIndexOf) the point belongs to. */
+	object: number;
+	x: number;
+	y: number;
+	z: number;
+	/** The radius of the tip that touches the model (mm). */
+	radius: number;
+	/** Made by the slicer (an island, a slope) or put there by hand. */
+	type: SupportPointType;
+}
+
+/** The support points of a design, and a fingerprint of the shapes they were made for (see supportsStale). */
+export interface SupportPlan {
+	points: SupportPoint[];
+	key: string;
+}
+
 export interface Design {
 	formatVersion: number;
 	id: string;
@@ -145,6 +167,8 @@ export interface Design {
 	palette: string[];
 	nodes: Record<NodeId, DesignNode>;
 	roots: NodeId[];
+	/** Support points for resin printing, once they have been made or added to (see supportPoints.ts). */
+	supports?: SupportPlan;
 	createdAt: string;
 	updatedAt: string;
 }

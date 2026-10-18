@@ -10,7 +10,9 @@ import {
 } from '@holecraft/core';
 import { type Dispatch, useState } from 'react';
 import type { EditorAction } from './editorState.ts';
+import { SupportsGroup } from './SupportsGroup.tsx';
 import { type Accuracy, MAX_WALL, MIN_WALL, useHollow } from './useHollow.ts';
+import type { SupportsUi } from './useSupportsUi.ts';
 
 const TILTS = [15, 30, 45] as const;
 
@@ -21,6 +23,8 @@ interface Props {
 	/** The imported models the design uses, and how to add one just made (the hollow model Trident sends back). */
 	meshes: ReadonlyMap<string, MeshData>;
 	onMeshAdded: (ref: string, mesh: MeshData) => void;
+	/** What the support points' controls share with the view. */
+	supportsUi: SupportsUi;
 }
 
 const ACCURACIES: readonly { id: Accuracy; label: string }[] = [
@@ -30,7 +34,7 @@ const ACCURACIES: readonly { id: Accuracy; label: string }[] = [
 ];
 
 /** Hollow the selected shape with the Trident slicer: a wall of the given thickness and a cavity inside. */
-function HollowGroup({ design, selection, dispatch, meshes, onMeshAdded }: Props) {
+function HollowGroup({ design, selection, dispatch, meshes, onMeshAdded }: Omit<Props, 'supportsUi'>) {
 	const h = useHollow(design, selection, meshes, onMeshAdded, dispatch);
 	return (
 		<div className="resin-group" role="group" aria-label="Hollow">
@@ -80,7 +84,7 @@ function HollowGroup({ design, selection, dispatch, meshes, onMeshAdded }: Props
 }
 
 /** Tools for resin printing: holes for the resin to drain through, and tilting a model so it peels from the film gently. */
-export function ResinPanel({ design, selection, dispatch, meshes, onMeshAdded }: Props) {
+export function ResinPanel({ design, selection, dispatch, meshes, onMeshAdded, supportsUi }: Props) {
 	const [diameter, setDiameter] = useState(String(DEFAULT_DRAIN_DIAMETER));
 	const value = Number(diameter);
 	const validDiameter = diameter.trim() !== '' && value >= MIN_DRAIN_DIAMETER && value <= MAX_DRAIN_DIAMETER;
@@ -154,6 +158,7 @@ export function ResinPanel({ design, selection, dispatch, meshes, onMeshAdded }:
 						: 'Select one shape or group to tilt it.'}
 				</p>
 			</div>
+			<SupportsGroup design={design} meshes={meshes} dispatch={dispatch} ui={supportsUi} />
 		</section>
 	);
 }

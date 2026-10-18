@@ -26,7 +26,9 @@ export function exportDeps(meshes: ReadonlyMap<string, MeshData>): ExportDeps {
 /** The same design with only the selected top-level shapes and groups left to export. */
 export function onlySelected(design: Design, selection: readonly string[]): Design {
 	const chosen = new Set(selection);
-	return { ...design, roots: design.roots.filter((id) => chosen.has(id)) };
+	// support points are numbered for the whole design's objects, so they do not go with a part of it
+	const { supports: _supports, ...rest } = design;
+	return { ...rest, roots: design.roots.filter((id) => chosen.has(id)) };
 }
 
 /** True if there is at least one visible, solid, top-level shape or group, so an export could produce something. */

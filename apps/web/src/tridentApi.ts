@@ -1,3 +1,4 @@
+import type { SupportPointsDocument } from '@holecraft/core';
 /** What Holecraft's server knows about the Trident slicer it sends to. The key is never sent back: only whether there is one. */
 export interface TridentStatus {
 	url: string | null;
@@ -89,4 +90,47 @@ export async function hollowModel(
 		volumeBefore: Number(res.headers.get('x-volume-before-mm3')),
 		volumeAfter: Number(res.headers.get('x-volume-after-mm3')),
 	};
+}
+
+/** A resin printer Trident can write files for: what the points are made for. */
+export interface ResinPrinter {
+	name: string;
+	vendor: string;
+}
+
+/** The resin printers of the saved Trident (the ones it can write a file for), through Holecraft's server. */
+export function listResinPrinters(fetchImpl: Fetch = fetch): Promise<ResinPrinter[]> {
+	return call(fetchImpl, '/api/trident/resin-printers');
+}
+
+/** Asks Trident which support points its slicer would use for this model (a 3MF, as sent), for `printer`. */
+export function placeSupports(
+	file: { fileName: string; data: Uint8Array },
+	printer: string,
+	fetchImpl: Fetch = fetch,
+): Promise<SupportPointsDocument> {
+	return call(fetchImpl, `/api/trident/supports?printer=${encodeURIComponent(printer)}`, {
+		method: 'POST',
+		headers: { 'content-type': 'model/3mf', 'x-file-name': encodeURIComponent(file.fileName) },
+		body: file.data as BodyInit,
+	});
+}
+
+/** Keeps the support points to print with against Trident's copy of a model (so a slice of it uses exactly these); answers how many it holds. */
+export async function storeSupportPoints(modelId: string, points: SupportPointsDocument, fetchImpl: Fetch = fetch): Promise<number> {
+	const answer = await call<{ count: number }>(fetchImpl, `/api/trident/support-points?model=${encodeURIComponent(modelId)}`, {
+		method: 'PUT',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify(points),
+	});
+	return answer.count;
+}
+
+/** The id of the model in the address Trident opens it at (`<url>/?model=<id>`), or null when there is none. */
+export function modelIdOf(openUrl: string): string | null {
+	try {
+		return new URL(openUrl).searchParams.get('model');
+	} catch {
+		return null;
+	}
 }

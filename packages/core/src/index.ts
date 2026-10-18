@@ -41,6 +41,7 @@ export * from './sketchEditor.ts';
 export * from './sketchFrame.ts';
 export * from './sketchShape.ts';
 export * from './solidShapes.ts';
+export * from './supportPoints.ts';
 export * from './surfacePlane.ts';
 export * from './text.ts';
 export * from './textShape.ts';
