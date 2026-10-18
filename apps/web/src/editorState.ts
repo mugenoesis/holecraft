@@ -39,6 +39,7 @@ import {
 	renameNode,
 	repeatDuplicate,
 	replacePresent,
+	replaceWithMesh,
 	type ShapeGeometry,
 	type ShapeType,
 	type SketchOutline,
@@ -122,6 +123,7 @@ export type EditorAction =
 	| { type: 'flip'; axis: Axis }
 	| { type: 'resinHole'; kind: ResinHoleKind; diameter: number }
 	| { type: 'tilt'; degrees: number }
+	| { type: 'replaceWithMesh'; id: NodeId; input: MeshShapeInput }
 	| { type: 'group' }
 	| { type: 'ungroup' }
 	| { type: 'renameDesign'; name: string }
@@ -196,7 +198,7 @@ type HistoryAction = ActionOf<'undo' | 'redo'>;
 type StretchLockAction = ActionOf<'setStretchUnlocked'>;
 /** Everything else: edits to the document itself, each one an undoable step. */
 /** The resin printing tools: holes for the resin to drain through, and tilting a model to peel more gently. */
-type ResinAction = ActionOf<'resinHole' | 'tilt'>;
+type ResinAction = ActionOf<'resinHole' | 'tilt' | 'replaceWithMesh'>;
 type EditAction = Exclude<EditorAction, SelectionAction | DragAction | ColourDragAction | HistoryAction | StretchLockAction | ResinAction>;
 
 /** Allowing (or stopping) the stretch of a group that holds a fastener: a setting of this editing session, not part of the document or its history. */
@@ -358,6 +360,10 @@ function reduceResin(state: EditorState, action: ResinAction): EditorState {
 	if (action.type === 'tilt') {
 		const id = state.selection.length === 1 ? state.selection[0]! : null;
 		return id ? commit(state, tiltNode(design, id, action.degrees)) : state;
+	}
+	if (action.type === 'replaceWithMesh') {
+		const swapped = replaceWithMesh(design, action.id, action.input);
+		return swapped.design === design ? state : commit(state, swapped.design, [swapped.id]);
 	}
 	const made = addResinHole(design, state.selection, action.kind, action.diameter);
 	return made.design === design ? state : commit(state, made.design, made.selection);
@@ -538,6 +544,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
 		case 'resinHole':
 		case 'tilt':
+		case 'replaceWithMesh':
 			return reduceResin(state, action);
 
 		default:

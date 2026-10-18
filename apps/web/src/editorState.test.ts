@@ -272,3 +272,24 @@ describe('tilt', () => {
 		expect(run(s, { type: 'tilt', degrees: 30 })).toBe(s);
 	});
 });
+
+describe('replaceWithMesh', () => {
+	const input = { name: 'Box 1 (hollow)', ref: 'b'.repeat(64), size: [20, 20, 20] as [number, number, number] };
+	const picked = () => run(withTwo(), { type: 'pick', id: 'a', additive: false, phase: 'down' });
+
+	it('swaps the shape for the mesh as one undoable step and selects the mesh', () => {
+		const s = run(picked(), { type: 'replaceWithMesh', id: 'a', input });
+		expect(design(s).nodes.a).toBeUndefined();
+		const [newId] = s.selection;
+		expect(s.selection).toHaveLength(1);
+		expect(design(s).nodes[newId!]).toMatchObject({ name: 'Box 1 (hollow)', shapeType: 'mesh' });
+		expect(design(s).roots).toEqual([newId, 'b']);
+		const undone = run(s, { type: 'undo' });
+		expect(design(undone).roots).toEqual(['a', 'b']);
+	});
+
+	it('does nothing for a shape that is not there', () => {
+		const s = picked();
+		expect(run(s, { type: 'replaceWithMesh', id: 'nope', input })).toBe(s);
+	});
+});

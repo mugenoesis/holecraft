@@ -2,7 +2,7 @@ import { addPaletteColor, addShape, createEmptyDesign, type Design, renameDesign
 import { type ExportBody, readStoredZip } from '@holecraft/geometry';
 import { describe, expect, it, vi } from 'vitest';
 import { exportOrcaBytes } from './exportDesign.ts';
-import { defaultTridentAddress, forgetTrident, getTrident, hostLabel, saveTrident, sendToTrident } from './tridentApi.ts';
+import { defaultTridentAddress, forgetTrident, getTrident, hollowModel, hostLabel, saveTrident, sendToTrident } from './tridentApi.ts';
 
 const reply = (status: number, body: unknown) => vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status }));
 const callOf = (f: ReturnType<typeof vi.fn>) => {
@@ -120,5 +120,44 @@ describe('the file that is sent', () => {
 
 	it('says there is nothing to send when there are no solid shapes', async () => {
 		await expect(exportOrcaBytes(design(), { bodies: vi.fn().mockResolvedValue([]), save: vi.fn() })).rejects.toThrow(/Nothing to export/);
+	});
+});
+
+describe('hollowing a model', () => {
+	const stl = (body = 'hollow-stl') =>
+		vi.fn().mockResolvedValue(
+			new Response(body, {
+				status: 200,
+				headers: { 'content-type': 'model/stl', 'x-volume-before-mm3': '8000.0', 'x-volume-after-mm3': '3900.0' },
+			}),
+		);
+
+	it('posts the model as an STL with the wall and accuracy, and answers with the hollow model and the volumes', async () => {
+		const f = stl();
+		const out = await hollowModel({ fileName: 'Box 1.stl', data: new Uint8Array([1, 2, 3]) }, { wall: 3, quality: 0.75 }, f);
+		const { url, init } = callOf(f);
+		expect(url).toBe('/api/trident/hollow?wall=3&quality=0.75');
+		expect(init.method).toBe('POST');
+		expect(init.headers).toEqual({ 'content-type': 'model/stl', 'x-file-name': encodeURIComponent('Box 1.stl') });
+		expect(new TextDecoder().decode(out.stl)).toBe('hollow-stl');
+		expect(out.volumeBefore).toBe(8000);
+		expect(out.volumeAfter).toBe(3900);
+	});
+
+	it('throws the server’s own message when it refuses (too thin, no key, no Trident)', async () => {
+		await expect(
+			hollowModel(
+				{ fileName: 'a.stl', data: new Uint8Array([1]) },
+				{ wall: 2, quality: 0.5 },
+				reply(422, { error: 'The model is too thin' }),
+			),
+		).rejects.toThrow(/too thin/);
+	});
+
+	it('says something useful when the server cannot be reached', async () => {
+		const f = vi.fn().mockRejectedValue(new TypeError('failed'));
+		await expect(hollowModel({ fileName: 'a.stl', data: new Uint8Array([1]) }, { wall: 2, quality: 0.5 }, f)).rejects.toThrow(
+			/reach Holecraft/,
+		);
 	});
 });

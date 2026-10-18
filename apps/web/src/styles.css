@@ -1880,6 +1880,18 @@ button.primary:disabled {
 	min-width: 0;
 	width: 100%;
 }
+.resin-pair {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
+}
+.resin-pair .resin-field {
+	max-width: none;
+}
+.resin-wide {
+	width: 100%;
+	padding: 4px 6px;
+}
 .resin-buttons {
 	display: flex;
 	gap: 4px;

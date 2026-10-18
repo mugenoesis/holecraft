@@ -74,3 +74,9 @@ export async function exportOrcaBytes(design: Design, deps: ExportDeps): Promise
 	const built = await buildExport(design, 'orca3mf', deps);
 	return { fileName: built.fileName, data: built.data as Uint8Array };
 }
+
+/** The design as the bytes of a binary STL, kept in memory instead of downloaded: what is sent to Trident to be hollowed. */
+export async function exportStlBytes(design: Design, deps: ExportDeps): Promise<{ fileName: string; data: Uint8Array }> {
+	const built = await buildExport(design, 'stl', deps);
+	return { fileName: built.fileName, data: built.data as Uint8Array };
+}

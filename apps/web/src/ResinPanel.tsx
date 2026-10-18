@@ -1,3 +1,4 @@
+import type { MeshData } from '@holecraft/core';
 import {
 	canAddResinHole,
 	canTilt,
@@ -9,6 +10,7 @@ import {
 } from '@holecraft/core';
 import { type Dispatch, useState } from 'react';
 import type { EditorAction } from './editorState.ts';
+import { type Accuracy, MAX_WALL, MIN_WALL, useHollow } from './useHollow.ts';
 
 const TILTS = [15, 30, 45] as const;
 
@@ -16,10 +18,69 @@ interface Props {
 	design: Design;
 	selection: readonly NodeId[];
 	dispatch: Dispatch<EditorAction>;
+	/** The imported models the design uses, and how to add one just made (the hollow model Trident sends back). */
+	meshes: ReadonlyMap<string, MeshData>;
+	onMeshAdded: (ref: string, mesh: MeshData) => void;
+}
+
+const ACCURACIES: readonly { id: Accuracy; label: string }[] = [
+	{ id: 'fast', label: 'Fast' },
+	{ id: 'normal', label: 'Normal' },
+	{ id: 'fine', label: 'Fine' },
+];
+
+/** Hollow the selected shape with the Trident slicer: a wall of the given thickness and a cavity inside. */
+function HollowGroup({ design, selection, dispatch, meshes, onMeshAdded }: Props) {
+	const h = useHollow(design, selection, meshes, onMeshAdded, dispatch);
+	return (
+		<div className="resin-group" role="group" aria-label="Hollow">
+			<h3>Hollow</h3>
+			<div className="resin-pair">
+				<label className="resin-field">
+					<span>Wall thickness</span>
+					<span className="resin-unit-field">
+						<input
+							type="number"
+							inputMode="decimal"
+							min={MIN_WALL}
+							max={MAX_WALL}
+							step="0.1"
+							value={h.wall}
+							onChange={(e) => h.setWall(e.target.value)}
+						/>
+						<span aria-hidden="true">{design.units}</span>
+					</span>
+				</label>
+				<label className="resin-field">
+					<span>Accuracy</span>
+					<select value={h.accuracy} onChange={(e) => h.setAccuracy(e.target.value as Accuracy)}>
+						{ACCURACIES.map((a) => (
+							<option key={a.id} value={a.id}>
+								{a.label}
+							</option>
+						))}
+					</select>
+				</label>
+			</div>
+			<button type="button" className="resin-wide" disabled={h.why !== null || h.busy} onClick={() => void h.hollow()}>
+				{h.busy ? 'Hollowing…' : 'Hollow the selected shape'}
+			</button>
+			{h.error && (
+				<p className="export-problem" role="alert">
+					{h.error}
+				</p>
+			)}
+			<p className="muted hint">
+				{h.note ??
+					h.why ??
+					'Trident works out the cavity. The shape becomes a hollow mesh; Undo brings the original back. A hollow print needs drain holes: add them with a hole shape once it is hollow.'}
+			</p>
+		</div>
+	);
 }
 
 /** Tools for resin printing: holes for the resin to drain through, and tilting a model so it peels from the film gently. */
-export function ResinPanel({ design, selection, dispatch }: Props) {
+export function ResinPanel({ design, selection, dispatch, meshes, onMeshAdded }: Props) {
 	const [diameter, setDiameter] = useState(String(DEFAULT_DRAIN_DIAMETER));
 	const value = Number(diameter);
 	const validDiameter = diameter.trim() !== '' && value >= MIN_DRAIN_DIAMETER && value <= MAX_DRAIN_DIAMETER;
@@ -29,6 +90,7 @@ export function ResinPanel({ design, selection, dispatch }: Props) {
 	return (
 		<section aria-label="Resin">
 			<h2>Resin</h2>
+			<HollowGroup design={design} selection={selection} dispatch={dispatch} meshes={meshes} onMeshAdded={onMeshAdded} />
 			<div className="resin-group" role="group" aria-label="Drain holes">
 				<h3>Drain holes</h3>
 				<label className="resin-field">

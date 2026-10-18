@@ -197,7 +197,7 @@ function EditorView({ initial }: { initial: Design }) {
 							onEditSketch={setSketchEdit}
 							unlockedStretch={state.unlockedStretch}
 						/>
-						<ResinPanel design={design} selection={state.selection} dispatch={dispatch} />
+						<ResinPanel design={design} selection={state.selection} dispatch={dispatch} meshes={meshes} onMeshAdded={addMesh} />
 						<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
 					</div>
 					<div className="panel-tab" hidden={!shown('colours')}>
