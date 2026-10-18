@@ -5,6 +5,7 @@ import {
 	addMeshShape,
 	addPaint,
 	addPaletteColor,
+	addResinHole,
 	addShape,
 	addShapeOnPlane,
 	addSketchShape,
@@ -30,6 +31,7 @@ import {
 	type PaintFill,
 	pruneSelection,
 	pushHistory,
+	type ResinHoleKind,
 	redo,
 	removeEdgeTreatments,
 	removePaletteColor,
@@ -37,6 +39,7 @@ import {
 	renameNode,
 	repeatDuplicate,
 	replacePresent,
+	replaceWithMesh,
 	type ShapeGeometry,
 	type ShapeType,
 	type SketchOutline,
@@ -62,6 +65,7 @@ import {
 	showAll,
 	standOnPlane,
 	suggestPaletteColor,
+	tiltNode,
 	toggleSelection,
 	undo,
 	ungroupNodes,
@@ -117,6 +121,9 @@ export type EditorAction =
 	// Line the selection up on one axis (needs two or more objects), or mirror it across one.
 	| { type: 'align'; axis: Axis; edge: AlignEdge }
 	| { type: 'flip'; axis: Axis }
+	| { type: 'resinHole'; kind: ResinHoleKind; diameter: number }
+	| { type: 'tilt'; degrees: number }
+	| { type: 'replaceWithMesh'; id: NodeId; input: MeshShapeInput }
 	| { type: 'group' }
 	| { type: 'ungroup' }
 	| { type: 'renameDesign'; name: string }
@@ -190,7 +197,9 @@ type ColourDragAction = ActionOf<'colourStart' | 'previewColor' | 'previewPalett
 type HistoryAction = ActionOf<'undo' | 'redo'>;
 type StretchLockAction = ActionOf<'setStretchUnlocked'>;
 /** Everything else: edits to the document itself, each one an undoable step. */
-type EditAction = Exclude<EditorAction, SelectionAction | DragAction | ColourDragAction | HistoryAction | StretchLockAction>;
+/** The resin printing tools: holes for the resin to drain through, and tilting a model to peel more gently. */
+type ResinAction = ActionOf<'resinHole' | 'tilt' | 'replaceWithMesh'>;
+type EditAction = Exclude<EditorAction, SelectionAction | DragAction | ColourDragAction | HistoryAction | StretchLockAction | ResinAction>;
 
 /** Allowing (or stopping) the stretch of a group that holds a fastener: a setting of this editing session, not part of the document or its history. */
 function reduceStretchLock(state: EditorState, action: StretchLockAction): EditorState {
@@ -344,6 +353,20 @@ function reduceAdd(state: EditorState, action: ActionOf<'add' | 'addOnPlane' | '
 			return added.id ? commit(state, added.design, [added.id]) : state;
 		}
 	}
+}
+
+function reduceResin(state: EditorState, action: ResinAction): EditorState {
+	const design = state.history.present;
+	if (action.type === 'tilt') {
+		const id = state.selection.length === 1 ? state.selection[0]! : null;
+		return id ? commit(state, tiltNode(design, id, action.degrees)) : state;
+	}
+	if (action.type === 'replaceWithMesh') {
+		const swapped = replaceWithMesh(design, action.id, action.input);
+		return swapped.design === design ? state : commit(state, swapped.design, [swapped.id]);
+	}
+	const made = addResinHole(design, state.selection, action.kind, action.diameter);
+	return made.design === design ? state : commit(state, made.design, made.selection);
 }
 
 /** Edits to the document: each is one undoable step, or nothing at all when it changes nothing. */
@@ -518,6 +541,11 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 
 		case 'setStretchUnlocked':
 			return reduceStretchLock(state, action);
+
+		case 'resinHole':
+		case 'tilt':
+		case 'replaceWithMesh':
+			return reduceResin(state, action);
 
 		default:
 			return reduceEdit(state, action);

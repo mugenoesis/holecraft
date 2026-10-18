@@ -9,6 +9,7 @@ import { NotFound } from './NotFound.tsx';
 import { PalettePanel } from './PalettePanel.tsx';
 import { PanelTabs } from './PanelTabs.tsx';
 import { PropertiesPanel } from './PropertiesPanel.tsx';
+import { ResinPanel } from './ResinPanel.tsx';
 import { SelectionBar } from './SelectionBar.tsx';
 import { ObjectList, ShapesPanel } from './ShapesPanel.tsx';
 import { ShortcutSheet } from './ShortcutSheet.tsx';
@@ -196,6 +197,7 @@ function EditorView({ initial }: { initial: Design }) {
 							onEditSketch={setSketchEdit}
 							unlockedStretch={state.unlockedStretch}
 						/>
+						<ResinPanel design={design} selection={state.selection} dispatch={dispatch} meshes={meshes} onMeshAdded={addMesh} />
 						<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
 					</div>
 					<div className="panel-tab" hidden={!shown('colours')}>

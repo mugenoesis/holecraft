@@ -228,3 +228,68 @@ describe('property edits', () => {
 		expect(run(s, { type: 'setColor', ids: ['a'], color: 'red' })).toBe(s);
 	});
 });
+
+describe('resinHole', () => {
+	const picked = () => run(withTwo(), { type: 'pick', id: 'a', additive: false, phase: 'down' });
+
+	it('adds a drain hole to the selected shape as one undoable step and selects the group it makes', () => {
+		const s = run(picked(), { type: 'resinHole', kind: 'drain', diameter: 3.5 });
+		const [groupId] = s.selection;
+		expect(s.selection).toHaveLength(1);
+		const group = design(s).nodes[groupId!]!;
+		expect(group.kind).toBe('group');
+		expect(group.kind === 'group' && group.children).toHaveLength(2);
+		expect(canUndo(s.history)).toBe(true);
+		const undone = run(s, { type: 'undo' });
+		expect(design(undone).roots).toEqual(['a', 'b']);
+	});
+
+	it('adds the vent hole to that group, in a second step', () => {
+		const s = run(picked(), { type: 'resinHole', kind: 'drain', diameter: 3.5 }, { type: 'resinHole', kind: 'vent', diameter: 3.5 });
+		const group = design(s).nodes[s.selection[0]!]!;
+		expect(group.kind === 'group' && group.children).toHaveLength(3);
+		expect(design(run(s, { type: 'undo' })).nodes[s.selection[0]!]).toMatchObject({ children: expect.arrayContaining(['a']) });
+	});
+
+	it('does nothing when two shapes are selected', () => {
+		const s = run(picked(), { type: 'pick', id: 'b', additive: true, phase: 'down' });
+		expect(run(s, { type: 'resinHole', kind: 'drain', diameter: 3.5 })).toBe(s);
+	});
+});
+
+describe('tilt', () => {
+	const picked = () => run(withTwo(), { type: 'pick', id: 'a', additive: false, phase: 'down' });
+
+	it('tilts the selected shape as one undoable step and keeps it selected', () => {
+		const s = run(picked(), { type: 'tilt', degrees: 30 });
+		expect(s.selection).toEqual(['a']);
+		expect(design(s).nodes.a!.transform).not.toEqual(design(picked()).nodes.a!.transform);
+		expect(design(run(s, { type: 'undo' })).nodes.a!.transform).toEqual(design(picked()).nodes.a!.transform);
+	});
+
+	it('does nothing with two shapes selected', () => {
+		const s = run(picked(), { type: 'pick', id: 'b', additive: true, phase: 'down' });
+		expect(run(s, { type: 'tilt', degrees: 30 })).toBe(s);
+	});
+});
+
+describe('replaceWithMesh', () => {
+	const input = { name: 'Box 1 (hollow)', ref: 'b'.repeat(64), size: [20, 20, 20] as [number, number, number] };
+	const picked = () => run(withTwo(), { type: 'pick', id: 'a', additive: false, phase: 'down' });
+
+	it('swaps the shape for the mesh as one undoable step and selects the mesh', () => {
+		const s = run(picked(), { type: 'replaceWithMesh', id: 'a', input });
+		expect(design(s).nodes.a).toBeUndefined();
+		const [newId] = s.selection;
+		expect(s.selection).toHaveLength(1);
+		expect(design(s).nodes[newId!]).toMatchObject({ name: 'Box 1 (hollow)', shapeType: 'mesh' });
+		expect(design(s).roots).toEqual([newId, 'b']);
+		const undone = run(s, { type: 'undo' });
+		expect(design(undone).roots).toEqual(['a', 'b']);
+	});
+
+	it('does nothing for a shape that is not there', () => {
+		const s = picked();
+		expect(run(s, { type: 'replaceWithMesh', id: 'nope', input })).toBe(s);
+	});
+});

@@ -299,3 +299,113 @@ describe('sending a model to Trident', () => {
 		expect(trident.seen).toHaveLength(0);
 	});
 });
+
+describe('hollowing a model with Trident', () => {
+	const STL = Buffer.from('solid fake hollow\n');
+	const hollowed = (res: http.ServerResponse) => {
+		res.writeHead(200, { 'content-type': 'model/stl', 'x-volume-before-mm3': '8000.0', 'x-volume-after-mm3': '3900.0' });
+		res.end(STL);
+	};
+	const hollow = (query = '', bytes: Uint8Array | string = 'binary-stl-bytes', headers: Record<string, string> = {}) =>
+		app.inject({
+			method: 'POST',
+			url: `/api/trident/hollow${query}`,
+			payload: Buffer.from(bytes),
+			headers: { 'content-type': 'model/stl', 'x-file-name': 'Box%201.stl', ...headers },
+		});
+
+	it('says it is not set up when there is no address', async () => {
+		const res = await hollow();
+		expect(res.statusCode).toBe(409);
+		expect(res.json().error).toMatch(/not set up/i);
+	});
+
+	it('sends the model with the key, the wall and the accuracy, and gives back the hollow model and its volumes', async () => {
+		const trident = await start(hollowed);
+		await save({ url: trident.url, key: 'trident_secret' });
+		const res = await hollow('?wall=3&quality=0.75');
+		expect(res.statusCode).toBe(200);
+		expect(res.headers['content-type']).toBe('model/stl');
+		expect(res.rawPayload.equals(STL)).toBe(true);
+		expect(res.headers['x-volume-before-mm3']).toBe('8000.0');
+		expect(res.headers['x-volume-after-mm3']).toBe('3900.0');
+		const [seen] = trident.seen;
+		expect(seen?.method).toBe('POST');
+		expect(seen?.url).toBe('/resin/hollow');
+		expect(seen?.authorization).toBe('Bearer trident_secret');
+		const text = seen?.body.toString('latin1') ?? '';
+		expect(text).toMatch(/name="wall_thickness"\r\n\r\n3\r\n/);
+		expect(text).toMatch(/name="quality"\r\n\r\n0\.75\r\n/);
+		expect(text).toMatch(/name="file"; filename="Box 1\.stl"/);
+		expect(text).toContain('binary-stl-bytes');
+	});
+
+	it('starts with a 2 mm wall at normal accuracy', async () => {
+		const trident = await start(hollowed);
+		await save({ url: trident.url });
+		await hollow();
+		const text = trident.seen[0]?.body.toString('latin1') ?? '';
+		expect(text).toMatch(/name="wall_thickness"\r\n\r\n2\r\n/);
+		expect(text).toMatch(/name="quality"\r\n\r\n0\.5\r\n/);
+		expect(trident.seen[0]?.authorization).toBeUndefined();
+	});
+
+	it('refuses a wall or accuracy that makes no sense, without asking Trident', async () => {
+		const trident = await start(hollowed);
+		await save({ url: trident.url });
+		for (const query of ['?wall=0', '?wall=0.1', '?wall=50', '?wall=abc', '?quality=0', '?quality=2', '?quality=x']) {
+			expect((await hollow(query)).statusCode, query).toBe(400);
+		}
+		expect(trident.seen).toHaveLength(0);
+	});
+
+	it('refuses an empty file, and anything not sent as an STL', async () => {
+		const trident = await start(hollowed);
+		await save({ url: trident.url });
+		expect((await hollow('', '')).statusCode).toBe(400);
+		const res = await app.inject({
+			method: 'POST',
+			url: '/api/trident/hollow',
+			payload: '{}',
+			headers: { 'content-type': 'application/json' },
+		});
+		expect(res.statusCode).toBe(415);
+		expect(trident.seen).toHaveLength(0);
+	});
+
+	it('passes on why Trident could not hollow it (too thin for the wall)', async () => {
+		const trident = await start(answering(422, { detail: 'The model is too thin for a wall of 2 mm' }));
+		await save({ url: trident.url });
+		const res = await hollow();
+		expect(res.statusCode).toBe(422);
+		expect(res.json().error).toBe('The model is too thin for a wall of 2 mm');
+	});
+
+	it('says what to do when the key may not hollow (403) or was not accepted (401)', async () => {
+		const trident = await start(answering(403));
+		await save({ url: trident.url, key: 'k' });
+		const forbidden = await hollow();
+		expect(forbidden.statusCode).toBe(502);
+		expect(forbidden.json().error).toMatch(/not allowed to hollow/i);
+		expect(forbidden.json().error).toMatch(/hollow them/i);
+		await fake?.close();
+		const other = await start(answering(401));
+		await save({ url: other.url });
+		expect((await hollow()).json().error).toMatch(/did not accept the API key/i);
+	});
+
+	it('says when Trident is too old to hollow (404)', async () => {
+		const trident = await start(answering(404, { detail: 'Not Found' }));
+		await save({ url: trident.url });
+		const res = await hollow();
+		expect(res.statusCode).toBe(502);
+		expect(res.json().error).toMatch(/cannot hollow|too old|update/i);
+	});
+
+	it('says when Trident cannot be reached, with the address', async () => {
+		await save({ url: 'http://127.0.0.1:9' });
+		const res = await hollow();
+		expect(res.statusCode).toBe(502);
+		expect(res.json().error).toContain('http://127.0.0.1:9');
+	});
+});

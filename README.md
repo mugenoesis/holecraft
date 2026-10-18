@@ -117,6 +117,26 @@ https while Trident is on http. The address and key are kept in `trident.json` i
 the key is never sent back to the browser. Holecraft has no login, so anyone who can open it can send to that Trident or change the settings: keep both on a
 trusted network.
 
+## Resin printing
+
+The **Resin** section of the side panel (under Properties) has tools for printing with resin. Select one shape or group first.
+
+- **Hollow.** Select a shape or group, set the **Wall thickness** (2 mm to start, 0.5 to 20) and the **Accuracy** (Fast, Normal or Fine) and press **Hollow the
+  selected shape**. Holecraft's server sends the shape to your Trident slicer (see *Send to Trident* above), which works out the cavity, and the shape is swapped
+  for the hollow model that comes back, in the same place and the same size, as one undo step (Undo brings the original back). It becomes a mesh shape, so
+  it can be moved, turned, resized, coloured and grouped like an imported model, but its parts can no longer be edited: do the editing first, or for a partial
+  hollow, a different inner shape or ribs make the cavity yourself with hole shapes. The panel says how much resin is saved. The button is off, with the reason,
+  until a Trident is set up; the key Trident gives Holecraft has to be a **Holecraft: upload models and hollow them** key (or a full-access one), and
+  Trident needs to be a version that can hollow. Hollowing a very complex model can take a while.
+- **Drain holes.** A hollow resin print fills with liquid resin, which has to run out (and air has to get in) or the print is sucked against the film.
+  **Add drain hole** puts a round hole (**Diameter**, 3.5 mm to start, 0.5 to 30) in the middle of the bottom of the selection, and **Add vent hole** one in the
+  middle of the top. Each goes in as an **ordinary hole** grouped with the shape so it cuts: you see it, move it, resize it or delete it like any other shape,
+  and a second hole joins the same group. It goes a quarter of the height in (3 to 15 mm, never past the shape) and starts 1 mm outside the face so it cuts clean
+  through. Holes only help a model that is hollow: make the cavity yourself with a hole shape inside the model (a partial hollow, a different inner shape and ribs
+  are all just shapes), then add the holes. Each press is one undo step.
+- **Orientation.** **Tilt 15°, 30° or 45°** turns the selection about the X axis (on top of any turn it has), about its middle, and sets it back on the plane.
+  A model laid on a slant is peeled from the film a thin line at a time instead of all at once, which is gentler on the print and the film. Press again to tilt further.
+
 ## Your designs
 
 Holecraft opens on a list of your designs. **New design** makes one and opens it; click a name to

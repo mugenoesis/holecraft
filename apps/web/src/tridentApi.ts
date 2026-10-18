@@ -59,3 +59,34 @@ export function hostLabel(url: string): string {
 export function defaultTridentAddress(where: { protocol: string; hostname: string }): string {
 	return `${where.protocol}//${where.hostname}:8000`;
 }
+
+/** The hollow model Trident made, as the bytes of an STL, and the volume (mm3) of the model before and after. */
+export interface Hollowed {
+	stl: ArrayBuffer;
+	volumeBefore: number;
+	volumeAfter: number;
+}
+
+/** Sends an STL to Trident through Holecraft's server to be hollowed (a wall of `wall` mm, at `quality` 0 to 1); the answer is the model with a cavity. */
+export async function hollowModel(
+	file: { fileName: string; data: Uint8Array },
+	options: { wall: number; quality: number },
+	fetchImpl: Fetch = fetch,
+): Promise<Hollowed> {
+	let res: Response;
+	try {
+		res = await fetchImpl(`/api/trident/hollow?wall=${options.wall}&quality=${options.quality}`, {
+			method: 'POST',
+			headers: { 'content-type': 'model/stl', 'x-file-name': encodeURIComponent(file.fileName) },
+			body: file.data as BodyInit,
+		});
+	} catch {
+		throw new Error("Could not reach Holecraft's server");
+	}
+	if (!res.ok) throw await failure(res);
+	return {
+		stl: await res.arrayBuffer(),
+		volumeBefore: Number(res.headers.get('x-volume-before-mm3')),
+		volumeAfter: Number(res.headers.get('x-volume-after-mm3')),
+	};
+}

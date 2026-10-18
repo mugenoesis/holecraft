@@ -2,7 +2,7 @@ import { addShape, createEmptyDesign, type Design, renameDesign } from '@holecra
 import type { ExportBody } from '@holecraft/geometry';
 import { readStoredZip } from '@holecraft/geometry';
 import { describe, expect, it, vi } from 'vitest';
-import { EXPORT_FORMATS, hasExportableShapes, runExport } from './exportDesign.ts';
+import { EXPORT_FORMATS, exportStlBytes, hasExportableShapes, runExport } from './exportDesign.ts';
 
 const body = (name = 'Box 1'): ExportBody => ({
 	name,
@@ -108,5 +108,22 @@ describe('hasExportableShapes', () => {
 		d.nodes.a!.mode = 'solid';
 		d.nodes.a!.hidden = true;
 		expect(hasExportableShapes(d)).toBe(false);
+	});
+});
+
+describe('exportStlBytes', () => {
+	it('gives the design as the bytes of a binary STL, named after the design, without saving it', async () => {
+		const d = deps();
+		const out = await exportStlBytes(design('Bracket'), d);
+		expect(out.fileName).toBe('Bracket.stl');
+		// a binary STL: 80 byte header, a count, 50 bytes a triangle
+		const view = new DataView(out.data.buffer, out.data.byteOffset);
+		expect(view.getUint32(80, true)).toBe(4);
+		expect(out.data.byteLength).toBe(84 + 4 * 50);
+		expect(d.save).not.toHaveBeenCalled();
+	});
+
+	it('says there is nothing to export when nothing solid is left', async () => {
+		await expect(exportStlBytes(design(), deps([]))).rejects.toThrow(/nothing to export/i);
 	});
 });
