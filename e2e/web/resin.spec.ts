@@ -205,7 +205,11 @@ test.describe('Hollow', () => {
 
 	test('is off, with the reason, until a Trident is set up', async ({ page }) => {
 		await expect(hollowButton(page)).toBeDisabled();
-		await expect(resin(page).getByText(/set one up under Export, Send to Trident/)).toBeVisible();
+		await expect(
+			resin(page)
+				.getByRole('group', { name: 'Hollow' })
+				.getByText(/set one up under Export, Send to Trident/),
+		).toBeVisible();
 	});
 
 	test('swaps the box for a hollow model of the same size and place, and Undo brings the box back', async ({ page, request }) => {
