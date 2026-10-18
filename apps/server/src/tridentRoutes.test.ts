@@ -552,3 +552,64 @@ describe('support points with Trident', () => {
 		expect(refused.json().error).toBe('support_points is not usable');
 	});
 });
+
+describe('support points: every way Trident can answer', () => {
+	const POINTS = { objects: [{ points: [{ x: 1, y: 2, z: 0, radius: 0.4, type: 'island' }] }] };
+	const printers = () => app.inject({ method: 'GET', url: '/api/trident/resin-printers' });
+	const supports = () =>
+		app.inject({
+			method: 'POST',
+			url: '/api/trident/supports?printer=X',
+			payload: Buffer.from('PK'),
+			headers: { 'content-type': 'model/stl', 'x-file-name': 'a.stl' },
+		});
+	const put = () => app.inject({ method: 'PUT', url: '/api/trident/support-points?model=abc', payload: POINTS });
+	const plain = (res: http.ServerResponse) => {
+		res.writeHead(200, { 'content-type': 'text/plain' });
+		res.end('not json');
+	};
+
+	it('says when Trident cannot be reached, for each of the three', async () => {
+		await save({ url: 'http://127.0.0.1:9' });
+		for (const res of [await printers(), await supports(), await put()]) {
+			expect(res.statusCode).toBe(502);
+			expect(res.json().error).toContain('http://127.0.0.1:9');
+		}
+	});
+
+	it('says what to do for a key that was not accepted, may not do it, or a model too large', async () => {
+		for (const [status, words] of [
+			[401, /did not accept the API key/],
+			[403, /API key/],
+			[413, /too large/],
+			[302, /redirected/],
+			[500, /answered 500/],
+		] as const) {
+			const trident = await start(answering(status));
+			await save({ url: trident.url });
+			for (const res of [await printers(), await supports(), await put()]) {
+				expect(res.statusCode, `${status}`).toBe(502);
+				expect(res.json().error, `${status}`).toMatch(words);
+			}
+			await fake?.close();
+		}
+	});
+
+	it('says when the answer is not what a Trident gives', async () => {
+		const trident = await start(plain);
+		await save({ url: trident.url });
+		expect((await printers()).statusCode).toBe(502);
+		expect((await supports()).statusCode).toBe(502);
+		expect((await put()).statusCode).toBe(200); // it kept them; how many it holds is not known
+		expect((await put()).json()).toEqual({ count: 0 });
+	});
+
+	it('sends an STL as an STL, and keeps its own words for a 422 with no reason', async () => {
+		const trident = await start(answering(422, {}));
+		await save({ url: trident.url });
+		const res = await supports();
+		expect(res.statusCode).toBe(422);
+		expect(res.json().error).toMatch(/could not place supports/);
+		expect(trident.seen[0]?.body.toString('latin1')).toMatch(/filename="a\.stl"/);
+	});
+});
