@@ -110,6 +110,21 @@ export function registerSupportRoutes(app: FastifyInstance, store: TridentStore)
 			.map((p) => ({ name: p.name, vendor: typeof p.vendor === 'string' ? p.vendor : '' }));
 	});
 
+	// the resin printers the user saved in Trident, by name with the printer each is; an older Trident does not know them, which is no printers
+	app.get('/api/trident/saved-printers', async (_request, reply) => {
+		const settings = await notSetUp(store, reply);
+		if (!settings) return;
+		const response = await call(settings, '/resin/saved-printers', {}, CALL_TIMEOUT_MS);
+		if (!response) return sendFailure(reply, unreachable(settings));
+		if (response.status === 404) return [];
+		if (!response.ok) return relay(reply, response, PRINTERS, 'Trident could not list your saved printers');
+		const list: unknown = await response.json().catch(() => null);
+		if (!Array.isArray(list)) return sendFailure(reply, `The answer at ${settings.url} was unexpected: is that address a Trident?`);
+		return list
+			.filter((p): p is { name: string; printer: string } => isObject(p) && typeof p.name === 'string' && typeof p.printer === 'string')
+			.map((p) => ({ name: p.name, printer: p.printer }));
+	});
+
 	app.post('/api/trident/supports', { bodyLimit: MAX_MODEL_BYTES }, async (request, reply) => {
 		const asked = supportsRequest(request.body, request.query, request.headers['content-type']);
 		if ('error' in asked) return reply.code(asked.code).send({ error: asked.error });

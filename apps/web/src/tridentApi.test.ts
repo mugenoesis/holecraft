@@ -9,6 +9,7 @@ import {
 	hollowModel,
 	hostLabel,
 	listResinPrinters,
+	listSavedPrinters,
 	modelIdOf,
 	placeSupports,
 	saveTrident,
@@ -223,5 +224,17 @@ describe('support points, as the page asks for them', () => {
 		expect(modelIdOf('http://t.lan:8000/?model=a%20b')).toBe('a b');
 		expect(modelIdOf('http://t.lan:8000/')).toBeNull();
 		expect(modelIdOf('not a url')).toBeNull();
+	});
+});
+
+describe('the saved resin printers, as the page asks for them', () => {
+	it('lists them by name with the printer each is', async () => {
+		const f = reply(200, [{ name: 'gk2', printer: 'UniFormation GKtwo' }]);
+		expect(await listSavedPrinters(f)).toEqual([{ name: 'gk2', printer: 'UniFormation GKtwo' }]);
+		expect(callOf(f).url).toBe('/api/trident/saved-printers');
+	});
+
+	it('throws the server’s own message when it refuses', async () => {
+		await expect(listSavedPrinters(reply(409, { error: 'not set up' }))).rejects.toThrow(/not set up/);
 	});
 });

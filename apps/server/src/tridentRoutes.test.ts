@@ -613,3 +613,47 @@ describe('support points: every way Trident can answer', () => {
 		expect(trident.seen[0]?.body.toString('latin1')).toMatch(/filename="a\.stl"/);
 	});
 });
+
+describe('the saved resin printers', () => {
+	const saved = () => app.inject({ method: 'GET', url: '/api/trident/saved-printers' });
+
+	it('are the ones Trident lists for the key, by name with the printer each is, and nothing else about them', async () => {
+		const trident = await start((res) => {
+			res.writeHead(200, { 'content-type': 'application/json' });
+			res.end(JSON.stringify([{ name: 'gk2', printer: 'UniFormation GKtwo', extra: 1 }, { name: 3 }, 'x']));
+		});
+		await save({ url: trident.url, key: 'trident_secret' });
+		const res = await saved();
+		expect(res.statusCode).toBe(200);
+		expect(res.json()).toEqual([{ name: 'gk2', printer: 'UniFormation GKtwo' }]);
+		expect(trident.seen[0]?.url).toBe('/resin/saved-printers');
+		expect(trident.seen[0]?.authorization).toBe('Bearer trident_secret');
+	});
+
+	it('say it is not set up when there is no address', async () => {
+		expect((await saved()).statusCode).toBe(409);
+	});
+
+	it('are none when this Trident is too old to know them (404), so the printer list still works', async () => {
+		const trident = await start(answering(404, { detail: 'Not Found' }));
+		await save({ url: trident.url });
+		const res = await saved();
+		expect(res.statusCode).toBe(200);
+		expect(res.json()).toEqual([]);
+	});
+
+	it('say what to do when the key was not accepted, may not do it, or Trident cannot be reached or answers nonsense', async () => {
+		const forbidden = await start(answering(403));
+		await save({ url: forbidden.url });
+		expect((await saved()).json().error).toMatch(/API key/);
+		await fake?.close();
+		const nonsense = await start((res) => {
+			res.writeHead(200, { 'content-type': 'text/plain' });
+			res.end('not json');
+		});
+		await save({ url: nonsense.url });
+		expect((await saved()).statusCode).toBe(502);
+		await save({ url: 'http://127.0.0.1:9' });
+		expect((await saved()).json().error).toContain('http://127.0.0.1:9');
+	});
+});

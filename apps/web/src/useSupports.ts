@@ -2,7 +2,15 @@ import { type Design, exportObjectCount, type MeshData } from '@holecraft/core';
 import { type Dispatch, useCallback, useEffect, useState } from 'react';
 import type { EditorAction } from './editorState.ts';
 import { exportDeps, exportOrcaBytes } from './exportDesign.ts';
-import { getTrident, listResinPrinters, placeSupports, type ResinPrinter, type TridentStatus } from './tridentApi.ts';
+import {
+	getTrident,
+	listResinPrinters,
+	listSavedPrinters,
+	placeSupports,
+	type ResinPrinter,
+	type SavedPrinter,
+	type TridentStatus,
+} from './tridentApi.ts';
 
 const PRINTER_KEY = 'holecraft.supportPrinter';
 
@@ -25,6 +33,25 @@ export function whyNotSupports(design: Design, status: TridentStatus | null, pri
 	return null;
 }
 
+/** A saved printer as the picker offers it: it stands for the catalogue printer it is, and goes by the name it was saved under. */
+export interface SavedChoice {
+	printer: string;
+	label: string;
+}
+
+/** The saved printers whose catalogue printer Trident still lists, each as "gk2 (UniFormation GKtwo)". */
+export function savedChoices(saved: readonly SavedPrinter[], printers: readonly ResinPrinter[]): SavedChoice[] {
+	return saved
+		.filter((s) => printers.some((p) => p.name === s.printer))
+		.map((s) => ({ printer: s.printer, label: `${s.name} (${s.printer})` }));
+}
+
+/** The printer to start on: the one chosen before if Trident still lists it, else the first saved printer, else none. */
+export function startingPrinter(chosen: string, saved: readonly SavedChoice[], printers: readonly ResinPrinter[]): string {
+	if (chosen && printers.some((p) => p.name === chosen)) return chosen;
+	return saved[0]?.printer ?? '';
+}
+
 /** "8 points (6 from Trident, 2 added by you)". */
 export function pointsSummary(design: Design): string {
 	const points = design.supports?.points ?? [];
@@ -44,6 +71,7 @@ export function pointsSummary(design: Design): string {
 export function useSupports(design: Design, meshes: ReadonlyMap<string, MeshData>, dispatch: Dispatch<EditorAction>) {
 	const [status, setStatus] = useState<TridentStatus | null>(null);
 	const [printers, setPrinters] = useState<ResinPrinter[]>([]);
+	const [saved, setSaved] = useState<SavedChoice[]>([]);
 	const [printer, setPrinterState] = useState(storedPrinter);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -54,7 +82,13 @@ export function useSupports(design: Design, meshes: ReadonlyMap<string, MeshData
 			.then(async (s) => {
 				if (!current) return;
 				setStatus(s);
-				if (s.url) setPrinters(await listResinPrinters());
+				if (!s.url) return;
+				const [catalogue, mine] = await Promise.all([listResinPrinters(), listSavedPrinters().catch(() => [])]);
+				if (!current) return;
+				const choices = savedChoices(mine, catalogue);
+				setPrinters(catalogue);
+				setSaved(choices);
+				setPrinterState((chosen) => startingPrinter(chosen, choices, catalogue));
 			})
 			.catch((e: unknown) => {
 				if (!current) return;
@@ -90,5 +124,5 @@ export function useSupports(design: Design, meshes: ReadonlyMap<string, MeshData
 		}
 	}, [design, meshes, printer, dispatch]);
 
-	return { printers, printer, setPrinter, busy, error, why, generate };
+	return { printers, saved, printer, setPrinter, busy, error, why, generate };
 }
