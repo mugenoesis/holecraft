@@ -257,7 +257,7 @@ export function ViewportCanvas(props: Props) {
 		viewportRef,
 		design.grid,
 		onDropShape,
-		props.plane && { plane: props.plane, onDrop: props.onDropOnPlane },
+		{ plane: props.plane, onDrop: props.onDropOnPlane },
 		props.onDropSaved,
 	);
 

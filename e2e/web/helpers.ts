@@ -83,6 +83,14 @@ export async function dropShape(page: Page, shape: 'Box' | 'Cylinder' | 'Sphere'
 		.dragTo(viewport(page), { targetPosition: { x: box.width / 2 + dx, y: box.height / 2 + dy } });
 }
 
+/**
+ * Adds a shape at the origin on the floor, whatever is there: Enter on its tile. (A click on the tile arms it to be placed with the pointer, and a
+ * shape dropped over another stands on top of it, so neither makes a shape overlap the one at the centre.)
+ */
+export async function addAtOrigin(page: Page, shape: string) {
+	await page.getByRole('region', { name: 'Shapes' }).getByRole('button', { name: shape, exact: true }).press('Enter');
+}
+
 type Pt = { x: number; y: number };
 
 /** Press, move in steps and release with the given mouse button. */

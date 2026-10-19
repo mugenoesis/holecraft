@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { center, field, newDesign, properties, uniqueName, viewport } from './helpers.ts';
+import { cameraSettled, center, field, newDesign, properties, selectView, uniqueName, viewport } from './helpers.ts';
 
 /*
  * Placing a shape with the mouse: click a shape in the Shapes panel, a see-through ghost follows the pointer over the plate, and one
@@ -115,6 +115,53 @@ test.describe('click a shape, then click the plate', () => {
 	test('dragging a shape from the panel still works', async ({ page }) => {
 		await tile(page, 'Box').dragTo(viewport(page));
 		await expect(objectsLine(page, 1)).toBeVisible();
+	});
+});
+
+test.describe('over another shape', () => {
+	/** A 20 mm box at the origin, seen from straight above, so the middle of the view is the middle of its top. */
+	async function boxSeenFromAbove(page: Page) {
+		await tile(page, 'Box').press('Enter');
+		await selectView(page, 'Top');
+		await cameraSettled(page);
+		return pointOnPlate(page, 0, 0);
+	}
+
+	/** How high the base of the (only) cylinder is: its Z field, after selecting it in the Objects list. */
+	async function heightOfCylinder(page: Page) {
+		await page
+			.getByTestId('object-list')
+			.getByRole('button', { name: /^Cylinder/ })
+			.click();
+		return field(page, 'Z').inputValue();
+	}
+
+	test('the ghost stands on the top of it, and one click puts the shape there', async ({ page }) => {
+		const over = await boxSeenFromAbove(page);
+		await tile(page, 'Cylinder').click();
+		await page.mouse.move(over.x, over.y, { steps: 3 });
+		await expect(viewport(page)).toHaveAttribute('data-ghost', 'cylinder');
+		await page.mouse.click(over.x, over.y);
+		await expect(objectsLine(page, 2)).toBeVisible();
+		expect(await heightOfCylinder(page)).toBe('20'); // on top of the 20 mm box, not on the floor
+	});
+
+	test('a shape dragged from the panel onto the top of it stands on it too', async ({ page }) => {
+		const over = await boxSeenFromAbove(page);
+		const box = await viewport(page).boundingBox();
+		await tile(page, 'Cylinder').dragTo(viewport(page), { targetPosition: { x: over.x - box!.x, y: over.y - box!.y } });
+		await expect(objectsLine(page, 2)).toBeVisible();
+		expect(await heightOfCylinder(page)).toBe('20');
+	});
+
+	test('over empty floor it still goes on the floor', async ({ page }) => {
+		const over = await boxSeenFromAbove(page);
+		await tile(page, 'Cylinder').click();
+		const away = { x: over.x + 200, y: over.y + 120 };
+		await page.mouse.move(away.x, away.y, { steps: 3 });
+		await page.mouse.click(away.x, away.y);
+		await expect(objectsLine(page, 2)).toBeVisible();
+		expect(await heightOfCylinder(page)).toBe('0');
 	});
 });
 
