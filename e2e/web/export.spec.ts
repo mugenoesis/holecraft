@@ -31,8 +31,8 @@ const select = (page: Page, name: RegExp) => list(page).getByRole('button', { na
 
 /** A 20 mm box at the origin with a 10 x 10 x 40 hole through it, grouped. */
 async function drilledBox(page: Page) {
-	await page.getByRole('button', { name: 'Box', exact: true }).click();
-	await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+	await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
+	await page.getByRole('button', { name: 'Cylinder', exact: true }).press('Enter');
 	await select(page, /Cylinder 1/);
 	await setFields(page, { Width: '10', Depth: '10', Height: '40' });
 	await properties(page).getByRole('button', { name: 'Hole', exact: true }).click();
@@ -47,19 +47,19 @@ test.beforeEach(async ({ page }) => {
 test.describe('the Export menu', () => {
 	test('is disabled until there is something to print', async ({ page }) => {
 		await expect(exportButton(page)).toBeDisabled();
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await expect(exportButton(page)).toBeEnabled();
 	});
 
 	test('stays disabled when everything is a hole', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await select(page, /Box 1/);
 		await properties(page).getByRole('button', { name: 'Hole', exact: true }).click();
 		await expect(exportButton(page)).toBeDisabled();
 	});
 
 	test('offers STL, OBJ and 3MF', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await exportButton(page).click();
 		await expect(page.getByRole('menu')).toBeVisible();
 		for (const format of ['STL', 'OBJ', '3MF'])
@@ -67,7 +67,7 @@ test.describe('the Export menu', () => {
 	});
 
 	test('closes on Escape and when you click elsewhere', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await exportButton(page).click();
 		await page.keyboard.press('Escape');
 		await expect(page.getByRole('menu')).toHaveCount(0);
@@ -79,7 +79,7 @@ test.describe('the Export menu', () => {
 	});
 
 	test('tells the menu state to assistive technology', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await expect(exportButton(page)).toHaveAttribute('aria-haspopup', 'menu');
 		await expect(exportButton(page)).toHaveAttribute('aria-expanded', 'false');
 		await exportButton(page).click();
@@ -89,7 +89,7 @@ test.describe('the Export menu', () => {
 
 test.describe('STL export', () => {
 	test('downloads a 20 mm cube as a proper binary STL', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		const { fileName, file } = await exportAs(page, 'STL');
 
 		expect(fileName).toBe('Untitled design.stl');
@@ -102,7 +102,7 @@ test.describe('STL export', () => {
 	});
 
 	test('is named after the design, made safe for file systems', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await nameBox(page).fill('Bracket: v2/final');
 		await nameBox(page).press('Enter');
 		const { fileName } = await exportAs(page, 'STL');
@@ -121,8 +121,8 @@ test.describe('STL export', () => {
 	});
 
 	test('does not include holes that are not in a group with something', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
-		await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).press('Enter');
 		await select(page, /Cylinder 1/);
 		await properties(page).getByRole('button', { name: 'Hole', exact: true }).click();
 		const stl = parseStl((await exportAs(page, 'STL')).file);
@@ -131,7 +131,7 @@ test.describe('STL export', () => {
 	});
 
 	test('puts each shape where it is: moved, lifted and turned', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await select(page, /Box 1/);
 		await setFields(page, { Width: '40', Depth: '10', Height: '10' });
 		await select(page, /Box 1/);
@@ -148,7 +148,7 @@ test.describe('STL export', () => {
 	});
 
 	test('includes every shape, whatever is selected', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await dropShape(page, 'Box', 200, 0);
 		await select(page, /Box 1/); // only one selected
 		const stl = parseStl((await exportAs(page, 'STL')).file);
@@ -157,8 +157,8 @@ test.describe('STL export', () => {
 	});
 
 	test('says so when the holes cut away everything', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await select(page, /Box 2/);
 		await setFields(page, { Width: '100', Depth: '100', Height: '100' });
 		await properties(page).getByRole('button', { name: 'Hole', exact: true }).click();
@@ -171,7 +171,7 @@ test.describe('STL export', () => {
 	});
 
 	test('can be exported more than once', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await exportAs(page, 'STL');
 		const second = await exportAs(page, 'STL');
 		expect(parseStl(second.file).triangles).toBe(12);
@@ -182,7 +182,7 @@ test.describe('exporting only the selection', () => {
 	const onlySelected = (page: Page) => page.getByRole('checkbox', { name: /only the selected/i });
 
 	async function boxAndSphere(page: Page) {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await dropShape(page, 'Sphere', 200, 0);
 	}
 
@@ -233,7 +233,7 @@ test.describe('exporting only the selection', () => {
 
 test.describe('OBJ export', () => {
 	test("writes a text OBJ in millimetres with the shape's name", async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		const { fileName, file } = await exportAs(page, 'OBJ');
 		expect(fileName).toBe('Untitled design.obj');
 		const obj = parseObj(file.toString('utf8'));
@@ -245,7 +245,7 @@ test.describe('OBJ export', () => {
 	});
 
 	test('numbers faces correctly across several shapes', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await dropShape(page, 'Sphere', 200, 0);
 		const obj = parseObj((await exportAs(page, 'OBJ')).file.toString('utf8'));
 		expect(obj.objects).toEqual(['Box 1', 'Sphere 1']);
@@ -255,7 +255,7 @@ test.describe('OBJ export', () => {
 
 test.describe('3MF export', () => {
 	test('writes a valid package in millimetres', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		const { fileName, file } = await exportAs(page, '3MF');
 		expect(fileName).toBe('Untitled design.3mf');
 
@@ -269,7 +269,7 @@ test.describe('3MF export', () => {
 	});
 
 	test("keeps the shape's colour", async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await select(page, /Box 1/);
 		await field(page, 'Color').fill('#336699');
 		const model = read3mf((await exportAs(page, '3MF')).file)['3D/3dmodel.model']!;
@@ -277,7 +277,7 @@ test.describe('3MF export', () => {
 	});
 
 	test('lists a group as one object and each loose shape as its own', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await dropShape(page, 'Sphere', 200, 0);
 		await dropShape(page, 'Cylinder', -200, 0);
 		await select(page, /Box 1/);

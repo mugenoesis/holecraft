@@ -139,7 +139,7 @@ test.describe('the designs list', () => {
 test.describe('saving', () => {
 	test('autosaves, and the work is still there after a reload', async ({ page }) => {
 		await newDesign(page);
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await waitSaved(page);
 		await page.reload();
 		await expect(page.getByText('Objects: 1')).toBeVisible();
@@ -149,15 +149,15 @@ test.describe('saving', () => {
 	test('shows that changes are waiting, then that they are saved', async ({ page }) => {
 		await newDesign(page);
 		await waitSaved(page);
-		await page.getByRole('button', { name: 'Sphere', exact: true }).click();
+		await page.getByRole('button', { name: 'Sphere', exact: true }).press('Enter');
 		await expect(saveStatus(page)).toHaveText(/Unsaved changes|Saving…|Saved/);
 		await waitSaved(page);
 	});
 
 	test('keeps sizes, colours, holes and groups across a reload', async ({ page }) => {
 		await newDesign(page);
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
-		await page.getByRole('button', { name: 'Sphere', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
+		await page.getByRole('button', { name: 'Sphere', exact: true }).press('Enter');
 		const list = page.getByTestId('object-list');
 
 		await list.getByRole('button', { name: /Box 1/ }).click();
@@ -183,7 +183,7 @@ test.describe('saving', () => {
 
 	test('keeps position, rotation and height', async ({ page }) => {
 		await newDesign(page);
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await page.getByTestId('object-list').getByRole('button', { name: /Box 1/ }).click();
 		for (const [label, value] of [
 			['X', '12'],
@@ -205,7 +205,7 @@ test.describe('saving', () => {
 
 	test('does not keep the undo history across a reload', async ({ page }) => {
 		await newDesign(page);
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await waitSaved(page);
 		await page.reload();
 		await expect(page.getByRole('button', { name: 'Undo' })).toBeDisabled();
@@ -239,7 +239,7 @@ test.describe('saving', () => {
 	test('going back to the list saves what was still waiting', async ({ page }) => {
 		await newDesign(page);
 		const url = page.url();
-		await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).press('Enter');
 		await page.getByRole('link', { name: 'All designs' }).click(); // straight away, before the pause is up
 		await page.goto(url);
 		await expect(page.getByText('Objects: 1')).toBeVisible();
@@ -248,7 +248,7 @@ test.describe('saving', () => {
 	test('designs are independent of each other', async ({ page }) => {
 		await newDesign(page);
 		const first = page.url();
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await waitSaved(page);
 
 		await newDesign(page);
@@ -272,7 +272,7 @@ test.describe('when saving goes wrong', () => {
 		await waitSaved(page);
 		await page.route('**/api/designs/*', (route) => (route.request().method() === 'PUT' ? route.abort() : route.continue()));
 
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await expect(saveStatus(page)).toContainText(/Couldn.t save/, { timeout: 10_000 });
 		await expect(page.getByText('Objects: 1')).toBeVisible();
 
@@ -293,7 +293,7 @@ test.describe('when saving goes wrong', () => {
 			if (route.request().method() === 'PUT') puts++;
 			return route.continue();
 		});
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await expect(saveStatus(page)).toContainText(/no longer exists|not found/i, { timeout: 10_000 });
 		const seen = puts;
 		await page.waitForTimeout(3000);
@@ -304,7 +304,7 @@ test.describe('when saving goes wrong', () => {
 	test('keeps shapes selected and editable while a save is failing', async ({ page }) => {
 		await newDesign(page);
 		await page.route('**/api/designs/*', (route) => (route.request().method() === 'PUT' ? route.abort() : route.continue()));
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await page.getByTestId('object-list').getByRole('button', { name: /Box 1/ }).click();
 		expect(await selectedNames(page)).toEqual(['Box 1']);
 		await field(page, 'Width').fill('44');

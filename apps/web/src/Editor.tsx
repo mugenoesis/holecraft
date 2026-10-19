@@ -25,6 +25,7 @@ import { TopBar } from './TopBar.tsx';
 import { useAutosave } from './useAutosave.ts';
 import { useLibrary } from './useLibrary.ts';
 import { useMeshes } from './useMeshes.ts';
+import { usePlacing } from './usePlacing.ts';
 import { useSupportsUi } from './useSupportsUi.ts';
 import type { SupportsView } from './viewport/supportsView.ts';
 import { ViewportCanvas } from './viewport/ViewportCanvas.tsx';
@@ -107,6 +108,7 @@ function EditorView({ initial }: { initial: Design }) {
 		},
 		[openSaved],
 	);
+	const { placing, dragging, arm, armSaved, lift, liftSaved, release, place, cancel } = usePlacing(dispatch, openSaved);
 	const addAt = useCallback((shape: ShapeType, at: [number, number]) => dispatch({ type: 'add', shape, at }), []);
 	// A list row is a complete click: the press selects (shift toggles), and the release narrows a
 	// multi-selection down to the clicked row, which the viewport only does when nothing was dragged.
@@ -166,6 +168,10 @@ function EditorView({ initial }: { initial: Design }) {
 					onThumbnail={(picture) => uploadThumbnail(design.id, picture)}
 					selection={state.selection}
 					unlockedStretch={state.unlockedStretch}
+					placing={placing}
+					dragging={dragging}
+					onPlace={place}
+					onCancelPlacing={cancel}
 					onDropShape={addAt}
 					onDropSaved={addSaved}
 					plane={plane}
@@ -209,9 +215,16 @@ function EditorView({ initial }: { initial: Design }) {
 					<div className="panel-tab" hidden={!shown('shapes')}>
 						<ShapesPanel
 							onAddShape={(shape) => (plane ? addOnPlane(shape, plane, plane.origin) : addAt(shape, [0, 0]))}
+							onArm={arm}
+							onLift={lift}
+							onRelease={release}
+							placing={placing}
+							touch={compact}
 							saved={{
 								items: library.items,
 								onAdd: (id) => void addSaved(id, plane ? { plane, point: plane.origin } : { at: [0, 0] }),
+								onArm: (item) => void armSaved(item),
+								onLift: (item) => void liftSaved(item),
 								onRename: (id, name) => void library.rename(id, name),
 								onDelete: (id) => void library.remove(id),
 							}}

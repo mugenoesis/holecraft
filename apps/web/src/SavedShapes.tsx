@@ -1,6 +1,7 @@
 import type { LibrarySummary } from '@holecraft/core';
-import { type DragEvent, useState } from 'react';
+import { useState } from 'react';
 import { LIBRARY_DRAG_TYPE } from './shapeDrag.ts';
+import { TileButton } from './TileButton.tsx';
 
 /** The saved shapes whose names have every word of the search in them (all of them for no search), in the order given. */
 export function matchingSaved(items: readonly LibrarySummary[], query: string): LibrarySummary[] {
@@ -11,7 +12,14 @@ export function matchingSaved(items: readonly LibrarySummary[], query: string): 
 interface Props {
 	items: readonly LibrarySummary[];
 	query: string;
+	/** The saved shape armed to be put down with the next click on the plate, if any. */
+	placingId: string | null;
 	onAdd: (id: string) => void;
+	/** A mouse click on a tile arms (or, if armed already, lets go of) the saved shape. */
+	onArm: (item: LibrarySummary) => void;
+	/** A finger has pressed and held a tile long enough to lift the saved shape, and has let go (the view takes the drag from there). */
+	onLift: (item: LibrarySummary) => void;
+	onRelease: () => void;
 	onRename: (id: string, name: string) => void;
 	onDelete: (id: string) => void;
 }
@@ -20,7 +28,7 @@ interface Props {
  * The Mine view of the Shapes panel: the saved shapes as tiles, which add like any shape (click, Enter or drag). With Manage on, each tile
  * gets a rename and a delete, which asks a second time before it goes (there is no hover on a touch screen to tuck them away in).
  */
-export function SavedShapes({ items, query, onAdd, onRename, onDelete }: Props) {
+export function SavedShapes({ items, query, placingId, onAdd, onArm, onLift, onRelease, onRename, onDelete }: Props) {
 	const [manage, setManage] = useState(false);
 	const shown = matchingSaved(items, query);
 	return (
@@ -43,7 +51,15 @@ export function SavedShapes({ items, query, onAdd, onRename, onDelete }: Props) 
 					manage ? (
 						<ManagedTile key={item.id} item={item} onRename={onRename} onDelete={onDelete} />
 					) : (
-						<SavedTile key={item.id} item={item} onAdd={onAdd} />
+						<SavedTile
+							key={item.id}
+							item={item}
+							armed={item.id === placingId}
+							onAdd={onAdd}
+							onArm={onArm}
+							onLift={onLift}
+							onRelease={onRelease}
+						/>
 					),
 				)}
 			</div>
@@ -53,29 +69,34 @@ export function SavedShapes({ items, query, onAdd, onRename, onDelete }: Props) 
 
 const swatch = (item: LibrarySummary) => <span className="swatch saved" style={{ backgroundColor: item.color }} aria-hidden="true" />;
 
-function SavedTile({ item, onAdd }: { item: LibrarySummary; onAdd: (id: string) => void }) {
-	const onDragStart = (e: DragEvent) => {
-		e.dataTransfer.setData(LIBRARY_DRAG_TYPE, item.id);
-		e.dataTransfer.effectAllowed = 'copy';
-	};
+function SavedTile({
+	item,
+	armed,
+	onAdd,
+	onArm,
+	onLift,
+	onRelease,
+}: {
+	item: LibrarySummary;
+	armed: boolean;
+	onAdd: (id: string) => void;
+	onArm: (item: LibrarySummary) => void;
+	onLift: (item: LibrarySummary) => void;
+	onRelease: () => void;
+}) {
 	return (
-		<div
-			role="button"
-			tabIndex={0}
-			draggable
-			className="shape-tile"
-			onClick={() => onAdd(item.id)}
-			onKeyDown={(e) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					onAdd(item.id);
-				}
-			}}
-			onDragStart={onDragStart}
+		<TileButton
+			dragType={LIBRARY_DRAG_TYPE}
+			dragValue={item.id}
+			armed={armed}
+			onAdd={() => onAdd(item.id)}
+			onArm={() => onArm(item)}
+			onLift={() => onLift(item)}
+			onRelease={onRelease}
 		>
 			{swatch(item)}
 			{item.name}
-		</div>
+		</TileButton>
 	);
 }
 

@@ -11,8 +11,20 @@ const item = (name: string, color = '#336699'): LibrarySummary => ({
 	createdAt: 'x',
 });
 const items = [item('Bracket with bolts'), item('Hinge'), item('Plate')];
-const render = (list: LibrarySummary[], query = '') =>
-	renderToStaticMarkup(createElement(SavedShapes, { items: list, query, onAdd: () => {}, onRename: () => {}, onDelete: () => {} }));
+const render = (list: LibrarySummary[], query = '', placingId: string | null = null) =>
+	renderToStaticMarkup(
+		createElement(SavedShapes, {
+			items: list,
+			query,
+			placingId,
+			onAdd: () => {},
+			onArm: () => {},
+			onLift: () => {},
+			onRelease: () => {},
+			onRename: () => {},
+			onDelete: () => {},
+		}),
+	);
 
 describe('matchingSaved', () => {
 	it('gives all of them, in order, for no search', () => {
@@ -42,5 +54,14 @@ describe('the Mine view', () => {
 		expect(render([])).toContain('Nothing saved yet. Select a shape or group and use Save to library in Properties.');
 		expect(render(items, 'zzz')).toContain('No saved shape matches “zzz”');
 		expect(render(items, 'hinge')).not.toContain('No saved shape');
+	});
+});
+
+describe('a saved shape being placed', () => {
+	it('shows its tile armed, and no other', () => {
+		const html = render(items, '', items[1]!.id);
+		const tiles = [...html.matchAll(/<div([^>]*class="shape-tile[^"]*"[^>]*)>/g)].map((m) => m[1] ?? '');
+		expect(tiles).toHaveLength(3);
+		expect(tiles.filter((t) => t.includes('aria-pressed="true"'))).toHaveLength(1);
 	});
 });

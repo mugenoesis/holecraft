@@ -1,21 +1,31 @@
 import type { ShapeType, Vec3, WorkPlane } from '@holecraft/core';
 import type { DragEvent, RefObject } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { SHAPE_DRAG_TYPE } from '../shapeDrag.ts';
+import { LIBRARY_DRAG_TYPE, SHAPE_DRAG_TYPE } from '../shapeDrag.ts';
 import { shapeDropHandlers } from './shapeDrop.ts';
 import type { Viewport } from './Viewport.ts';
 
 const GRID = { size: [200, 200] as [number, number], snap: 5, visible: true } as never;
 
-function setup(opts: { floor?: [number, number] | null; plane?: Vec3 | null; withPlane?: boolean } = {}) {
+type Face = { point: Vec3; normal: Vec3; id?: string } | null;
+
+function setup(opts: { floor?: [number, number] | null; plane?: Vec3 | null; withPlane?: boolean; face?: Face } = {}) {
 	const pickWorkplane = vi.fn(() => opts.floor ?? null);
 	const pickPlane = vi.fn(() => opts.plane ?? null);
-	const viewport = { current: { pickWorkplane, pickPlane } as unknown as Viewport } as RefObject<Viewport | null>;
+	const pickSurface = vi.fn(() => opts.face ?? null);
+	const viewport = { current: { pickWorkplane, pickPlane, pickSurface } as unknown as Viewport } as RefObject<Viewport | null>;
 	const onDropShape = vi.fn<(type: ShapeType, at: [number, number]) => void>();
 	const onPlaneDrop = vi.fn<(type: ShapeType, plane: WorkPlane, point: Vec3) => void>();
 	const plane: WorkPlane = { origin: [0, 0, 20], normal: [0, 0, 1] };
-	const handlers = shapeDropHandlers(viewport, GRID, onDropShape, opts.withPlane ? { plane, onDrop: onPlaneDrop } : null);
-	return { handlers, onDropShape, onPlaneDrop, pickWorkplane, pickPlane, plane };
+	const onDropSaved = vi.fn();
+	const handlers = shapeDropHandlers(
+		viewport,
+		GRID,
+		onDropShape,
+		{ plane: opts.withPlane ? plane : null, onDrop: onPlaneDrop },
+		onDropSaved,
+	);
+	return { handlers, onDropShape, onPlaneDrop, onDropSaved, pickWorkplane, pickPlane, pickSurface, plane };
 }
 
 const dropEvent = (data: string) =>
@@ -75,5 +85,32 @@ describe('shapeDropHandlers', () => {
 		handlers.onDrop(dropEvent('box'));
 		expect(onPlaneDrop).not.toHaveBeenCalled();
 		expect(onDropShape).not.toHaveBeenCalled();
+	});
+
+	it('over the top of a shape, stands on it (snapped to the grid there) instead of dropping to the floor', () => {
+		const { handlers, onDropShape, onPlaneDrop } = setup({ floor: [1, 1], face: { point: [10.4, 7.6, 20], normal: [0, 0, 1], id: 'a' } });
+		handlers.onDrop(dropEvent('box'));
+		expect(onDropShape).not.toHaveBeenCalled();
+		expect(onPlaneDrop).toHaveBeenCalledWith('box', { origin: [0, 0, 20], normal: [0, 0, 1] }, [10, 10, 20]);
+	});
+
+	it('a saved shape dropped over the top of a shape stands on it too', () => {
+		const { handlers, onDropSaved } = setup({ face: { point: [10.4, 7.6, 20], normal: [0, 0, 1], id: 'a' } });
+		handlers.onDrop({
+			...dropEvent(''),
+			dataTransfer: { getData: (k: string) => (k === LIBRARY_DRAG_TYPE ? 'lib1' : ''), types: [LIBRARY_DRAG_TYPE] },
+		} as unknown as DragEvent);
+		expect(onDropSaved).toHaveBeenCalledWith('lib1', { plane: { origin: [0, 0, 20], normal: [0, 0, 1] }, point: [10, 10, 20] });
+	});
+
+	it('with a Workplane-tool plane, that plane wins over the face under the pointer', () => {
+		const { handlers, onPlaneDrop, pickSurface, plane } = setup({
+			withPlane: true,
+			plane: [3.4, -6.2, 20],
+			face: { point: [50, 50, 8], normal: [0, 0, 1], id: 'a' },
+		});
+		handlers.onDrop(dropEvent('cylinder'));
+		expect(pickSurface).not.toHaveBeenCalled();
+		expect(onPlaneDrop.mock.calls[0]![1]).toBe(plane);
 	});
 });

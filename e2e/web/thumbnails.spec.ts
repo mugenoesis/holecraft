@@ -41,7 +41,7 @@ test.describe('thumbnails on the designs list', () => {
 		await nameBox(page).fill(name);
 		await nameBox(page).press('Enter');
 		const id = designId(page);
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 
 		await expect.poll(async () => (await summaryOf(request, id)).thumbnailAt, { timeout: 20_000 }).toBeDefined();
 		await page.getByRole('link', { name: 'All designs' }).click();
@@ -53,7 +53,7 @@ test.describe('thumbnails on the designs list', () => {
 
 	test('the picture shows the design itself: its colour, on a plain background with no grid', async ({ page, request }) => {
 		await newDesign(page);
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		const id = designId(page);
 		await expect.poll(async () => (await summaryOf(request, id)).thumbnailAt, { timeout: 20_000 }).toBeDefined();
 
@@ -66,7 +66,7 @@ test.describe('thumbnails on the designs list', () => {
 
 	test('a selected shape is not drawn with its selection tint', async ({ page, request }) => {
 		await newDesign(page);
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await page.getByTestId('object-list').getByRole('button', { name: /Box 1/ }).click();
 		await expect.poll(() => selectedNames(page)).toEqual(['Box 1']);
 		const id = designId(page);
@@ -76,7 +76,7 @@ test.describe('thumbnails on the designs list', () => {
 
 	test('the picture follows the design when it changes', async ({ page, request }) => {
 		await newDesign(page);
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		const id = designId(page);
 		await expect.poll(async () => (await summaryOf(request, id)).thumbnailAt, { timeout: 20_000 }).toBeDefined();
 		const first = (await summaryOf(request, id)).thumbnailAt!;
@@ -124,7 +124,7 @@ test.describe('thumbnails on the designs list', () => {
 		await newDesign(page);
 		await nameBox(page).fill(name);
 		await nameBox(page).press('Enter');
-		await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).press('Enter');
 		const id = designId(page);
 		await expect.poll(async () => (await summaryOf(request, id)).thumbnailAt, { timeout: 20_000 }).toBeDefined();
 		await page.getByRole('link', { name: 'All designs' }).click();

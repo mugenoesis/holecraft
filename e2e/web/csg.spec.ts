@@ -1,5 +1,17 @@
 import { expect, type Page, test } from '@playwright/test';
-import { cameraSettled, center, dropShape, field, newDesign, pixelAt, properties, selectedNames, selectView, viewport } from './helpers.ts';
+import {
+	addAtOrigin,
+	cameraSettled,
+	center,
+	dropShape,
+	field,
+	newDesign,
+	pixelAt,
+	properties,
+	selectedNames,
+	selectView,
+	viewport,
+} from './helpers.ts';
 
 /*
  * These tests look at real pixels. From straight above, a box with a hole cut through it shows the
@@ -45,7 +57,7 @@ async function setSize(page: Page, width: number, depth: number, height: number)
 /** A 20 mm box at the origin and a thin cylinder through it, looked at from above. Nothing is grouped yet. */
 async function boxAndCylinder(page: Page, opts: { hole?: boolean } = {}) {
 	await dropShape(page, 'Box');
-	await dropShape(page, 'Cylinder');
+	await addAtOrigin(page, 'Cylinder');
 	await list(page)
 		.getByRole('button', { name: /Cylinder 1/ })
 		.click();
@@ -185,7 +197,7 @@ test.describe('a group that has been cut', () => {
 
 	test('disappears completely when the holes cut all of it away', async ({ page }) => {
 		await dropShape(page, 'Box');
-		await dropShape(page, 'Box');
+		await addAtOrigin(page, 'Box');
 		await list(page).getByRole('button', { name: /Box 2/ }).click();
 		await setSize(page, 100, 100, 100);
 		await typeButton(page, 'Hole').click();

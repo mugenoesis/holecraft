@@ -24,7 +24,7 @@ test.describe('on a phone', () => {
 	});
 
 	test('every button in the top bar can be reached on screen', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		const buttons = page.locator('.topbar button:visible, .topbar a:visible');
 		const count = await buttons.count();
 		expect(count).toBeGreaterThanOrEqual(5); // back, undo, redo, import, export (group and ungroup are on the selection bar)
@@ -73,7 +73,7 @@ test.describe('on a phone', () => {
 	});
 
 	test('the Export menu opens inside the screen', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await page.getByRole('button', { name: 'Export', exact: true }).click();
 		const menu = await box(page.getByRole('menu'));
 		expect(menu.x).toBeGreaterThanOrEqual(0);
@@ -95,7 +95,7 @@ test.describe('on a phone', () => {
 	test('the panel shows one tab at a time, and selecting a shape brings up its settings', async ({ page }) => {
 		await expect(page.getByRole('tab', { name: 'Shapes' })).toHaveAttribute('aria-selected', 'true');
 		await expect(page.getByRole('region', { name: 'Properties' })).toBeHidden();
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await page.keyboard.press('Control+a');
 		await expect(page.getByRole('tab', { name: 'Edit' })).toHaveAttribute('aria-selected', 'true');
 		await expect(page.getByRole('region', { name: 'Properties' })).toBeVisible();
@@ -105,7 +105,7 @@ test.describe('on a phone', () => {
 	});
 
 	test('the selection bar does the editing shortcuts with a tap, inside the screen', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await openPanel(page, 'Objects');
 		await page.getByTestId('object-list').getByRole('button', { name: /Box 1/ }).click();
 		const bar = page.getByRole('toolbar', { name: 'Selection' });
@@ -138,7 +138,7 @@ test.describe('on a phone', () => {
 	});
 
 	test('buttons and fields are big enough for a finger', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await openPanel(page, 'Objects');
 		await page.getByTestId('object-list').getByRole('button', { name: /Box 1/ }).click();
 		await openPanel(page, 'Edit');
@@ -151,7 +151,7 @@ test.describe('on a phone', () => {
 	});
 
 	test('the resize and rotate handles are big enough to grab', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await openPanel(page, 'Objects');
 		await page.getByTestId('object-list').getByRole('button', { name: /Box 1/ }).click();
 		const handles = page.locator('.handle, .rotate-handle');

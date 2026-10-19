@@ -2346,3 +2346,27 @@ button.primary:disabled {
 	border: 1px solid #e3c25a;
 	border-radius: 4px;
 }
+
+/* Putting a shape down with the mouse: the armed tile, and the note that follows the pointer */
+.shape-tile.armed {
+	outline: 2px solid var(--accent, #0f6b72);
+	background: color-mix(in srgb, var(--accent, #0f6b72) 18%, transparent);
+}
+.place-chip {
+	position: absolute;
+	z-index: 5;
+	pointer-events: none;
+	padding: 4px 10px;
+	border-radius: 6px;
+	font-size: 12px;
+	white-space: nowrap;
+	color: #fff;
+	background: rgba(22, 54, 58, 0.92);
+}
+
+/* A finger lifts a tile by pressing and holding it: no text selection or callout menu on it meanwhile */
+.shape-tile {
+	-webkit-touch-callout: none;
+	user-select: none;
+	-webkit-user-select: none;
+}

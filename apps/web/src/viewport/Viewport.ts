@@ -12,6 +12,7 @@ import {
 	rayAnyPlaneIntersection,
 	rayPlaneIntersection,
 	rayVerticalPlaneIntersection,
+	type ShapeType,
 	translationOf,
 	type Vec3,
 	type ViewPresetName,
@@ -22,6 +23,8 @@ import type { GroupResult } from '../geometry/GeometryService.ts';
 import { createBandMarker } from './bandMarker.ts';
 import { CameraRig, FOV_DEG, type Projection } from './CameraRig.ts';
 import { DesignScene } from './DesignScene.ts';
+import { createGhost, placeGhost } from './ghostMarker.ts';
+import type { PlacementTarget } from './placement.ts';
 import { createPlaneMarker } from './planeMarker.ts';
 import { dragModeFor } from './pressMode.ts';
 import { thumbnailCamera } from './thumbnailCamera.ts';
@@ -109,6 +112,7 @@ export class Viewport {
 	private bandMarker: THREE.Group | null = null;
 	private multiSelectOn = false;
 	private planeMarker: THREE.Object3D | null = null;
+	private ghost: THREE.Group | null = null;
 
 	constructor(
 		private readonly host: HTMLElement,
@@ -226,11 +230,14 @@ export class Viewport {
 			renderer.setSize(width, height, false);
 			if (this.workplane) this.workplane.visible = false;
 			if (this.planeMarker) this.planeMarker.visible = false;
+			const ghostWasShown = this.ghost?.visible ?? false;
+			if (this.ghost) this.ghost.visible = false;
 			try {
 				this.designScene.withoutSelection(() => renderer.render(this.scene, camera));
 			} finally {
 				if (this.workplane) this.workplane.visible = true;
 				if (this.planeMarker) this.planeMarker.visible = true;
+				if (this.ghost) this.ghost.visible = ghostWasShown;
 			}
 			return await new Promise<Blob | null>((resolve) => renderer.domElement.toBlob(resolve, 'image/png'));
 		} finally {
@@ -376,6 +383,32 @@ export class Viewport {
 			this.planeMarker = createPlaneMarker(plane);
 			this.scene.add(this.planeMarker);
 		}
+		this.requestRender();
+	}
+
+	/** Starts (or, for null, ends) the see-through ghost of a shape about to be put down, at its size; it stays hidden until moveGhost aims it. */
+	setGhost(spec: { type: ShapeType | null; size: Vec3 } | null): void {
+		if (this.ghost) {
+			this.scene.remove(this.ghost);
+			this.ghost.traverse((o) => {
+				if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
+					o.geometry.dispose();
+					(o.material as THREE.Material).dispose();
+				}
+			});
+			this.ghost = null;
+		}
+		if (spec) {
+			this.ghost = createGhost(spec.type, spec.size);
+			this.scene.add(this.ghost);
+		}
+		this.requestRender();
+	}
+
+	/** Puts the ghost where a shape would be put down, or hides it (null: the pointer is over the sky, or has left the view). */
+	moveGhost(target: PlacementTarget | null): void {
+		if (!this.ghost) return;
+		placeGhost(this.ghost, target);
 		this.requestRender();
 	}
 

@@ -60,7 +60,7 @@ test.describe('the Shapes panel', () => {
 
 	test('clicking a tile adds that shape, named and numbered, at its default size', async ({ page }) => {
 		for (const name of TILES.slice(3)) {
-			await tile(page, name).click();
+			await tile(page, name).press('Enter');
 			await expect(list(page).getByRole('button', { name: new RegExp(`^${name} 1 `) })).toBeVisible();
 		}
 		await list(page)
@@ -77,7 +77,7 @@ test.describe('the Shapes panel', () => {
 		['Roof', 4000],
 	] as const) {
 		test(`a ${name} exports with its volume (${volume.toFixed(1)} mm3 at 20 x 20 x 20)`, async ({ page }) => {
-			await tile(page, name).click();
+			await tile(page, name).press('Enter');
 			const stl = await exportStl(page);
 			expect(stl.volume).toBeCloseTo(volume, 1);
 			expect(stl.min.map((v) => Math.round(v))).toEqual([-10, -10, 0]);
@@ -92,7 +92,7 @@ test.describe('the Shapes panel', () => {
 		['Half Sphere', (2 / 3) * Math.PI * 10 * 10 * 20, 0.015], // half an ellipsoid 10 x 10 x 20
 	] as const) {
 		test(`a ${name} exports within ${tolerance * 100}% of its true volume`, async ({ page }) => {
-			await tile(page, name).click();
+			await tile(page, name).press('Enter');
 			const stl = await exportStl(page);
 			expect(stl.volume).toBeLessThan(volume);
 			expect((volume - stl.volume) / volume).toBeLessThan(tolerance);
@@ -112,7 +112,7 @@ const row = (page: Page, i: number) => page.getByTestId('object-list').locator('
 
 test.describe('shapes with settings of their own', () => {
 	test('a tube has a Wall thickness field (3 mm to start), and a box, cylinder or torus does not', async ({ page }) => {
-		for (const name of ['Box', 'Cylinder', 'Tube', 'Torus']) await tile(page, name).click();
+		for (const name of ['Box', 'Cylinder', 'Tube', 'Torus']) await tile(page, name).press('Enter');
 		await row(page, 2).click();
 		await expect(field(page, 'Wall thickness')).toHaveValue('3');
 		for (const i of [0, 1, 3]) {
@@ -122,7 +122,7 @@ test.describe('shapes with settings of their own', () => {
 	});
 
 	test('a torus has a Ring thickness field (10 mm to start)', async ({ page }) => {
-		await tile(page, 'Torus').click();
+		await tile(page, 'Torus').press('Enter');
 		await row(page, 0).click();
 		await expect(field(page, 'Ring thickness')).toHaveValue('10');
 		await expect(field(page, 'Width')).toHaveValue('30');
@@ -130,7 +130,7 @@ test.describe('shapes with settings of their own', () => {
 	});
 
 	test('a tube exports with its wall: the outer disc minus the inner, 20 mm high; typing a thicker wall changes it', async ({ page }) => {
-		await tile(page, 'Tube').click();
+		await tile(page, 'Tube').press('Enter');
 		expect((await exportStl(page)).volume).toBeCloseTo((disc(10) - disc(7)) * 20, 1);
 		await row(page, 0).click();
 		await field(page, 'Wall thickness').fill('5');
@@ -141,7 +141,7 @@ test.describe('shapes with settings of their own', () => {
 	});
 
 	test('a wall too thick for the tube says it is limited, and the tube is still made', async ({ page }) => {
-		await tile(page, 'Tube').click();
+		await tile(page, 'Tube').press('Enter');
 		await row(page, 0).click();
 		await field(page, 'Wall thickness').fill('30');
 		await field(page, 'Wall thickness').press('Enter');
@@ -152,7 +152,7 @@ test.describe('shapes with settings of their own', () => {
 	});
 
 	test('a torus exports as a ring (within the facet error of 2 * pi^2 * R * r^2)', async ({ page }) => {
-		await tile(page, 'Torus').click();
+		await tile(page, 'Torus').press('Enter');
 		const stl = await exportStl(page);
 		const exact = 2 * Math.PI ** 2 * 10 * 5 ** 2;
 		expect(stl.volume).toBeLessThan(exact);
@@ -164,7 +164,7 @@ test.describe('shapes with settings of their own', () => {
 	test('resizing stretches the whole tube evenly: the wall field follows (3 mm at 20 wide, 6 mm at 40), and so does the export', async ({
 		page,
 	}) => {
-		await tile(page, 'Tube').click();
+		await tile(page, 'Tube').press('Enter');
 		await row(page, 0).click();
 		await field(page, 'Width').fill('40');
 		await field(page, 'Width').press('Enter');
@@ -176,7 +176,7 @@ test.describe('shapes with settings of their own', () => {
 	});
 
 	test('a torus’s ring thickens with it when resized (10 mm at 30 wide, 20 mm at 60)', async ({ page }) => {
-		await tile(page, 'Torus').click();
+		await tile(page, 'Torus').press('Enter');
 		await row(page, 0).click();
 		await field(page, 'Width').fill('60');
 		await field(page, 'Width').press('Enter');
@@ -186,7 +186,7 @@ test.describe('shapes with settings of their own', () => {
 	});
 
 	test('undo puts the wall back', async ({ page }) => {
-		await tile(page, 'Tube').click();
+		await tile(page, 'Tube').press('Enter');
 		await row(page, 0).click();
 		await field(page, 'Wall thickness').fill('6');
 		await field(page, 'Wall thickness').press('Enter');
@@ -203,7 +203,7 @@ test.describe('shapes with settings of their own', () => {
  */
 test.describe('the hexagon and the star', () => {
 	test('a hexagon exports with the volume of its outline: 3/4 of its box (20 x 17.32 x 20 mm)', async ({ page }) => {
-		await tile(page, 'Hexagon').click();
+		await tile(page, 'Hexagon').press('Enter');
 		const stl = await exportStl(page);
 		expect(stl.volume).toBeCloseTo(0.75 * 20 * 17.32 * 20, 1);
 		expect(stl.min.map((v) => Math.round(v * 100) / 100)).toEqual([-10, -8.66, 0]);
@@ -211,7 +211,7 @@ test.describe('the hexagon and the star', () => {
 	});
 
 	test('a star has an Inner radius field (4 mm to start) and a hexagon does not', async ({ page }) => {
-		for (const name of ['Hexagon', 'Star']) await tile(page, name).click();
+		for (const name of ['Hexagon', 'Star']) await tile(page, name).press('Enter');
 		await row(page, 1).click();
 		await expect(field(page, 'Inner radius')).toHaveValue('4');
 		await row(page, 0).click();
@@ -221,7 +221,7 @@ test.describe('the hexagon and the star', () => {
 	test('a star exports with the volume of its outline, and a fatter inner radius makes it heavier', async ({ page }) => {
 		const star = (r: number) =>
 			5 * r * Math.sin(Math.PI / 5) * (20 / (2 * Math.sin((2 * Math.PI) / 5))) * (19.02 / (1 + Math.cos(Math.PI / 5))) * 10;
-		await tile(page, 'Star').click();
+		await tile(page, 'Star').press('Enter');
 		expect((await exportStl(page)).volume).toBeCloseTo(star(0.4), 0);
 		await row(page, 0).click();
 		await field(page, 'Inner radius').fill('6');
@@ -231,7 +231,7 @@ test.describe('the hexagon and the star', () => {
 	});
 
 	test('a star’s inner radius grows with it when resized (4 mm at 20 wide, 8 mm at 40)', async ({ page }) => {
-		await tile(page, 'Star').click();
+		await tile(page, 'Star').press('Enter');
 		await row(page, 0).click();
 		await field(page, 'Width').fill('40');
 		await field(page, 'Width').press('Enter');
@@ -254,7 +254,7 @@ test.describe('the polygon', () => {
 	};
 
 	test('has a Sides field (5 to start) that is a count, not millimetres, and a star does not', async ({ page }) => {
-		for (const name of ['Star', 'Polygon']) await tile(page, name).click();
+		for (const name of ['Star', 'Polygon']) await tile(page, name).press('Enter');
 		await row(page, 1).click();
 		await expect(field(page, 'Sides')).toHaveValue('5');
 		await row(page, 0).click();
@@ -262,7 +262,7 @@ test.describe('the polygon', () => {
 	});
 
 	test('exports with the volume of its outline, and typing 8 sides changes it', async ({ page }) => {
-		await tile(page, 'Polygon').click();
+		await tile(page, 'Polygon').press('Enter');
 		expect((await exportStl(page)).volume).toBeCloseTo(polygon(5, 19.02, 18.09, 20), 0);
 		await row(page, 0).click();
 		await field(page, 'Sides').fill('8');
@@ -272,7 +272,7 @@ test.describe('the polygon', () => {
 	});
 
 	test('keeps its sides when resized, and says when Sides was limited to 3 to 32', async ({ page }) => {
-		await tile(page, 'Polygon').click();
+		await tile(page, 'Polygon').press('Enter');
 		await row(page, 0).click();
 		await field(page, 'Sides').fill('7');
 		await field(page, 'Sides').press('Enter');
@@ -300,7 +300,7 @@ test.describe('threaded shapes', () => {
 		properties(page).getByLabel(label, { exact: true }).selectOption({ label: option });
 
 	test('a rod has a Size choice (M5 to start); its width and depth are fixed and its height is called Length', async ({ page }) => {
-		await tile(page, 'Threaded Rod').click();
+		await tile(page, 'Threaded Rod').press('Enter');
 		await row(page, 0).click();
 		await expect(field(page, 'Size')).toHaveValue('5');
 		await expect(field(page, 'Fit')).toHaveCount(0);
@@ -311,7 +311,7 @@ test.describe('threaded shapes', () => {
 	});
 
 	test('picking another Size changes the diameter: M8 is 8 mm across, and the export is an M8 thread', async ({ page }) => {
-		await tile(page, 'Threaded Rod').click();
+		await tile(page, 'Threaded Rod').press('Enter');
 		await row(page, 0).click();
 		await pick(page, 'Size', 'M8');
 		await expect(field(page, 'Width')).toHaveValue('8');
@@ -322,7 +322,7 @@ test.describe('threaded shapes', () => {
 	});
 
 	test('a longer rod keeps its thread: Length 60 exports three times the volume of 20, not a stretched thread', async ({ page }) => {
-		await tile(page, 'Threaded Rod').click();
+		await tile(page, 'Threaded Rod').press('Enter');
 		await row(page, 0).click();
 		await field(page, 'Length').fill('60');
 		await field(page, 'Length').press('Enter');
@@ -333,18 +333,18 @@ test.describe('threaded shapes', () => {
 	});
 
 	test('only the height and lift handles show: there is no way to drag a thread wider', async ({ page }) => {
-		await tile(page, 'Threaded Rod').click();
+		await tile(page, 'Threaded Rod').press('Enter');
 		await row(page, 0).click();
 		await expect(page.getByTestId('handle-height')).toBeVisible();
 		await expect(page.getByTestId('handle-lift')).toBeVisible();
 		for (const id of ['corner-pp', 'corner-nn', 'side-px', 'side-ny']) await expect(page.getByTestId(`handle-${id}`)).toHaveCount(0);
-		await tile(page, 'Box').click();
+		await tile(page, 'Box').press('Enter');
 		await row(page, 1).click();
 		await expect(page.getByTestId('handle-corner-pp')).toBeVisible();
 	});
 
 	test('a threaded hole has Size and Fit (Normal to start) and is a bit wider than its screw: the fit sets how much', async ({ page }) => {
-		await tile(page, 'Threaded Hole').click();
+		await tile(page, 'Threaded Hole').press('Enter');
 		await row(page, 0).click();
 		await expect(field(page, 'Fit')).toHaveValue('2');
 		await expect(field(page, 'Width')).toHaveValue('5.4');
@@ -357,7 +357,7 @@ test.describe('threaded shapes', () => {
 	});
 
 	test('undo puts the Size back', async ({ page }) => {
-		await tile(page, 'Threaded Rod').click();
+		await tile(page, 'Threaded Rod').press('Enter');
 		await row(page, 0).click();
 		await pick(page, 'Size', 'M12');
 		await expect(field(page, 'Width')).toHaveValue('12');
@@ -381,7 +381,7 @@ test.describe('bolts and nuts', () => {
 		properties(page).getByLabel(label, { exact: true }).selectOption({ label: option });
 
 	test('a bolt has Size and Head (Hex to start), and its Length is the shank: 20 mm, with the head on top of it', async ({ page }) => {
-		await tile(page, 'Bolt').click();
+		await tile(page, 'Bolt').press('Enter');
 		await row(page, 0).click();
 		await expect(field(page, 'Size')).toHaveValue('5');
 		await expect(field(page, 'Head')).toHaveValue('1');
@@ -392,7 +392,7 @@ test.describe('bolts and nuts', () => {
 	});
 
 	test('a hex bolt exports as its thread plus its head, 23.5 mm tall in all', async ({ page }) => {
-		await tile(page, 'Bolt').click();
+		await tile(page, 'Bolt').press('Enter');
 		const stl = await exportStl(page);
 		const exact = Math.PI * 20 * mean(2.5, 0.8) + hexArea(8) * 3.5;
 		expect(Math.abs(stl.volume - exact) / exact).toBeLessThan(0.005);
@@ -400,7 +400,7 @@ test.describe('bolts and nuts', () => {
 	});
 
 	test('a socket cap bolt is round and 25 mm tall, and changing the head keeps the 20 mm shank', async ({ page }) => {
-		await tile(page, 'Bolt').click();
+		await tile(page, 'Bolt').press('Enter');
 		await row(page, 0).click();
 		await pick(page, 'Head', 'Socket cap');
 		await expect(field(page, 'Length')).toHaveValue('20');
@@ -411,7 +411,7 @@ test.describe('bolts and nuts', () => {
 	});
 
 	test('typing a Length changes the shank, not the head: 40 mm exports 43.5 mm tall', async ({ page }) => {
-		await tile(page, 'Bolt').click();
+		await tile(page, 'Bolt').press('Enter');
 		await row(page, 0).click();
 		await field(page, 'Length').fill('40');
 		await field(page, 'Length').press('Enter');
@@ -424,7 +424,7 @@ test.describe('bolts and nuts', () => {
 	});
 
 	test('a nut is 4 mm thick and a hex 8 mm across flats with an M5 thread through it, and its Fit opens the thread', async ({ page }) => {
-		await tile(page, 'Nut').click();
+		await tile(page, 'Nut').press('Enter');
 		await row(page, 0).click();
 		await expect(field(page, 'Fit')).toHaveValue('2');
 		await expect(field(page, 'Length')).toHaveValue('4');
@@ -440,7 +440,7 @@ test.describe('bolts and nuts', () => {
 	test('a bigger nut size sets its standard thickness (M8 is 6.5 mm); only the lift and Length handles show on a bolt and a nut', async ({
 		page,
 	}) => {
-		await tile(page, 'Nut').click();
+		await tile(page, 'Nut').press('Enter');
 		await row(page, 0).click();
 		await pick(page, 'Size', 'M8');
 		await expect(field(page, 'Length')).toHaveValue('6.5');
@@ -456,15 +456,15 @@ test.describe('the thread detail switch', () => {
 	const toggle = (page: Page) => page.getByRole('toolbar', { name: 'View controls' }).getByRole('button', { name: 'Simple threads' });
 
 	test('is only offered once there is a thread, and starts off', async ({ page }) => {
-		await tile(page, 'Box').click();
+		await tile(page, 'Box').press('Enter');
 		await expect(toggle(page)).toHaveCount(0);
-		await tile(page, 'Threaded Rod').click();
+		await tile(page, 'Threaded Rod').press('Enter');
 		await expect(toggle(page)).toBeVisible();
 		await expect(toggle(page)).toHaveAttribute('aria-pressed', 'false');
 	});
 
 	test('turns on and off, and is remembered after a reload', async ({ page }) => {
-		await tile(page, 'Bolt').click();
+		await tile(page, 'Bolt').press('Enter');
 		await toggle(page).click();
 		await expect(toggle(page)).toHaveAttribute('aria-pressed', 'true');
 		await page.getByText('Saved', { exact: true }).waitFor();
@@ -475,7 +475,7 @@ test.describe('the thread detail switch', () => {
 	});
 
 	test('the export is the real thread whichever is showing, and the typed values are untouched', async ({ page }) => {
-		await tile(page, 'Threaded Rod').click();
+		await tile(page, 'Threaded Rod').press('Enter');
 		const real = (await exportStl(page)).volume;
 		await toggle(page).click();
 		await expect(toggle(page)).toHaveAttribute('aria-pressed', 'true');
@@ -499,7 +499,7 @@ test.describe('washers and standoffs', () => {
 		properties(page).getByLabel(label, { exact: true }).selectOption({ label: option });
 
 	test('a washer is an M5 10 mm across and 1 mm thick, with a Size choice only and a fixed width', async ({ page }) => {
-		await tile(page, 'Washer').click();
+		await tile(page, 'Washer').press('Enter');
 		await row(page, 0).click();
 		await expect(field(page, 'Size')).toHaveValue('5');
 		await expect(field(page, 'Fit')).toHaveCount(0);
@@ -512,19 +512,19 @@ test.describe('washers and standoffs', () => {
 	});
 
 	test('a washer exports as the ring between its circles, and has no thread for the Simple threads switch to change', async ({ page }) => {
-		await tile(page, 'Washer').click();
+		await tile(page, 'Washer').press('Enter');
 		const stl = await exportStl(page);
 		const exact = (disc(5) - disc(2.65)) * 1;
 		expect(Math.abs(stl.volume - exact) / exact).toBeLessThan(0.001);
 		await expect(page.getByRole('toolbar', { name: 'View controls' }).getByRole('button', { name: 'Simple threads' })).toHaveCount(0);
-		await tile(page, 'Standoff').click();
+		await tile(page, 'Standoff').press('Enter');
 		await expect(page.getByRole('toolbar', { name: 'View controls' }).getByRole('button', { name: 'Simple threads' })).toBeVisible();
 	});
 
 	test('a standoff has Size, Ends (Female-female) and Fit, is 10 mm long, and exports as a hex with a thread right through it', async ({
 		page,
 	}) => {
-		await tile(page, 'Standoff').click();
+		await tile(page, 'Standoff').press('Enter');
 		await row(page, 0).click();
 		await expect(field(page, 'Ends')).toHaveValue('1');
 		await expect(field(page, 'Fit')).toHaveValue('2');
@@ -534,7 +534,7 @@ test.describe('washers and standoffs', () => {
 	});
 
 	test('a male standoff has a 10 mm stud under its body: Length stays 10 and it is 20 mm tall', async ({ page }) => {
-		await tile(page, 'Standoff').click();
+		await tile(page, 'Standoff').press('Enter');
 		await row(page, 0).click();
 		await pick(page, 'Ends', 'Male-female');
 		await expect(field(page, 'Length')).toHaveValue('10');
@@ -546,7 +546,7 @@ test.describe('washers and standoffs', () => {
 	});
 
 	test('a standoff cannot be made shorter than it can hold (an M5 male one needs a 10 mm body)', async ({ page }) => {
-		await tile(page, 'Standoff').click();
+		await tile(page, 'Standoff').press('Enter');
 		await row(page, 0).click();
 		await pick(page, 'Ends', 'Male-female');
 		await field(page, 'Length').fill('3');
@@ -567,7 +567,7 @@ test.describe('inch sizes', () => {
 	};
 
 	test('a threaded rod can be 1/4-20: 6.35 mm across, and it exports as a 1.27 mm pitch thread', async ({ page }) => {
-		await tile(page, 'Threaded Rod').click();
+		await tile(page, 'Threaded Rod').press('Enter');
 		await row(page, 0).click();
 		await pick(page, 'Size', '1/4-20 UNC');
 		await expect(field(page, 'Width')).toHaveValue('6.35');
@@ -583,8 +583,8 @@ test.describe('inch sizes', () => {
 	test('an inch bolt has its own head, and the nut for the same size is wider than a small bolt’s head: a #4-40 bolt is 3/16 across flats, its nut 1/4', async ({
 		page,
 	}) => {
-		await tile(page, 'Bolt').click();
-		await tile(page, 'Nut').click();
+		await tile(page, 'Bolt').press('Enter');
+		await tile(page, 'Nut').press('Enter');
 		await row(page, 0).click();
 		await pick(page, 'Size', '#4-40 UNC');
 		await expect(field(page, 'Depth')).toHaveValue('4.76');
@@ -595,7 +595,7 @@ test.describe('inch sizes', () => {
 	});
 
 	test('a washer takes an inch size too, and the Size menu has Metric and Inch groups', async ({ page }) => {
-		await tile(page, 'Washer').click();
+		await tile(page, 'Washer').press('Enter');
 		await row(page, 0).click();
 		await pick(page, 'Size', '1/4-20 UNC');
 		await expect(field(page, 'Width')).toHaveValue('12.83'); // 0.505 in
@@ -652,7 +652,7 @@ test.describe('searching the Shapes panel', () => {
 		await search(page).fill('washer');
 		await search(page).press('Enter');
 		await expect(list(page).getByRole('button', { name: /^Washer 1 / })).toBeVisible();
-		await tile(page, 'Washer').click();
+		await tile(page, 'Washer').press('Enter');
 		await expect(list(page).getByRole('button', { name: /^Washer 2 / })).toBeVisible();
 	});
 

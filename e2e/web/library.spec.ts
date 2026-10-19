@@ -91,12 +91,12 @@ test.describe('using a saved shape', () => {
 
 		await newDesign(page); // a different design: the library is shared
 		await mine(page).click();
-		await savedTile(page, name).click();
+		await savedTile(page, name).press('Enter');
 		await expect(page.getByText('Objects: 1')).toBeVisible();
 		await expect(list(page).getByRole('button', { name: new RegExp(`^${name} `) })).toBeVisible();
 		expect(await selectedNames(page)).toEqual([name]);
 		await expect(properties(page)).toContainText('Contains 2 shapes');
-		await savedTile(page, name).click(); // and again: a second copy
+		await savedTile(page, name).press('Enter'); // and again: a second copy
 		await expect(page.getByText('Objects: 2')).toBeVisible();
 	});
 
@@ -110,7 +110,7 @@ test.describe('using a saved shape', () => {
 		await saveSelected(page, name);
 		await page.getByRole('button', { name: 'Delete', exact: true }).click(); // gone from this design
 		await mine(page).click();
-		await savedTile(page, name).click();
+		await savedTile(page, name).press('Enter');
 		await expect(list(page).locator('li').first()).toHaveAttribute('data-mode', 'hole');
 		await expect(field(page, 'Width')).toHaveValue('7');
 	});

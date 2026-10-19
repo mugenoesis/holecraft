@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { expect, type Page, test } from '@playwright/test';
 import {
+	addAtOrigin,
 	cameraSettled,
 	center,
 	dropShape,
@@ -175,7 +176,7 @@ test.describe('export and holes', () => {
 
 	test('a hole drilled through an imported model is cut out of it', async ({ page }) => {
 		await importFile(page, 'Cube.stl', cubeStl(30));
-		await dropShape(page, 'Cylinder');
+		await addAtOrigin(page, 'Cylinder');
 		await list(page)
 			.getByRole('button', { name: /Cylinder 1/ })
 			.click();
@@ -200,7 +201,7 @@ test.describe('export and holes', () => {
 	test('says which model has holes in its surface when it cannot be cut', async ({ page }) => {
 		await importFile(page, 'Leaky.stl', cubeStl(30, 2));
 		await expect(list(page).getByRole('button', { name: /Leaky/ })).toBeVisible();
-		await dropShape(page, 'Cylinder');
+		await addAtOrigin(page, 'Cylinder');
 		await page.keyboard.press('Control+a');
 		await page.getByRole('button', { name: 'Group', exact: true }).click();
 		await exportButton(page).click();

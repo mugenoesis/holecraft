@@ -42,7 +42,7 @@ test.describe('workplane tool', () => {
 		await expect(toolButton(page)).toHaveAttribute('aria-pressed', 'false'); // the tool is done
 		await expect(floorButton(page)).toBeVisible();
 
-		await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).press('Enter');
 		await expect(page.getByText('Objects: 2')).toBeVisible();
 		await row(page, 1).click();
 		await expect(field(page, 'Name')).toHaveValue('Cylinder 1');
@@ -58,7 +58,7 @@ test.describe('workplane tool', () => {
 		await clickAt(page, 0, -27); // the middle of the front face: 10 mm up, about 2.7 px per mm
 		await expect(floorButton(page)).toBeVisible();
 
-		await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).press('Enter');
 		await expect(page.getByText('Objects: 2')).toBeVisible();
 		await row(page, 1).click();
 		// the cylinder's base is on the front face (y = -10, 10 mm up) and it is turned to point out of it (towards -y)
@@ -76,7 +76,7 @@ test.describe('workplane tool', () => {
 		await clickAt(page, 0);
 		await floorButton(page).click();
 		await expect(floorButton(page)).toHaveCount(0);
-		await page.getByRole('button', { name: 'Sphere', exact: true }).click();
+		await page.getByRole('button', { name: 'Sphere', exact: true }).press('Enter');
 		await expect(page.getByText('Objects: 2')).toBeVisible();
 		await row(page, 1).click();
 		await expect(field(page, 'Z')).toHaveValue('0');
@@ -130,7 +130,7 @@ test.describe('stand on plane', () => {
 
 	test('puts the selected shape on the top of the box, keeping its place across, as one undo step', async ({ page }) => {
 		await boxFromAbove(page);
-		await page.getByRole('button', { name: 'Cylinder', exact: true }).click(); // on the floor, inside the box
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).press('Enter'); // on the floor, inside the box
 		await toolButton(page).click();
 		await clickAt(page, 0); // the box's top, 20 mm up
 		await row(page, 1).click();
@@ -147,7 +147,7 @@ test.describe('stand on plane', () => {
 
 	test('puts it against a wall: base on the face and turned to point out of it', async ({ page }) => {
 		await dropShape(page, 'Box');
-		await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).press('Enter');
 		await selectView(page, 'Front');
 		await cameraSettled(page);
 		await toolButton(page).click();
@@ -160,7 +160,7 @@ test.describe('stand on plane', () => {
 
 	test('is off when nothing, or more than one thing, is selected', async ({ page }) => {
 		await boxFromAbove(page);
-		await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).press('Enter');
 		await toolButton(page).click();
 		await clickAt(page, 0);
 		await expect(standButton(page)).toBeDisabled(); // nothing selected

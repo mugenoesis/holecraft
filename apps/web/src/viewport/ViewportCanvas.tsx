@@ -19,11 +19,14 @@ import { meshRefsIn, type Subtree } from '@holecraft/geometry';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GeometryService } from '../geometry/GeometryService.ts';
 import { createWorkerEvaluator, type WorkerEvaluator } from '../geometry/workerEvaluator.ts';
+import type { Placing } from '../placing.ts';
 import { ThumbnailScheduler } from '../thumbnailScheduler.ts';
 import type { Projection } from './CameraRig.ts';
 import { EdgeTool } from './EdgeTool.tsx';
 import { HandlesOverlay } from './HandlesOverlay.tsx';
 import { PaintTool } from './PaintTool.tsx';
+import { PlaceLayer, useToolState } from './PlaceTool.tsx';
+import type { PlacementTarget } from './placement.ts';
 import { RotationRings } from './RotationRings.tsx';
 import { RulerOverlay } from './RulerOverlay.tsx';
 import { SketchTool } from './SketchTool.tsx';
@@ -33,7 +36,6 @@ import { selectedHandles, selectedRings } from './selectedShape.ts';
 import { shapeDropHandlers } from './shapeDrop.ts';
 import { skippedEdgeNotices } from './skippedEdges.ts';
 import type { SupportsView } from './supportsView.ts';
-import type { SurfaceTool } from './surfaceTool.ts';
 import { useSimpleThreads } from './useSimpleThreads.ts';
 import { ViewCube } from './ViewCube.tsx';
 import { type PixelRect, Viewport } from './Viewport.ts';
@@ -51,6 +53,12 @@ interface Props {
 	onDropShape: (type: ShapeType, at: [number, number]) => void;
 	/** A saved shape dropped from the Mine view of the Shapes panel. */
 	onDropSaved: (id: string, where: { at: [number, number] } | { plane: WorkPlane; point: Vec3 }) => void;
+	/** What is armed to be put down with the next click on the plate (the Shapes panel arms it), what to do with that click, and how to let go of it. */
+	placing: Placing | null;
+	/** A finger is dragging the lifted shape: the ghost follows it, and it is put down where the finger comes up (over the view; anywhere else lets go). */
+	dragging: boolean;
+	onPlace: (placing: Placing, target: PlacementTarget) => void;
+	onCancelPlacing: () => void;
 	/** The Workplane tool's plane, or null for the floor, and what to do when the tool picks one. */
 	plane: WorkPlane | null;
 	onPlane: (plane: WorkPlane | null) => void;
@@ -115,13 +123,15 @@ export function ViewportCanvas(props: Props) {
 	const [failed, setFailed] = useState(false);
 	const [marquee, setMarquee] = useState<PixelRect | null>(null);
 	const [dimensionLabel, setDimensionLabel] = useState<string | null>(null);
-	const [tool, setTool] = useState<SurfaceTool | null>(null);
-	const toggleTool = (t: SurfaceTool) => setTool((now) => (now === t ? null : t));
+	// The tool in use, and a shape armed to be put down: both own the left button, so choosing one lets go of the other.
+	const { tool, setTool, toggleTool } = useToolState(props.placing, props.onCancelPlacing);
+	// What the ghost of a shape being placed is while it is on show (read by the tests, like the camera).
+	const [ghost, setGhost] = useState<string | undefined>(undefined);
 	// Edit sketch (in Properties) turns the Sketch tool on for that shape; leaving the tool by any way lets go of the shape
 	const { sketchEdit, onSketchEditChange } = props;
 	useEffect(() => {
 		if (sketchEdit) setTool('sketch');
-	}, [sketchEdit]);
+	}, [sketchEdit, setTool]);
 	const wasSketching = useRef(false);
 	useEffect(() => {
 		if (wasSketching.current && tool !== 'sketch') onSketchEditChange(null);
@@ -249,7 +259,7 @@ export function ViewportCanvas(props: Props) {
 		viewportRef,
 		design.grid,
 		onDropShape,
-		props.plane && { plane: props.plane, onDrop: props.onDropOnPlane },
+		{ plane: props.plane, onDrop: props.onDropOnPlane },
 		props.onDropSaved,
 	);
 
@@ -267,6 +277,7 @@ export function ViewportCanvas(props: Props) {
 			data-distance={state.distance}
 			data-target={JSON.stringify(state.target)}
 			data-projection={projection}
+			data-ghost={ghost}
 			onDragOver={onDragOver}
 			onDrop={onDrop}
 		>
@@ -335,6 +346,16 @@ export function ViewportCanvas(props: Props) {
 							onLabel={setDimensionLabel}
 						/>
 					)}
+					<PlaceLayer
+						getViewport={getViewport}
+						placing={props.placing}
+						dragging={props.dragging}
+						grid={design.grid}
+						plane={props.plane}
+						onPlace={(placing, target) => latest.current.onPlace(placing, target)}
+						onCancel={() => latest.current.onCancelPlacing()}
+						onGhost={setGhost}
+					/>
 					{tool === 'workplane' && (
 						<WorkplaneTool getViewport={() => viewportRef.current} onPlane={props.onPlane} onClose={() => setTool(null)} />
 					)}
