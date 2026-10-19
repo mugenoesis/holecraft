@@ -1,6 +1,6 @@
 {
 	"name": "@holecraft/server",
-	"version": "0.4.1",
+	"version": "0.4.2",
 	"private": true,
 	"description": "holecraft HTTP server: serves the web app and the design storage API",
 	"license": "AGPL-3.0-only",
@@ -14,7 +14,7 @@
 	},
 	"dependencies": {
 		"@fastify/static": "^10.1.6",
-		"@holecraft/core": "0.4.1",
+		"@holecraft/core": "0.4.2",
 		"fastify": "^5.12.7"
 	}
 }

@@ -1,6 +1,6 @@
 {
 	"name": "@holecraft/core",
-	"version": "0.4.1",
+	"version": "0.4.2",
 	"private": true,
 	"description": "holecraft document model, commands and geometry-free editor logic",
 	"license": "AGPL-3.0-only",

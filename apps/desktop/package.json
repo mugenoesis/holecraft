@@ -1,7 +1,7 @@
 {
 	"name": "@holecraft/desktop",
 	"productName": "Holecraft",
-	"version": "0.4.1",
+	"version": "0.4.2",
 	"private": true,
 	"description": "Holecraft desktop app for Linux",
 	"license": "AGPL-3.0-only",
@@ -18,7 +18,7 @@
 		"dist": "electron-builder --linux AppImage deb"
 	},
 	"devDependencies": {
-		"@holecraft/server": "0.4.1",
+		"@holecraft/server": "0.4.2",
 		"electron": "44.7.0",
 		"electron-builder": "^26.15.3"
 	},
