@@ -98,7 +98,7 @@ function TridentForm({
 				onSave(url.trim(), key.trim());
 			}}
 		>
-			<strong>{setup ? 'Connect to your Trident slicer' : 'Trident settings'}</strong>
+			<strong>{setup ? 'Connect to your Trident Studio' : 'Trident settings'}</strong>
 			<label>
 				Address
 				<input value={url} onChange={(e) => setUrl(e.target.value)} inputMode="url" autoComplete="off" spellCheck={false} />

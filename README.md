@@ -96,7 +96,7 @@ The **Export** button in the top bar downloads the whole design as (tick **Only 
 | **OBJ** | Other 3D programs. Text, in millimetres, one named object per shape |
 | **3MF** | Viewers and other 3D programs. Keeps each object's name and colour, in millimetres. Slicers such as OrcaSlicer and Trident ignore these colours: use **3MF for OrcaSlicer** for multi-colour printing |
 | **3MF for OrcaSlicer** | Multi-colour printing in OrcaSlicer, Bambu Studio and Trident: each object is assigned the filament of its colour (see below) |
-| **Send to Trident** | Not a file: sends the same file as *3MF for OrcaSlicer* to your [Trident](https://github.com/mugenoesis/Trident) slicer and opens it there in a new tab (see below) |
+| **Send to Trident** | Not a file: sends the same file as *3MF for OrcaSlicer* to your [Trident Studio](https://github.com/mugenoesis/Trident) slicer (Trident for short) and opens it there in a new tab (see below) |
 
 What you get is what you see: holes are cut out of the solids they share a group with, every
 shape is placed where it sits (moved, lifted, turned), and each top-level shape or group becomes its
@@ -107,7 +107,7 @@ In the desktop app you choose where to save; set `HOLECRAFT_DOWNLOAD_DIR` to sav
 
 ### Send to Trident
 
-If you run a Trident slicer (version 0.6 or later), **Export, Send to Trident** uploads the design to it and opens it there, with the palette
+If you run Trident Studio (version 0.6 or later), **Export, Send to Trident** uploads the design to it and opens it there, with the palette
 as filaments, in one click. The first time it asks for Trident's address (such as `http://192.168.1.3:8000`) and an API key; make the key in Trident
 under the settings cog, **API keys…**, as a *Holecraft* key (it can only upload models). Leave the key empty if your Trident has no login. After that
 the menu shows where it sends to, and **Trident settings…** changes or forgets it. *Only the selected* is respected.
@@ -122,7 +122,7 @@ trusted network.
 The **Resin** section of the side panel (under Properties) has tools for printing with resin. Select one shape or group first.
 
 - **Hollow.** Select a shape or group, set the **Wall thickness** (2 mm to start, 0.5 to 20) and the **Accuracy** (Fast, Normal or Fine) and press **Hollow the
-  selected shape**. Holecraft's server sends the shape to your Trident slicer (see *Send to Trident* above), which works out the cavity, and the shape is swapped
+  selected shape**. Holecraft's server sends the shape to your Trident Studio (see *Send to Trident* above), which works out the cavity, and the shape is swapped
   for the hollow model that comes back, in the same place and the same size, as one undo step (Undo brings the original back). It becomes a mesh shape, so
   it can be moved, turned, resized, coloured and grouped like an imported model, but its parts can no longer be edited: do the editing first, or for a partial
   hollow, a different inner shape or ribs make the cavity yourself with hole shapes. The panel says how much resin is saved. The button is off, with the reason,

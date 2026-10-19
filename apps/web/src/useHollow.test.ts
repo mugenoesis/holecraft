@@ -14,7 +14,7 @@ describe('whyNotHollow', () => {
 	});
 
 	it('points to Trident when none is set up', () => {
-		expect(whyNotHollow(oneBox(), ['b'], { url: null, hasKey: false }, 2)).toMatch(/Trident slicer: set one up under Export/);
+		expect(whyNotHollow(oneBox(), ['b'], { url: null, hasKey: false }, 2)).toMatch(/Trident Studio: set one up under Export/);
 	});
 
 	it('says to select one shape when there are none or several, or a hole', () => {

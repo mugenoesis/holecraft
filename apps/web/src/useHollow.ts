@@ -24,7 +24,7 @@ export function savingNote(before: number, after: number): string {
 
 /** Why Hollow cannot be pressed, in words for the panel, or null when it can. */
 export function whyNotHollow(design: Design, selection: readonly NodeId[], status: TridentStatus | null, wall: number): string | null {
-	if (status && !status.url) return 'Hollowing is done by a Trident slicer: set one up under Export, Send to Trident.';
+	if (status && !status.url) return 'Hollowing is done by Trident Studio: set one up under Export, Send to Trident.';
 	const id = selection.length === 1 ? selection[0]! : null;
 	const node = id ? design.nodes[id] : undefined;
 	if (!id || !node || !canReplaceWithMesh(design, id)) return 'Select one shape or group to hollow it.';
