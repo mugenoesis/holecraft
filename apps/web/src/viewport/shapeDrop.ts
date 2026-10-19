@@ -1,16 +1,11 @@
-import {
-	clampToWorkplane,
-	type Design,
-	isShapeType,
-	type ShapeType,
-	snapOnPlane,
-	snapToGrid,
-	type Vec3,
-	type WorkPlane,
-} from '@holecraft/core';
+import { type Design, isShapeType, type ShapeType, type Vec3, type WorkPlane } from '@holecraft/core';
 import type { DragEvent, RefObject } from 'react';
 import { LIBRARY_DRAG_TYPE, SHAPE_DRAG_TYPE } from '../shapeDrag.ts';
+import { placementTarget } from './placement.ts';
 import type { Viewport } from './Viewport.ts';
+
+/** What a drop finds when there is no viewport yet: nowhere to put anything. */
+const NO_VIEWPORT = { pickWorkplane: () => null, pickPlane: () => null };
 
 /**
  * Handlers that let a shape dragged from the Shapes panel be dropped onto the workplane: it lands where the
@@ -36,20 +31,13 @@ export function shapeDropHandlers(
 			const savedId = e.dataTransfer.getData(LIBRARY_DRAG_TYPE);
 			if (!isShapeType(type) && !savedId) return;
 			e.preventDefault();
-			if (onPlane) {
-				const on = viewport.current?.pickPlane(e.clientX, e.clientY, onPlane.plane.origin, onPlane.plane.normal);
-				if (!on) return;
-				const point = snapOnPlane(onPlane.plane, on, grid.snap);
-				if (isShapeType(type)) onPlane.onDrop(type, onPlane.plane, point);
-				else onDropSaved?.(savedId, { plane: onPlane.plane, point });
-				return;
-			}
-			const hit = viewport.current?.pickWorkplane(e.clientX, e.clientY);
-			if (!hit) return; // pointer is over the sky or an edge-on workplane
-			const [x, y] = clampToWorkplane(hit, grid.size);
-			const at: [number, number] = [snapToGrid(x, grid.snap), snapToGrid(y, grid.snap)];
-			if (isShapeType(type)) onDropShape(type, at);
-			else onDropSaved?.(savedId, { at });
+			const target = placementTarget(viewport.current ?? NO_VIEWPORT, e.clientX, e.clientY, grid, onPlane?.plane ?? null);
+			if (!target) return; // pointer is over the sky, or misses the plane
+			if ('plane' in target) {
+				if (isShapeType(type)) onPlane?.onDrop(type, target.plane, target.point);
+				else onDropSaved?.(savedId, target);
+			} else if (isShapeType(type)) onDropShape(type, target.at);
+			else onDropSaved?.(savedId, target);
 		},
 	};
 }

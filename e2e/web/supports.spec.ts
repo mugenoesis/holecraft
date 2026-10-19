@@ -101,7 +101,7 @@ test.beforeEach(async ({ page, request }) => {
 	// every test but the first has a Trident set up (the panel asks the server about it when the editor opens)
 	if (!test.info().title.startsWith('is off')) await request.put('/api/trident', { data: { url: fake.url, key: 'trident_k' } });
 	await newDesign(page);
-	await page.getByRole('button', { name: 'Box', exact: true }).click();
+	await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 	await openPanel(page, 'Edit');
 });
 

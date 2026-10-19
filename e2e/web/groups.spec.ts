@@ -467,7 +467,7 @@ test.describe('typing a group’s size', () => {
 	});
 
 	test('a group holding a thread has the size fields switched off, and says why', async ({ page }) => {
-		await page.getByRole('region', { name: 'Shapes' }).getByRole('button', { name: 'Threaded Rod', exact: true }).click();
+		await page.getByRole('region', { name: 'Shapes' }).getByRole('button', { name: 'Threaded Rod', exact: true }).press('Enter');
 		await dropShape(page, 'Box', 200, 0);
 		await page.keyboard.press('Control+a');
 		await groupButton(page).click();
@@ -477,7 +477,7 @@ test.describe('typing a group’s size', () => {
 	});
 
 	test('a group holding a thread can be unlocked for stretching, for this session, and locked again', async ({ page }) => {
-		await page.getByRole('region', { name: 'Shapes' }).getByRole('button', { name: 'Threaded Rod', exact: true }).click();
+		await page.getByRole('region', { name: 'Shapes' }).getByRole('button', { name: 'Threaded Rod', exact: true }).press('Enter');
 		await dropShape(page, 'Box', 200, 0);
 		await page.keyboard.press('Control+a');
 		await groupButton(page).click();

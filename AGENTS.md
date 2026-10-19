@@ -478,6 +478,12 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   `holecraft-data` volume. Never touch other containers (ports 8080, 8090 and 8765 on this server
   belong to other things).
 
+## Placing a shape with the pointer
+- A **mouse or pen** click on a tile in the Shapes panel (or a saved shape under Mine) **arms** it (`usePlacing`, state `placing: Placing` in `placing.ts`: a shape type, or a saved shape already opened from the library); a **tap** and **Enter or Space** add the shape at once, as before. The tile cannot tell a mouse from a finger in its click, so it reads the `pointerType` of the press (`armsOnClick`).
+- While armed, `PlaceTool` (a `useSurfaceTool`, so Escape and the left button belong to it) aims the shape with `placementTarget` (viewport/placement.ts: the floor snapped and kept on the plate, or the Workplane tool's plane; **a drop from the panel asks the same function**) and shows its ghost (`Viewport.setGhost` / `moveGhost`, ghostMarker.ts: the shape's own outline at its default size, or the box round a saved shape; never picked, left out of thumbnails). One click puts it down (`placementAction` makes the same actions a drop does) and ends it; Esc, a right click (not a right drag) or the tile again lets go. Choosing a tool lets go of it, and arming ends the tool (`useToolState`).
+- The viewport says what its ghost is in `data-ghost` (set only while it is on show), as it does the camera, for the tests.
+- **E2e tests add a shape with `press('Enter')` on its tile, not `click()`** (a click arms it): see placement.spec.ts for the pointer flow.
+
 ## Handles
 - Resize and lift handles are **DOM buttons** over the canvas (`HandlesOverlay`), positioned
   with `Viewport.project`, not three.js objects. That keeps them a constant size, keyboard- and

@@ -25,16 +25,25 @@ test.describe('accessibility (axe, WCAG A and AA)', () => {
 
 	test('the editor with a shape selected, on each panel tab', async ({ page }) => {
 		await newDesign(page);
-		await page.getByRole('button', { name: /^Box/ }).first().click();
+		await page.getByRole('button', { name: /^Box/ }).first().press('Enter');
 		for (const tab of ['Shapes', 'Edit', 'Colours', 'Objects'] as const) {
 			await openPanel(page, tab);
 			expect(await problems(page), tab).toEqual([]);
 		}
 	});
 
-	test('the Resin panel with a shape selected, and with a diameter that cannot be used', async ({ page }) => {
+	test('the editor with a shape armed to be placed, and its ghost over the plate', async ({ page }) => {
 		await newDesign(page);
 		await page.getByRole('button', { name: /^Box/ }).first().click();
+		const box = await page.getByTestId('viewport').boundingBox();
+		await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2, { steps: 3 });
+		await expect(page.getByTestId('viewport')).toHaveAttribute('data-ghost', 'box');
+		expect(await problems(page)).toEqual([]);
+	});
+
+	test('the Resin panel with a shape selected, and with a diameter that cannot be used', async ({ page }) => {
+		await newDesign(page);
+		await page.getByRole('button', { name: /^Box/ }).first().press('Enter');
 		await openPanel(page, 'Objects');
 		await page
 			.getByTestId('object-list')
@@ -59,7 +68,7 @@ test.describe('accessibility (axe, WCAG A and AA)', () => {
 		request,
 	}) => {
 		await newDesign(page);
-		await page.getByRole('button', { name: /^Box/ }).first().click();
+		await page.getByRole('button', { name: /^Box/ }).first().press('Enter');
 		await page.getByRole('button', { name: 'Export', exact: true }).click();
 		const menu = page.locator('.export-menu .menu');
 		await expect(page.getByRole('menu', { name: 'Export format' })).toBeVisible();
@@ -97,7 +106,7 @@ test.describe('accessibility (axe, WCAG A and AA)', () => {
 
 	test('the editor with each tool on', async ({ page }) => {
 		await newDesign(page);
-		await page.getByRole('button', { name: /^Box/ }).first().click();
+		await page.getByRole('button', { name: /^Box/ }).first().press('Enter');
 		for (const key of ['r', 'w', 'e', 'n', 'k']) {
 			await page.keyboard.press(key);
 			expect(await problems(page), key).toEqual([]);

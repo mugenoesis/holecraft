@@ -26,7 +26,7 @@ test.describe('shapes panel', () => {
 	});
 
 	test('clicking a shape adds it at the centre of the workplane', async ({ page }) => {
-		await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).press('Enter');
 		await expect(page.getByText('Objects: 1')).toBeVisible();
 		expect(await objects(page)).toEqual([{ name: 'Cylinder 1', x: 0, y: 0 }]);
 	});
@@ -139,7 +139,7 @@ test.describe('camera controls', () => {
 	});
 
 	test('F fits and works from the keyboard', async ({ page }) => {
-		await page.getByRole('button', { name: 'Sphere', exact: true }).click();
+		await page.getByRole('button', { name: 'Sphere', exact: true }).press('Enter');
 		await page.keyboard.press('f');
 		await expect.poll(async () => (await camera(page)).distance).toBeLessThan(330);
 	});

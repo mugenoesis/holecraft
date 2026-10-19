@@ -80,7 +80,7 @@ test.describe('touch camera controls', () => {
 	});
 
 	test('a finger on a shape still moves the shape, not the camera', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		const fingers = await Fingers.on(page);
 		const c = await center(viewport(page));
 		const before = await camera(page);
@@ -90,7 +90,7 @@ test.describe('touch camera controls', () => {
 	});
 
 	test('tapping empty space still clears the selection', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await openPanel(page, 'Objects');
 		await page.getByTestId('object-list').getByRole('button', { name: /Box 1/ }).click();
 		await expect.poll(() => selectedNames(page)).toEqual(['Box 1']);

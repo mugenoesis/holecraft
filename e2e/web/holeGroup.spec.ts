@@ -24,8 +24,8 @@ async function brightnessAt(page: Page, mm: number) {
 
 /** A 20 mm block with a 6 mm hole right through it, grouped, with nothing selected, seen from above. */
 async function drilledBlock(page: Page) {
-	await page.getByRole('button', { name: 'Box', exact: true }).click();
-	await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+	await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
+	await page.getByRole('button', { name: 'Cylinder', exact: true }).press('Enter');
 	await row(page, 1).click();
 	await setField(page, 'Width', '6');
 	await setField(page, 'Depth', '6');

@@ -25,7 +25,7 @@ test.describe('the Colours panel', () => {
 	});
 
 	test('clicking a colour paints the selected shape with it', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await selectBox(page, /Box 1/);
 		await swatch(page, 2).click();
 		await expect(field(page, 'Color')).toHaveValue('#2a9d8f');
@@ -34,7 +34,7 @@ test.describe('the Colours panel', () => {
 	});
 
 	test('clicking a colour with nothing selected changes no shape, and chooses the colour', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await swatch(page, 3).click();
 		await expect(swatch(page, 3)).toHaveAttribute('aria-pressed', 'true');
 		await expect(swatch(page, 1)).toHaveAttribute('aria-pressed', 'false');
@@ -43,9 +43,9 @@ test.describe('the Colours panel', () => {
 	});
 
 	test('changing a colour changes every shape that uses it, so it keeps meaning "this filament"', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await dropShape(page, 'Box', 200, 0);
-		await page.getByRole('button', { name: 'Sphere', exact: true }).click(); // a different colour, left alone
+		await page.getByRole('button', { name: 'Sphere', exact: true }).press('Enter'); // a different colour, left alone
 		await swatch(page, 1).click(); // choose colour 1
 		await editInput(page).fill('#112233');
 
@@ -59,7 +59,7 @@ test.describe('the Colours panel', () => {
 	});
 
 	test("undo takes back both the colour and the shapes' colours", async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await swatch(page, 1).click();
 		await editInput(page).fill('#112233');
 		await expect(swatch(page, 1)).toHaveAttribute('aria-label', 'Colour 1: #112233');
@@ -120,13 +120,13 @@ test.describe('exporting for OrcaSlicer', () => {
 	}
 
 	test('is offered in the Export menu', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await page.getByRole('button', { name: 'Export', exact: true }).click();
 		await expect(page.getByRole('menuitem', { name: 'Export as 3MF for OrcaSlicer' })).toBeVisible();
 	});
 
 	test('writes the palette as filaments and gives each shape the filament of its colour', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click(); // orange: filament 1
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter'); // orange: filament 1
 		await dropShape(page, 'Cylinder', 200, 0); // teal: filament 2
 		await dropShape(page, 'Sphere', -200, 0); // coral: filament 3
 		await addButton(page).click(); // a fifth colour, so the list is not just the default four
@@ -154,7 +154,7 @@ test.describe('exporting for OrcaSlicer', () => {
 	});
 
 	test('a recoloured filament carries through to the file', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await swatch(page, 1).click();
 		await editInput(page).fill('#abcdef');
 		const { parts } = await exportOrca(page);
@@ -163,7 +163,7 @@ test.describe('exporting for OrcaSlicer', () => {
 	});
 
 	test('the plain 3MF export is still just the model', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await page.getByRole('button', { name: 'Export', exact: true }).click();
 		const [download] = await Promise.all([
 			page.waitForEvent('download', { timeout: 30_000 }),

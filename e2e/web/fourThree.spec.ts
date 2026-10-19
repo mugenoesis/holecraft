@@ -31,14 +31,14 @@ for (const size of [
 			await cameraSettled(page);
 			const opened = (await camera(page)).distance;
 			expect(opened).toBeGreaterThan(330);
-			await page.getByRole('button', { name: 'Box', exact: true }).click();
+			await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 			await page.getByRole('button', { name: 'Fit all' }).click();
 			await page.getByRole('button', { name: 'Home view' }).click();
 			await expect.poll(async () => (await camera(page)).distance).toBeCloseTo(opened, 0);
 		});
 
 		test('the panel is no taller than it needs to be: Properties is reachable', async ({ page }) => {
-			await page.getByRole('button', { name: 'Box', exact: true }).click();
+			await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 			await expectVisibleWithoutScrolling(page);
 		});
 	});
@@ -74,7 +74,7 @@ test.describe('on a 4:3 touch tablet', () => {
 		page,
 	}) => {
 		await newDesign(page);
-		await page.getByRole('button', { name: 'Box', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await openPanel(page, 'Objects');
 		await page.getByTestId('object-list').locator('li').first().locator('button').first().click();
 		await openPanel(page, 'Edit');

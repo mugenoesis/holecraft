@@ -24,7 +24,7 @@ async function exportStl(page: Page) {
 
 test.beforeEach(async ({ page }) => {
 	await newDesign(page);
-	await page.getByRole('button', { name: 'Box', exact: true }).click(); // a 20 mm box, selected or not
+	await page.getByRole('button', { name: 'Box', exact: true }).press('Enter'); // a 20 mm box, selected or not
 	await openPanel(page, 'Objects');
 	await list(page)
 		.getByRole('button', { name: /^Box 1 / })

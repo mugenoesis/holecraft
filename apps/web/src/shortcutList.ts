@@ -31,6 +31,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
 			{ keys: 'Delete', what: 'Delete the selection', handled: editor('Delete') },
 			{ keys: 'D', what: 'Drop to the workplane', handled: editor('d') },
 			{ keys: 'Esc', what: 'Clear the selection', handled: editor('Escape') },
+			{ keys: 'Esc', what: 'Let go of a shape you are placing (click a shape, then click the plate)' },
 		],
 	},
 	{

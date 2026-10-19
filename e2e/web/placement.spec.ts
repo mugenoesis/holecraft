@@ -1,0 +1,166 @@
+import { expect, type Page, test } from '@playwright/test';
+import { center, field, newDesign, properties, uniqueName, viewport } from './helpers.ts';
+
+/*
+ * Placing a shape with the mouse: click a shape in the Shapes panel, a see-through ghost follows the pointer over the plate, and one
+ * click puts it down there (then it is done). A finger just taps a shape to add it. The ghost is a three.js object, so the viewport says
+ * what it is showing in its data-ghost attribute (read here, as the camera is).
+ */
+
+const tile = (page: Page, name: string) => page.getByRole('region', { name: 'Shapes' }).getByRole('button', { name, exact: true });
+const objectsLine = (page: Page, n: number) => page.getByText(`Objects: ${n}`);
+
+async function pointOnPlate(page: Page, dx: number, dy: number) {
+	const { x, y } = await center(viewport(page));
+	return { x: x + dx, y: y + dy };
+}
+
+/** Where the (only) shape of a design is: its X and Y fields, after selecting it. */
+async function positionOfOnlyShape(page: Page): Promise<[string, string]> {
+	await page.keyboard.press('Control+a');
+	return [await field(page, 'X').inputValue(), await field(page, 'Y').inputValue()];
+}
+
+test.beforeEach(async ({ page }) => {
+	await newDesign(page);
+});
+
+test.describe('click a shape, then click the plate', () => {
+	test('arms the shape, shows a ghost that follows the pointer, and one click puts it down where the pointer was', async ({ page }) => {
+		const at = await pointOnPlate(page, 90, 40);
+		await tile(page, 'Box').click();
+		await expect(tile(page, 'Box')).toHaveAttribute('aria-pressed', 'true');
+		await expect(page.getByRole('region', { name: 'Shapes' })).toContainText('Placing a Box: click the plane to put it down');
+		await expect(viewport(page)).not.toHaveAttribute('data-ghost', /.+/); // no ghost until the pointer is over the plate
+
+		await page.mouse.move(at.x - 30, at.y - 30);
+		await page.mouse.move(at.x, at.y, { steps: 4 });
+		await expect(viewport(page)).toHaveAttribute('data-ghost', 'box');
+		await expect(objectsLine(page, 0)).toBeVisible(); // a ghost is not part of the design
+
+		await page.mouse.click(at.x, at.y);
+		await expect(objectsLine(page, 1)).toBeVisible();
+		await expect(viewport(page)).not.toHaveAttribute('data-ghost', /.+/);
+		await expect(tile(page, 'Box')).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	test('puts the shape where a drag from the panel to the same spot would', async ({ page }) => {
+		const at = await pointOnPlate(page, -110, 60);
+		await tile(page, 'Cylinder').click();
+		await page.mouse.move(at.x, at.y, { steps: 3 });
+		await page.mouse.click(at.x, at.y);
+		await expect(objectsLine(page, 1)).toBeVisible();
+		const clicked = await positionOfOnlyShape(page);
+
+		// the same spot by dragging, in a design of its own
+		await newDesign(page);
+		const box = await viewport(page).boundingBox();
+		const target = { x: at.x - box!.x, y: at.y - box!.y };
+		await tile(page, 'Cylinder').dragTo(viewport(page), { targetPosition: target });
+		await expect(objectsLine(page, 1)).toBeVisible();
+		expect(await positionOfOnlyShape(page)).toEqual(clicked);
+	});
+
+	test('stops after one placement: the next click on the plate adds nothing', async ({ page }) => {
+		const at = await pointOnPlate(page, 40, 20);
+		await tile(page, 'Box').click();
+		await page.mouse.move(at.x, at.y);
+		await page.mouse.click(at.x, at.y);
+		await expect(objectsLine(page, 1)).toBeVisible();
+		const again = await pointOnPlate(page, -80, 10);
+		await page.mouse.move(again.x, again.y);
+		await page.mouse.click(again.x, again.y);
+		await expect(objectsLine(page, 1)).toBeVisible();
+	});
+
+	test('Escape cancels it, and so does clicking the shape again or a right click', async ({ page }) => {
+		const at = await pointOnPlate(page, 60, 30);
+		await tile(page, 'Sphere').click();
+		await page.mouse.move(at.x, at.y);
+		await expect(viewport(page)).toHaveAttribute('data-ghost', 'sphere');
+		await page.keyboard.press('Escape');
+		await expect(tile(page, 'Sphere')).toHaveAttribute('aria-pressed', 'false');
+		await expect(viewport(page)).not.toHaveAttribute('data-ghost', /.+/);
+		await page.mouse.click(at.x, at.y);
+		await expect(objectsLine(page, 0)).toBeVisible();
+
+		await tile(page, 'Sphere').click();
+		await tile(page, 'Sphere').click(); // the second click lets go of it
+		await expect(tile(page, 'Sphere')).toHaveAttribute('aria-pressed', 'false');
+
+		await tile(page, 'Sphere').click();
+		await page.mouse.move(at.x, at.y);
+		await page.mouse.click(at.x, at.y, { button: 'right' });
+		await expect(tile(page, 'Sphere')).toHaveAttribute('aria-pressed', 'false');
+		await expect(objectsLine(page, 0)).toBeVisible();
+	});
+
+	test('choosing another shape swaps the ghost', async ({ page }) => {
+		const at = await pointOnPlate(page, 60, 30);
+		await tile(page, 'Box').click();
+		await page.mouse.move(at.x, at.y);
+		await expect(viewport(page)).toHaveAttribute('data-ghost', 'box');
+		await tile(page, 'Cone').click();
+		await expect(tile(page, 'Box')).toHaveAttribute('aria-pressed', 'false');
+		await page.mouse.move(at.x + 10, at.y + 5);
+		await expect(viewport(page)).toHaveAttribute('data-ghost', 'cone');
+	});
+
+	test('Enter on a shape still adds it at once (there is no pointer to aim with)', async ({ page }) => {
+		await tile(page, 'Box').press('Enter');
+		await expect(objectsLine(page, 1)).toBeVisible();
+		await expect(tile(page, 'Box')).toHaveAttribute('aria-pressed', 'false');
+	});
+
+	test('dragging a shape from the panel still works', async ({ page }) => {
+		await tile(page, 'Box').dragTo(viewport(page));
+		await expect(objectsLine(page, 1)).toBeVisible();
+	});
+});
+
+test.describe('a saved shape is placed the same way', () => {
+	const made: string[] = [];
+	test.afterEach(async ({ request }) => {
+		const all = (await (await request.get('/api/library')).json()) as { id: string; name: string }[];
+		for (const item of all) if (made.includes(item.name)) await request.delete(`/api/library/${item.id}`);
+		made.length = 0;
+	});
+
+	test('click it under Mine, see its ghost, click the plate', async ({ page }) => {
+		const name = uniqueName('Ghost test');
+		made.push(name);
+		await tile(page, 'Box').press('Enter');
+		await page.keyboard.press('Control+a');
+		await properties(page).getByRole('button', { name: 'Save to library' }).click();
+		await properties(page).getByRole('textbox', { name: 'Name in the library' }).fill(name);
+		await properties(page).getByRole('button', { name: 'Save', exact: true }).click();
+		await expect(properties(page).getByRole('status')).toContainText('Saved');
+		await page.getByRole('group', { name: 'Categories' }).getByRole('button', { name: 'Mine', exact: true }).click();
+
+		const saved = page.getByRole('region', { name: 'Shapes' }).locator('.shape-tile', { hasText: name });
+		await saved.click();
+		await expect(saved).toHaveAttribute('aria-pressed', 'true');
+		const at = await pointOnPlate(page, 120, 50);
+		await page.mouse.move(at.x, at.y, { steps: 3 });
+		await expect(viewport(page)).toHaveAttribute('data-ghost', 'saved');
+		await page.mouse.click(at.x, at.y);
+		await expect(objectsLine(page, 2)).toBeVisible();
+		await expect(saved).toHaveAttribute('aria-pressed', 'false');
+	});
+});
+
+test.describe('on a touch screen', () => {
+	test.use({ hasTouch: true });
+
+	test('tapping a shape adds it straight away, with no ghost', async ({ page }) => {
+		await newDesign(page);
+		await page
+			.getByRole('tab', { name: 'Shapes', exact: true })
+			.tap()
+			.catch(() => undefined);
+		await tile(page, 'Box').tap();
+		await expect(objectsLine(page, 1)).toBeVisible();
+		await expect(viewport(page)).not.toHaveAttribute('data-ghost', /.+/);
+		await expect(tile(page, 'Box')).toHaveAttribute('aria-pressed', 'false');
+	});
+});

@@ -70,8 +70,8 @@ test.describe('countersink', () => {
 	});
 
 	test('the exported block loses the hole and its flare (volume worked out by hand)', async ({ page }) => {
-		await page.getByRole('button', { name: 'Box', exact: true }).click(); // 20 mm cube at the origin
-		await page.getByRole('button', { name: 'Cylinder', exact: true }).click();
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter'); // 20 mm cube at the origin
+		await page.getByRole('button', { name: 'Cylinder', exact: true }).press('Enter');
 		await row(page, 1).click();
 		await setField(page, 'Width', '6');
 		await setField(page, 'Depth', '6');

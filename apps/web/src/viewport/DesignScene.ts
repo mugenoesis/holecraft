@@ -35,7 +35,7 @@ const HOLE_OPACITY = 0.35;
 const DIMMED_OPACITY = 0.25;
 
 /** Unit-sized geometry resting on z=0, scaled per shape by its width/depth/height. */
-function createUnitGeometry(type: ShapeType): THREE.BufferGeometry {
+export function createUnitGeometry(type: ShapeType): THREE.BufferGeometry {
 	switch (type) {
 		case 'box':
 			return new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5);

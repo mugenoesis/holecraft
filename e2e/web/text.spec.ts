@@ -28,7 +28,7 @@ async function setText(page: Page, words: string) {
 
 test.beforeEach(async ({ page }) => {
 	await newDesign(page);
-	await tile(page).click();
+	await tile(page).press('Enter');
 	await names(page).click();
 });
 

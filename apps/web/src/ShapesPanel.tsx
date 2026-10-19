@@ -10,22 +10,42 @@ import {
 	type ShapeType,
 	translationOf,
 } from '@holecraft/core';
-import { type Dispatch, type DragEvent, type KeyboardEvent, useState } from 'react';
+import { type Dispatch, type DragEvent, type KeyboardEvent, useRef, useState } from 'react';
 import type { EditorAction } from './editorState.ts';
+import { type Placing, placingHint, samePlacing } from './placing.ts';
 import { matchingSaved, SavedShapes } from './SavedShapes.tsx';
 import { SHAPE_DRAG_TYPE } from './shapeDrag.ts';
+import { armsOnClick } from './viewport/placement.ts';
 
 const fmt = (n: number) => String(Number(n.toFixed(2)));
 
+const armedShape = (placing: Placing | null, type: ShapeType) => samePlacing({ kind: 'shape', type }, placing);
+
 /** The saved shapes (the library) the panel shows under Mine, and what to do with them. */
-export interface SavedShapesProps {
+interface SavedShapesProps {
 	items: readonly LibrarySummary[];
 	onAdd: (id: string) => void;
+	/** A mouse click on a tile: arm the saved shape to be put down with the next click on the plate (or let go of it). */
+	onArm: (item: LibrarySummary) => void;
 	onRename: (id: string, name: string) => void;
 	onDelete: (id: string) => void;
 }
 
-export function ShapesPanel({ onAddShape, saved }: { onAddShape: (type: ShapeType) => void; saved: SavedShapesProps }) {
+interface ShapesPanelProps {
+	/** Adds a shape at once, where a new shape goes (a tap on a touch screen, Enter on a tile). */
+	onAddShape: (type: ShapeType) => void;
+	/** A mouse click on a tile arms its shape to be put down with the next click on the plate; null lets go of it. */
+	onArm: (placing: Placing | null) => void;
+	/** What is armed now. */
+	placing: Placing | null;
+	/** A touch screen: the line under the heading says a tap adds a shape. */
+	touch: boolean;
+	saved: SavedShapesProps;
+}
+
+export function ShapesPanel({ onAddShape, onArm, placing, touch, saved }: ShapesPanelProps) {
+	// What pressed a tile, read by its click (which cannot tell a mouse from a finger or the keyboard): only a mouse or a pen arms the shape.
+	const pointer = useRef('');
 	// a search and a category narrow what is shown; nothing about them is saved
 	const [query, setQuery] = useState('');
 	const [category, setCategory] = useState<ShapeCategory | 'all' | 'mine'>('all');
@@ -68,9 +88,17 @@ export function ShapesPanel({ onAddShape, saved }: { onAddShape: (type: ShapeTyp
 					</button>
 				))}
 			</div>
-			<p className="muted hint">Click to add, or drag onto the plane.</p>
+			<p className="muted hint">{placingHint(placing, touch)}</p>
 			{category === 'mine' ? (
-				<SavedShapes items={saved.items} query={query} onAdd={saved.onAdd} onRename={saved.onRename} onDelete={saved.onDelete} />
+				<SavedShapes
+					items={saved.items}
+					query={query}
+					placingId={placing?.kind === 'saved' ? placing.id : null}
+					onAdd={saved.onAdd}
+					onArm={saved.onArm}
+					onRename={saved.onRename}
+					onDelete={saved.onDelete}
+				/>
 			) : (
 				<>
 					{shapes.length === 0 && (
@@ -85,8 +113,17 @@ export function ShapesPanel({ onAddShape, saved }: { onAddShape: (type: ShapeTyp
 								role="button"
 								tabIndex={0}
 								draggable
-								className="shape-tile"
-								onClick={() => onAddShape(def.id)}
+								aria-pressed={armedShape(placing, def.id)}
+								className={armedShape(placing, def.id) ? 'shape-tile armed' : 'shape-tile'}
+								onPointerDown={(e) => {
+									pointer.current = e.pointerType;
+								}}
+								onClick={() => {
+									const by = pointer.current;
+									pointer.current = '';
+									if (!armsOnClick(by)) onAddShape(def.id);
+									else onArm(armedShape(placing, def.id) ? null : { kind: 'shape', type: def.id });
+								}}
 								onKeyDown={(e) => onKeyDown(e, def.id)}
 								onDragStart={(e) => onDragStart(e, def.id)}
 							>
