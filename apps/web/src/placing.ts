@@ -28,7 +28,7 @@ function placingName(placing: Placing): string {
 export function placingHint(placing: Placing | null, touch: boolean): string {
 	if (placing) return `Placing ${placingName(placing)}: click the plane to put it down. Esc cancels.`;
 	return touch
-		? 'Tap a shape to add it, or drag it onto the plane.'
+		? 'Tap a shape to add it, or press and hold it and drag it onto the plane.'
 		: 'Click a shape, then click the plane to place it, or drag it onto the plane.';
 }
 

@@ -2363,3 +2363,10 @@ button.primary:disabled {
 	color: #fff;
 	background: rgba(22, 54, 58, 0.92);
 }
+
+/* A finger lifts a tile by pressing and holding it: no text selection or callout menu on it meanwhile */
+.shape-tile {
+	-webkit-touch-callout: none;
+	user-select: none;
+	-webkit-user-select: none;
+}

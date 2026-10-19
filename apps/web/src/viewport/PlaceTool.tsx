@@ -1,7 +1,7 @@
 import type { Design, WorkPlane } from '@holecraft/core';
 import { useEffect, useState } from 'react';
 import { type Placing, placingSize } from '../placing.ts';
-import { type PlacementTarget, placementTarget } from './placement.ts';
+import { inside, type PlacementTarget, placementTarget } from './placement.ts';
 import type { SurfaceTool } from './surfaceTool.ts';
 import { useSurfaceTool } from './useSurfaceTool.ts';
 import type { Viewport } from './Viewport.ts';
@@ -12,6 +12,8 @@ const RIGHT_CLICK_SLOP = 4;
 interface Props {
 	getViewport: () => Viewport | null;
 	placing: Placing;
+	/** A finger is dragging it: follow the finger over the whole page, and put it down where the finger comes up. */
+	dragging: boolean;
 	grid: Design['grid'];
 	/** The Workplane tool's plane: the ghost stands on it, and so does what is put down. */
 	plane: WorkPlane | null;
@@ -27,7 +29,7 @@ interface Props {
  * Workplane tool's plane when there is one), and a click puts it down there. Escape or a right click lets go of it. The Shapes panel starts
  * this (only for a mouse or a pen: a finger taps a shape to add it at once), and the editor ends it with the placement.
  */
-function PlaceTool({ getViewport, placing, grid, plane, onPlace, onCancel, onGhost }: Props) {
+function PlaceTool({ getViewport, placing, dragging, grid, plane, onPlace, onCancel, onGhost }: Props) {
 	// where the little "Click to place" note follows the pointer, in the view's own pixels
 	const [chip, setChip] = useState<{ x: number; y: number } | null>(null);
 	const label = placing.kind === 'shape' ? placing.type : 'saved';
@@ -63,6 +65,40 @@ function PlaceTool({ getViewport, placing, grid, plane, onPlace, onCancel, onGho
 		},
 		onEscape: onCancel,
 	});
+
+	// A finger dragging a lifted shape: the touch began on the tile, so its moves and its end are heard on the whole page. The ghost follows it
+	// over the view; it comes up over the view to put the shape down there, or anywhere else to let go. The page must not scroll meanwhile.
+	useEffect(() => {
+		const viewport = getViewport();
+		if (!dragging || !viewport) return;
+		const targetFor = (e: PointerEvent) =>
+			inside(viewport.element.getBoundingClientRect(), e.clientX, e.clientY)
+				? placementTarget(viewport, e.clientX, e.clientY, grid, plane)
+				: null;
+		const onMove = (e: PointerEvent) => {
+			const target = targetFor(e);
+			viewport.moveGhost(target);
+			onGhost(target ? label : undefined);
+		};
+		const onUp = (e: PointerEvent) => {
+			const target = targetFor(e);
+			if (target) onPlace(placing, target);
+			else onCancel();
+		};
+		const noScroll = (e: TouchEvent) => {
+			if (e.cancelable) e.preventDefault();
+		};
+		window.addEventListener('pointermove', onMove);
+		window.addEventListener('pointerup', onUp);
+		window.addEventListener('pointercancel', onCancel);
+		window.addEventListener('touchmove', noScroll, { passive: false });
+		return () => {
+			window.removeEventListener('pointermove', onMove);
+			window.removeEventListener('pointerup', onUp);
+			window.removeEventListener('pointercancel', onCancel);
+			window.removeEventListener('touchmove', noScroll);
+		};
+	}, [dragging, getViewport, grid, plane, placing, label, onPlace, onCancel, onGhost]);
 
 	// A right click lets go of the shape (and does not open the browser's menu over the view); a right drag still moves the camera.
 	useEffect(() => {

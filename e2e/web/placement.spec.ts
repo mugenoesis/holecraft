@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
-import { cameraSettled, center, field, newDesign, properties, selectView, uniqueName, viewport } from './helpers.ts';
+import { Fingers } from './fingers.ts';
+import { cameraSettled, center, field, newDesign, openPanel, properties, selectView, uniqueName, viewport } from './helpers.ts';
 
 /*
  * Placing a shape with the mouse: click a shape in the Shapes panel, a see-through ghost follows the pointer over the plate, and one
@@ -173,16 +174,24 @@ test.describe('a saved shape is placed the same way', () => {
 		made.length = 0;
 	});
 
-	test('click it under Mine, see its ghost, click the plate', async ({ page }) => {
+	/** Saves a box to the library under a name of its own and shows the Mine view; returns the name. */
+	async function saveABox(page: Page) {
 		const name = uniqueName('Ghost test');
 		made.push(name);
 		await tile(page, 'Box').press('Enter');
 		await page.keyboard.press('Control+a');
+		await openPanel(page, 'Edit');
 		await properties(page).getByRole('button', { name: 'Save to library' }).click();
 		await properties(page).getByRole('textbox', { name: 'Name in the library' }).fill(name);
 		await properties(page).getByRole('button', { name: 'Save', exact: true }).click();
 		await expect(properties(page).getByRole('status')).toContainText('Saved');
+		await openPanel(page, 'Shapes');
 		await page.getByRole('group', { name: 'Categories' }).getByRole('button', { name: 'Mine', exact: true }).click();
+		return name;
+	}
+
+	test('click it under Mine, see its ghost, click the plate', async ({ page }) => {
+		const name = await saveABox(page);
 
 		const saved = page.getByRole('region', { name: 'Shapes' }).locator('.shape-tile', { hasText: name });
 		await saved.click();
@@ -194,10 +203,78 @@ test.describe('a saved shape is placed the same way', () => {
 		await expect(objectsLine(page, 2)).toBeVisible();
 		await expect(saved).toHaveAttribute('aria-pressed', 'false');
 	});
+
+	test.describe('with a finger', () => {
+		test.use({ hasTouch: true });
+
+		test('press and hold it under Mine, drag it onto the plate, and it is put down where the finger lifts', async ({ page }) => {
+			const name = await saveABox(page);
+			const fingers = await Fingers.on(page);
+			const from = await center(page.getByRole('region', { name: 'Shapes' }).locator('.shape-tile', { hasText: name }));
+			const to = await pointOnPlate(page, 100, 40);
+			await fingers.down(from);
+			await page.waitForTimeout(500);
+			await fingers.moveTo(to);
+			await expect(viewport(page)).toHaveAttribute('data-ghost', 'saved');
+			await fingers.up();
+			await expect(objectsLine(page, 2)).toBeVisible();
+			await expect(viewport(page)).not.toHaveAttribute('data-ghost', /.+/);
+		});
+	});
 });
 
 test.describe('on a touch screen', () => {
 	test.use({ hasTouch: true });
+
+	const HOLD_MS = 500; // longer than the press-and-hold needs
+
+	test('pressing and holding a shape, then dragging it onto the plate, shows its ghost and puts it down where the finger lifts', async ({
+		page,
+	}) => {
+		await newDesign(page);
+		await openPanel(page, 'Shapes');
+		const fingers = await Fingers.on(page);
+		const from = await center(tile(page, 'Box'));
+		const to = await pointOnPlate(page, 80, 30);
+		await fingers.down(from);
+		await page.waitForTimeout(HOLD_MS);
+		await fingers.moveTo(to);
+		await expect(viewport(page)).toHaveAttribute('data-ghost', 'box');
+		await expect(objectsLine(page, 0)).toBeVisible();
+		await fingers.up();
+		await expect(objectsLine(page, 1)).toBeVisible();
+		await expect(viewport(page)).not.toHaveAttribute('data-ghost', /.+/);
+		await page.waitForTimeout(300);
+		await expect(objectsLine(page, 1)).toBeVisible(); // the release is not also a tap on the tile
+	});
+
+	test('a quick swipe that starts on a shape lifts nothing', async ({ page }) => {
+		await newDesign(page);
+		await openPanel(page, 'Shapes');
+		const fingers = await Fingers.on(page);
+		const from = await center(tile(page, 'Box'));
+		const to = await pointOnPlate(page, 80, 30);
+		await fingers.drag([from], [to]);
+		await expect(viewport(page)).not.toHaveAttribute('data-ghost', /.+/);
+		await expect(objectsLine(page, 0)).toBeVisible();
+	});
+
+	test('lifting a shape and letting go over the panel puts nothing down', async ({ page }) => {
+		await newDesign(page);
+		await openPanel(page, 'Shapes');
+		const fingers = await Fingers.on(page);
+		const from = await center(tile(page, 'Box'));
+		const to = await pointOnPlate(page, 80, 30);
+		const back = await center(tile(page, 'Cone'));
+		await fingers.down(from);
+		await page.waitForTimeout(HOLD_MS);
+		await fingers.moveTo(to);
+		await expect(viewport(page)).toHaveAttribute('data-ghost', 'box');
+		await fingers.moveTo(back);
+		await fingers.up();
+		await expect(viewport(page)).not.toHaveAttribute('data-ghost', /.+/);
+		await expect(objectsLine(page, 0)).toBeVisible();
+	});
 
 	test('tapping a shape adds it straight away, with no ghost', async ({ page }) => {
 		await newDesign(page);

@@ -50,3 +50,8 @@ export function placementTarget(
 export function armsOnClick(pointerType: string): boolean {
 	return pointerType === 'mouse' || pointerType === 'pen';
 }
+
+/** Whether a screen point is inside a rectangle (a finger lifted over the view puts a shape down; over anything else it lets go). */
+export function inside(rect: { left: number; top: number; right: number; bottom: number }, x: number, y: number): boolean {
+	return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}

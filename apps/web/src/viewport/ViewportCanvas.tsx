@@ -55,6 +55,8 @@ interface Props {
 	onDropSaved: (id: string, where: { at: [number, number] } | { plane: WorkPlane; point: Vec3 }) => void;
 	/** What is armed to be put down with the next click on the plate (the Shapes panel arms it), what to do with that click, and how to let go of it. */
 	placing: Placing | null;
+	/** A finger is dragging the lifted shape: the ghost follows it, and it is put down where the finger comes up (over the view; anywhere else lets go). */
+	dragging: boolean;
 	onPlace: (placing: Placing, target: PlacementTarget) => void;
 	onCancelPlacing: () => void;
 	/** The Workplane tool's plane, or null for the floor, and what to do when the tool picks one. */
@@ -347,6 +349,7 @@ export function ViewportCanvas(props: Props) {
 					<PlaceLayer
 						getViewport={getViewport}
 						placing={props.placing}
+						dragging={props.dragging}
 						grid={design.grid}
 						plane={props.plane}
 						onPlace={(placing, target) => latest.current.onPlace(placing, target)}

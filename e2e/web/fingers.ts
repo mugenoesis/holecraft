@@ -2,6 +2,8 @@ import type { CDPSession, Page } from '@playwright/test';
 
 /** Real touch input through Chrome's DevTools protocol, so the page sees genuine touch pointer events. */
 export class Fingers {
+	private at = { x: 0, y: 0 };
+
 	private constructor(private readonly cdp: CDPSession) {}
 
 	static async on(page: Page) {
@@ -17,6 +19,25 @@ export class Fingers {
 		const at = (t: number) => from.map((f, i) => ({ x: f.x + (to[i]!.x - f.x) * t, y: f.y + (to[i]!.y - f.y) * t, id: i }));
 		await this.send('touchStart', at(0));
 		for (let s = 1; s <= steps; s++) await this.send('touchMove', at(s / steps));
+		await this.send('touchEnd', []);
+	}
+
+	/** Puts one finger down and leaves it there (see moveTo and up), for a press that has to be held. */
+	async down(point: { x: number; y: number }) {
+		await this.send('touchStart', [{ ...point, id: 0 }]);
+		this.at = point;
+	}
+
+	/** Slides the finger that is down to a point, in steps. */
+	async moveTo(point: { x: number; y: number }, steps = 8) {
+		const from = this.at;
+		for (let s = 1; s <= steps; s++) {
+			await this.send('touchMove', [{ x: from.x + ((point.x - from.x) * s) / steps, y: from.y + ((point.y - from.y) * s) / steps, id: 0 }]);
+		}
+		this.at = point;
+	}
+
+	async up() {
 		await this.send('touchEnd', []);
 	}
 

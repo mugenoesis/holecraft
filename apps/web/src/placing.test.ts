@@ -35,8 +35,9 @@ describe('the line under the Shapes heading', () => {
 		expect(placingHint(null, false)).toMatch(/Click a shape, then click the plane/);
 	});
 
-	it('says how to add one on a touch screen', () => {
+	it('says how to add one on a touch screen: a tap, or press and hold and drag', () => {
 		expect(placingHint(null, true)).toMatch(/Tap a shape to add it/);
+		expect(placingHint(null, true)).toMatch(/press and hold/);
 	});
 
 	it('names what is being placed, and how to stop', () => {

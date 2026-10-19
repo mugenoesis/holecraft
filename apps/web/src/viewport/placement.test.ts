@@ -1,6 +1,6 @@
 import { snapOnPlane, type Vec3, type WorkPlane } from '@holecraft/core';
 import { describe, expect, it, vi } from 'vitest';
-import { armsOnClick, placementTarget } from './placement.ts';
+import { armsOnClick, inside, placementTarget } from './placement.ts';
 import type { Viewport } from './Viewport.ts';
 
 const GRID = { size: [200, 200] as [number, number], snap: 5, visible: true } as never;
@@ -86,5 +86,20 @@ describe('which pointers arm a shape instead of adding it at once', () => {
 
 	it('a click with no pointer behind it (the keyboard) does not', () => {
 		expect(armsOnClick('')).toBe(false);
+	});
+});
+
+describe('whether a finger lifted over the view', () => {
+	const rect = { left: 100, top: 50, right: 500, bottom: 350 };
+
+	it('is inside it, edges included', () => {
+		expect(inside(rect, 300, 200)).toBe(true);
+		expect(inside(rect, 100, 50)).toBe(true);
+		expect(inside(rect, 500, 350)).toBe(true);
+	});
+
+	it('is not, over the panel or the toolbar outside it', () => {
+		expect(inside(rect, 99, 200)).toBe(false);
+		expect(inside(rect, 300, 351)).toBe(false);
 	});
 });

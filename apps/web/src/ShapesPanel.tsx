@@ -10,12 +10,12 @@ import {
 	type ShapeType,
 	translationOf,
 } from '@holecraft/core';
-import { type Dispatch, type DragEvent, type KeyboardEvent, useRef, useState } from 'react';
+import { type Dispatch, useState } from 'react';
 import type { EditorAction } from './editorState.ts';
 import { type Placing, placingHint, samePlacing } from './placing.ts';
 import { matchingSaved, SavedShapes } from './SavedShapes.tsx';
 import { SHAPE_DRAG_TYPE } from './shapeDrag.ts';
-import { armsOnClick } from './viewport/placement.ts';
+import { TileButton } from './TileButton.tsx';
 
 const fmt = (n: number) => String(Number(n.toFixed(2)));
 
@@ -27,6 +27,8 @@ interface SavedShapesProps {
 	onAdd: (id: string) => void;
 	/** A mouse click on a tile: arm the saved shape to be put down with the next click on the plate (or let go of it). */
 	onArm: (item: LibrarySummary) => void;
+	/** A finger has pressed and held a tile long enough to lift the saved shape. */
+	onLift: (item: LibrarySummary) => void;
 	onRename: (id: string, name: string) => void;
 	onDelete: (id: string) => void;
 }
@@ -36,6 +38,9 @@ interface ShapesPanelProps {
 	onAddShape: (type: ShapeType) => void;
 	/** A mouse click on a tile arms its shape to be put down with the next click on the plate; null lets go of it. */
 	onArm: (placing: Placing | null) => void;
+	/** A finger has pressed and held a tile long enough to lift its shape (the view takes the drag from there), and has let go. */
+	onLift: (placing: Placing) => void;
+	onRelease: () => void;
 	/** What is armed now. */
 	placing: Placing | null;
 	/** A touch screen: the line under the heading says a tap adds a shape. */
@@ -43,25 +48,11 @@ interface ShapesPanelProps {
 	saved: SavedShapesProps;
 }
 
-export function ShapesPanel({ onAddShape, onArm, placing, touch, saved }: ShapesPanelProps) {
-	// What pressed a tile, read by its click (which cannot tell a mouse from a finger or the keyboard): only a mouse or a pen arms the shape.
-	const pointer = useRef('');
+export function ShapesPanel({ onAddShape, onArm, onLift, onRelease, placing, touch, saved }: ShapesPanelProps) {
 	// a search and a category narrow what is shown; nothing about them is saved
 	const [query, setQuery] = useState('');
 	const [category, setCategory] = useState<ShapeCategory | 'all' | 'mine'>('all');
 	const shapes = category === 'mine' ? [] : filterShapes(query, category);
-
-	const onDragStart = (e: DragEvent, type: ShapeType) => {
-		e.dataTransfer.setData(SHAPE_DRAG_TYPE, type);
-		e.dataTransfer.effectAllowed = 'copy';
-	};
-
-	const onKeyDown = (e: KeyboardEvent, type: ShapeType) => {
-		if (e.key === 'Enter' || e.key === ' ') {
-			e.preventDefault();
-			onAddShape(type);
-		}
-	};
 
 	return (
 		<section aria-label="Shapes">
@@ -96,6 +87,8 @@ export function ShapesPanel({ onAddShape, onArm, placing, touch, saved }: Shapes
 					placingId={placing?.kind === 'saved' ? placing.id : null}
 					onAdd={saved.onAdd}
 					onArm={saved.onArm}
+					onLift={saved.onLift}
+					onRelease={onRelease}
 					onRename={saved.onRename}
 					onDelete={saved.onDelete}
 				/>
@@ -108,28 +101,19 @@ export function ShapesPanel({ onAddShape, onArm, placing, touch, saved }: Shapes
 					)}
 					<div className="shape-grid">
 						{shapes.map((def) => (
-							<div
+							<TileButton
 								key={def.id}
-								role="button"
-								tabIndex={0}
-								draggable
-								aria-pressed={armedShape(placing, def.id)}
-								className={armedShape(placing, def.id) ? 'shape-tile armed' : 'shape-tile'}
-								onPointerDown={(e) => {
-									pointer.current = e.pointerType;
-								}}
-								onClick={() => {
-									const by = pointer.current;
-									pointer.current = '';
-									if (!armsOnClick(by)) onAddShape(def.id);
-									else onArm(armedShape(placing, def.id) ? null : { kind: 'shape', type: def.id });
-								}}
-								onKeyDown={(e) => onKeyDown(e, def.id)}
-								onDragStart={(e) => onDragStart(e, def.id)}
+								dragType={SHAPE_DRAG_TYPE}
+								dragValue={def.id}
+								armed={armedShape(placing, def.id)}
+								onAdd={() => onAddShape(def.id)}
+								onArm={() => onArm(armedShape(placing, def.id) ? null : { kind: 'shape', type: def.id })}
+								onLift={() => onLift({ kind: 'shape', type: def.id })}
+								onRelease={onRelease}
 							>
 								<span className={`swatch ${def.id}`} style={{ backgroundColor: def.color }} aria-hidden="true" />
 								{def.name}
-							</div>
+							</TileButton>
 						))}
 					</div>
 				</>

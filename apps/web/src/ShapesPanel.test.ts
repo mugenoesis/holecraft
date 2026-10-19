@@ -8,8 +8,10 @@ import { ShapesPanel } from './ShapesPanel.tsx';
 const PROPS = {
 	onAddShape: () => {},
 	onArm: () => {},
+	onLift: () => {},
+	onRelease: () => {},
 	touch: false,
-	saved: { items: [], onAdd: () => {}, onArm: () => {}, onRename: () => {}, onDelete: () => {} },
+	saved: { items: [], onAdd: () => {}, onArm: () => {}, onLift: () => {}, onRename: () => {}, onDelete: () => {} },
 };
 
 describe('the Shapes panel to start with', () => {

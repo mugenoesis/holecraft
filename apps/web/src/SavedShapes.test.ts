@@ -13,7 +13,17 @@ const item = (name: string, color = '#336699'): LibrarySummary => ({
 const items = [item('Bracket with bolts'), item('Hinge'), item('Plate')];
 const render = (list: LibrarySummary[], query = '', placingId: string | null = null) =>
 	renderToStaticMarkup(
-		createElement(SavedShapes, { items: list, query, placingId, onAdd: () => {}, onArm: () => {}, onRename: () => {}, onDelete: () => {} }),
+		createElement(SavedShapes, {
+			items: list,
+			query,
+			placingId,
+			onAdd: () => {},
+			onArm: () => {},
+			onLift: () => {},
+			onRelease: () => {},
+			onRename: () => {},
+			onDelete: () => {},
+		}),
 	);
 
 describe('matchingSaved', () => {
