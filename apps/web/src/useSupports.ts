@@ -26,7 +26,7 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 
 /** Why "Generate support points" cannot be pressed, in words for the panel, or null when it can. */
 export function whyNotSupports(design: Design, status: TridentStatus | null, printer: string): string | null {
-	if (status && !status.url) return 'Support points are worked out by a Trident slicer: set one up under Export, Send to Trident.';
+	if (status && !status.url) return 'Support points are worked out by Trident Studio: set one up under Export, Send to Trident.';
 	if (!status) return 'Looking for your Trident…';
 	if (exportObjectCount(design) === 0) return 'Add a solid shape to put supports on.';
 	if (!printer) return 'Choose the printer the points are for.';
