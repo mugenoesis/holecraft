@@ -3,6 +3,7 @@
 # serves the app, answers the health check, and reports healthy.
 #
 # Usage: scripts/docker-smoke.sh [image-tag]    (default: holecraft:dev)
+#        SKIP_BUILD=1 scripts/docker-smoke.sh <image-tag>   check an image that is already built (the release script does: it must test, and push, the very image it built)
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TAG="${1:-holecraft:dev}"
@@ -12,7 +13,11 @@ PORT="${HOLECRAFT_SMOKE_PORT:-18081}"
 cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
-docker build -q -f "$ROOT/docker/Dockerfile" -t "$TAG" "$ROOT" >/dev/null
+if [[ "${SKIP_BUILD:-0}" == "1" ]]; then
+  docker image inspect "$TAG" >/dev/null 2>&1 || { echo "SKIP_BUILD=1 but image $TAG does not exist" >&2; exit 1; }
+else
+  docker build -q -f "$ROOT/docker/Dockerfile" -t "$TAG" "$ROOT" >/dev/null
+fi
 docker run -d --name "$NAME" -p "$PORT:8080" "$TAG" >/dev/null
 
 for _ in $(seq 1 30); do

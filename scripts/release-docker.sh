@@ -26,7 +26,8 @@ docker build -f docker/Dockerfile \
   --build-arg "VERSION=$VERSION" --build-arg "REVISION=$(git rev-parse HEAD)" \
   -t "$IMAGE:$VERSION" -t "$IMAGE:latest" .
 
-scripts/docker-smoke.sh "$IMAGE:$VERSION"
+# Test the image just built, not a rebuild: the smoke test's own build would replace the version tag with one that has no version or revision labels.
+SKIP_BUILD=1 scripts/docker-smoke.sh "$IMAGE:$VERSION"
 
 if [[ "${PUSH:-0}" == "1" ]]; then
   docker push "$IMAGE:$VERSION"
