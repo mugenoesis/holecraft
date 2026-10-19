@@ -134,3 +134,14 @@ export function modelIdOf(openUrl: string): string | null {
 		return null;
 	}
 }
+
+/** A resin printer saved in Trident: the name it was saved under, and the catalogue printer it is. */
+export interface SavedPrinter {
+	name: string;
+	printer: string;
+}
+
+/** The resin printers saved in the Trident (an older Trident has none to list). */
+export function listSavedPrinters(fetchImpl: Fetch = fetch): Promise<SavedPrinter[]> {
+	return call(fetchImpl, '/api/trident/saved-printers');
+}

@@ -34,27 +34,35 @@ async function fakeTrident(): Promise<Fake> {
 		{ name: 'Elegoo Mars 3', vendor: 'Elegoo', supported: true },
 		{ name: 'UniFormation GKtwo', vendor: 'UniFormation', supported: true },
 	];
+	/** The points for a model, noting what was asked. */
+	const supportsFor = (req: http.IncomingMessage, body: Buffer): unknown => {
+		const text = body.toString('latin1');
+		fake.asked.push({
+			printer: /name="printer"\r\n\r\n([^\r]*)/.exec(text)?.[1] ?? '',
+			authorization: req.headers.authorization,
+			fileName: /filename="([^"]*)"/.exec(text)?.[1] ?? '',
+		});
+		return { objects: [{ points: CORNERS.map(([x, y]) => ({ x, y, z: 0, radius: 0.4, type: 'island' })) }] };
+	};
+	/** The points kept for a model, noting what was sent. */
+	const keepPoints = (req: http.IncomingMessage, body: Buffer, model: string): unknown => {
+		const parsed = JSON.parse(body.toString());
+		fake.stored.push({ model, authorization: req.headers.authorization, body: parsed });
+		return { model_id: model, filename: 'x.3mf', support_point_count: parsed.objects[0].points.length };
+	};
+	/** What the GET routes answer: the printers, and the printers saved in Trident. */
+	const lists: Record<string, unknown> = {
+		'/resin/printers': printers,
+		'/resin/saved-printers': [{ name: 'gk2', printer: 'UniFormation GKtwo' }],
+	};
 	/** What each request is answered with: the printers, the points for a model, a stored model, the points kept for it, or a page. */
 	const answer = (req: http.IncomingMessage, body: Buffer): unknown => {
 		const url = req.url ?? '';
-		if (req.method === 'GET' && url === '/resin/printers') return printers;
+		if (req.method === 'GET') return lists[url] ?? null;
 		if (req.method === 'POST' && url === '/models') return { model_id: 'm42', filename: 'x.3mf' };
-		if (req.method === 'POST' && url === '/resin/supports') {
-			const text = body.toString('latin1');
-			fake.asked.push({
-				printer: /name="printer"\r\n\r\n([^\r]*)/.exec(text)?.[1] ?? '',
-				authorization: req.headers.authorization,
-				fileName: /filename="([^"]*)"/.exec(text)?.[1] ?? '',
-			});
-			return { objects: [{ points: CORNERS.map(([x, y]) => ({ x, y, z: 0, radius: 0.4, type: 'island' })) }] };
-		}
+		if (req.method === 'POST' && url === '/resin/supports') return supportsFor(req, body);
 		const put = /^\/models\/([^/]+)\/support-points$/.exec(url);
-		if (req.method === 'PUT' && put) {
-			const parsed = JSON.parse(body.toString());
-			fake.stored.push({ model: put[1]!, authorization: req.headers.authorization, body: parsed });
-			return { model_id: put[1], filename: 'x.3mf', support_point_count: parsed.objects[0].points.length };
-		}
-		return null;
+		return req.method === 'PUT' && put ? keepPoints(req, body, put[1]!) : null;
 	};
 	const server = http.createServer((req, res) => {
 		const chunks: Buffer[] = [];
@@ -113,6 +121,16 @@ test('is off, with the reason, until a Trident is set up', async ({ page }) => {
 	await expect(generate(page)).toBeDisabled();
 	await expect(supports(page).getByText(/set one up under Export, Send to Trident/)).toBeVisible();
 	await expect(points(page)).toHaveCount(0);
+});
+
+test('lists the printers saved in Trident first, and starts on the first when none was chosen', async ({ page }) => {
+	const picker = supports(page).getByLabel('Printer for the points');
+	await expect(picker.locator('optgroup').first()).toHaveAttribute('label', 'Your saved printers');
+	await expect(picker.locator('optgroup').first().locator('option')).toHaveText(['gk2 (UniFormation GKtwo)']);
+	await expect(picker).toHaveValue('UniFormation GKtwo');
+	await generate(page).click();
+	await expect(points(page)).toHaveCount(4);
+	expect(fake.asked[0]?.printer).toBe('UniFormation GKtwo');
 });
 
 test('generates the points for the printer chosen, and shows them over the model', async ({ page }) => {

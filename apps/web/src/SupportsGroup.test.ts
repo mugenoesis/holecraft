@@ -2,7 +2,7 @@ import { addShape, createEmptyDesign, type Design, moveNodes, setSupportPoints }
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { SupportsGroup } from './SupportsGroup.tsx';
+import { PrinterOptions, SupportsGroup } from './SupportsGroup.tsx';
 import type { SupportsUi } from './useSupportsUi.ts';
 import { SupportMarkers } from './viewport/SupportMarkers.tsx';
 import { SupportsLayer } from './viewport/SupportsLayer.tsx';
@@ -132,5 +132,26 @@ describe('the support layer over the view', () => {
 		expect(layer(view({ points: [] }))).toBe('');
 		expect(layer(view(), false)).toBe('');
 		expect(layer(undefined)).toBe('');
+	});
+});
+
+describe('the printer choices', () => {
+	const printers = [
+		{ name: 'UniFormation GKtwo', vendor: 'UniFormation' },
+		{ name: 'Elegoo Mars 3', vendor: 'Elegoo' },
+	];
+
+	it('list the saved printers first, in a group of their own, then the catalogue by maker', () => {
+		const html = renderToStaticMarkup(
+			createElement(PrinterOptions, { printers, saved: [{ printer: 'UniFormation GKtwo', label: 'gk2 (UniFormation GKtwo)' }] }),
+		);
+		expect(html.indexOf('Your saved printers')).toBeGreaterThan(-1);
+		expect(html.indexOf('Your saved printers')).toBeLessThan(html.indexOf('label="Elegoo"'));
+		expect(html).toContain('gk2 (UniFormation GKtwo)');
+		expect(html).toContain('label="UniFormation"');
+	});
+
+	it('have no saved group when there are none', () => {
+		expect(renderToStaticMarkup(createElement(PrinterOptions, { printers, saved: [] }))).not.toContain('Your saved printers');
 	});
 });

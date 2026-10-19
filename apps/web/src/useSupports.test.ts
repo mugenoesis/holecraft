@@ -1,6 +1,6 @@
 import { addShape, addSupportPoint, createEmptyDesign, type Design, setNodeMode, setSupportPoints } from '@holecraft/core';
 import { describe, expect, it } from 'vitest';
-import { pointsSummary, whyNotSupports } from './useSupports.ts';
+import { pointsSummary, savedChoices, startingPrinter, whyNotSupports } from './useSupports.ts';
 
 const READY = { url: 'http://t:8000', hasKey: true };
 
@@ -46,5 +46,39 @@ describe('pointsSummary', () => {
 	it('says when every point is Trident’s', () => {
 		const d = setSupportPoints(oneBox(), { objects: [{ points: [{ x: 1, y: 0, z: 0, radius: 0.4, type: 'island' }] }] });
 		expect(pointsSummary(d)).toBe('1 point (from Trident)');
+	});
+});
+
+describe('savedChoices', () => {
+	const printers = [
+		{ name: 'UniFormation GKtwo', vendor: 'UniFormation' },
+		{ name: 'Elegoo Mars 3', vendor: 'Elegoo' },
+	];
+
+	it('offers each saved printer by its own name, standing for the catalogue printer it is', () => {
+		expect(savedChoices([{ name: 'gk2', printer: 'UniFormation GKtwo' }], printers)).toEqual([
+			{ printer: 'UniFormation GKtwo', label: 'gk2 (UniFormation GKtwo)' },
+		]);
+	});
+
+	it('leaves out one whose printer Trident no longer lists', () => {
+		expect(savedChoices([{ name: 'old', printer: 'Nobody Printer' }], printers)).toEqual([]);
+	});
+});
+
+describe('startingPrinter', () => {
+	const saved = [{ printer: 'UniFormation GKtwo', label: 'gk2 (UniFormation GKtwo)' }];
+	const printers = [{ name: 'UniFormation GKtwo', vendor: 'UniFormation' }];
+
+	it('keeps the printer chosen before, if Trident still lists it', () => {
+		expect(startingPrinter('UniFormation GKtwo', saved, printers)).toBe('UniFormation GKtwo');
+	});
+
+	it('starts on the first saved printer when none was chosen', () => {
+		expect(startingPrinter('', saved, printers)).toBe('UniFormation GKtwo');
+	});
+
+	it('starts on nothing when none was chosen and none is saved', () => {
+		expect(startingPrinter('', [], printers)).toBe('');
 	});
 });

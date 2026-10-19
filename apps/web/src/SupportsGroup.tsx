@@ -3,6 +3,7 @@ import type { Dispatch } from 'react';
 import type { EditorAction } from './editorState.ts';
 import type { ResinPrinter } from './tridentApi.ts';
 import { useDraft } from './useDraft.ts';
+import type { SavedChoice } from './useSupports.ts';
 import { pointsSummary, useSupports } from './useSupports.ts';
 import type { SupportsUi } from './useSupportsUi.ts';
 
@@ -13,12 +14,21 @@ interface Props {
 	ui: SupportsUi;
 }
 
-/** The printers, one group per maker. */
-function PrinterOptions({ printers }: { printers: readonly ResinPrinter[] }) {
+/** The printers: the user's saved ones first, then the catalogue, one group per maker. */
+export function PrinterOptions({ printers, saved }: { printers: readonly ResinPrinter[]; saved: readonly SavedChoice[] }) {
 	const vendors = [...new Set(printers.map((p) => p.vendor))];
 	return (
 		<>
 			<option value="">Choose a printer…</option>
+			{saved.length > 0 && (
+				<optgroup label="Your saved printers">
+					{saved.map((s) => (
+						<option key={s.label} value={s.printer}>
+							{s.label}
+						</option>
+					))}
+				</optgroup>
+			)}
 			{vendors.map((vendor) => (
 				<optgroup key={vendor} label={vendor || 'Other'}>
 					{printers
@@ -119,7 +129,7 @@ export function SupportsGroup({ design, meshes, dispatch, ui }: Props) {
 			<label className="resin-field resin-wide-field">
 				<span>Printer for the points</span>
 				<select value={s.printer} onChange={(e) => s.setPrinter(e.target.value)}>
-					<PrinterOptions printers={s.printers} />
+					<PrinterOptions printers={s.printers} saved={s.saved} />
 				</select>
 			</label>
 			<button type="button" className="resin-wide" disabled={s.why !== null || s.busy} onClick={() => void s.generate()}>
