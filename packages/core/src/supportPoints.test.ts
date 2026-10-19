@@ -141,7 +141,8 @@ describe('editing the points', () => {
 		expect(setSupportRadius(d, id, 0.4)).toBe(d);
 		expect(setSupportRadius(d, id, Number.NaN)).toBe(d);
 		expect(removeSupportPoint(d, 'nope')).toBe(d);
-		expect(clearSupportPoints(twoBoxes())).toEqual(twoBoxes());
+		const plain = twoBoxes();
+		expect(clearSupportPoints(plain)).toBe(plain); // nothing to clear: the same design back (not a rebuilt copy, whose timestamp could differ)
 		const full = setSupportPoints(twoBoxes(), {
 			objects: [{ points: Array.from({ length: MAX_SUPPORT_POINTS }, () => ({ x: 0, y: 0, z: 0, radius: 0.4, type: 'island' as const })) }],
 		});
