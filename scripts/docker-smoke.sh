@@ -26,6 +26,11 @@ curl -fs "http://127.0.0.1:$PORT/api/health" | grep -q '"status":"ok"' || fail "
 curl -fs "http://127.0.0.1:$PORT/" | grep -q '<title>Holecraft</title>' || fail "index page"
 [[ "$(docker inspect --format '{{.Config.User}}' "$NAME")" == "node" ]] || fail "container should run as non-root"
 
+# Unraid runs the image as 99:100, not as node: everything the server needs must be readable by anyone. Check the mode bits, not a read:
+# a host with ACLs on its docker storage lets a read succeed that fails on other hosts (an EACCES on main.js did, issue #97).
+UNREADABLE="$(docker run --rm --user 99:100 --entrypoint sh "$TAG" -c 'find /app \( -type f ! -perm -o=r \) -o \( -type d ! -perm -o=rx \)')"
+[[ -z "$UNREADABLE" ]] || fail "not readable by other users (the image must run as 99:100 on Unraid): $(echo "$UNREADABLE" | head -3 | tr '\n' ' ')"
+
 # The geometry worker needs its WebAssembly file, served as application/wasm.
 WASM="$(docker exec "$NAME" sh -c 'ls apps/web/dist/assets/*.wasm 2>/dev/null | head -1 | xargs -n1 basename')"
 [[ -n "$WASM" ]] || fail "the geometry WebAssembly file is missing from the image"
