@@ -28,15 +28,15 @@
 		"docker:build": "docker build -f docker/Dockerfile -t holecraft:latest ."
 	},
 	"devDependencies": {
-		"@axe-core/playwright": "^4.13.0",
+		"@axe-core/playwright": "^4.14.0",
 		"@biomejs/biome": "2.5.15",
 		"@fontsource/inter": "^5.3.0",
 		"@fontsource/lobster": "^5.3.0",
 		"@fontsource/noto-serif": "^5.3.0",
 		"@fontsource/roboto-mono": "^5.3.0",
 		"@playwright/test": "1.64.0",
-		"@types/node": "^26.6.4",
-		"@vitest/coverage-v8": "5.0.3",
+		"@types/node": "^26.6.5",
+		"@vitest/coverage-v8": "5.0.5",
 		"esbuild": "^0.28.2",
 		"fast-check": "4.10.2",
 		"knip": "6.41.0",
