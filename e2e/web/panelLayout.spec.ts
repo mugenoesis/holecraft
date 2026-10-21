@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { newDesign } from './helpers.ts';
+import { newDesign, unfoldSections } from './helpers.ts';
 
 /*
  * The desktop side panel can be made wider or narrower (drag its edge, or use the arrow keys on it), and each of its sections can be
@@ -69,6 +69,7 @@ test.describe('the side panel width', () => {
 
 test.describe('folding the sections of the side panel', () => {
 	test.beforeEach(async ({ page }) => {
+		await unfoldSections(page);
 		await newDesign(page);
 		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 	});
@@ -127,5 +128,20 @@ test.describe('on a phone the panel keeps its tabs', () => {
 		await newDesign(page);
 		await expect(edge(page)).toHaveCount(0);
 		await expect(page.getByRole('button', { name: /^(Collapse|Expand) / })).toHaveCount(0);
+	});
+});
+
+test.describe('Resin starts folded', () => {
+	test('a new visitor sees the Resin heading with its tools folded away, and opening it is remembered', async ({ page }) => {
+		await newDesign(page);
+		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
+		await expect(page.getByRole('button', { name: 'Expand Resin' })).toHaveAttribute('aria-expanded', 'false');
+		await expect(page.getByRole('button', { name: /Hollow the selected shape/ })).toBeHidden();
+		await expect(page.getByRole('button', { name: 'Collapse Properties' })).toBeVisible(); // the others start open
+		await page.getByRole('button', { name: 'Expand Resin' }).click();
+		await expect(page.getByRole('button', { name: /Hollow the selected shape/ })).toBeVisible();
+		await expect(page.getByTestId('save-status')).toHaveText('Saved');
+		await page.reload();
+		await expect(page.getByRole('button', { name: 'Collapse Resin' })).toBeVisible();
 	});
 });

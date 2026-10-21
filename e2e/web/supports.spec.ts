@@ -2,7 +2,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
-import { newDesign, openPanel, viewport } from './helpers.ts';
+import { newDesign, openPanel, unfoldSections, viewport } from './helpers.ts';
 
 /*
  * Support points for resin printing: Trident's slicer works them out for the design, they show over the model, can be moved, added to and
@@ -27,6 +27,8 @@ const CORNERS = [
 	[5, 5],
 	[-5, 5],
 ] as const;
+
+test.beforeEach(({ page }) => unfoldSections(page));
 
 async function fakeTrident(): Promise<Fake> {
 	const fake: Fake = { url: '', asked: [], stored: [], close: async () => undefined };

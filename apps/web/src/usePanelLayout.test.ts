@@ -18,8 +18,8 @@ function look(compact: boolean): string {
 }
 
 describe('usePanelLayout', () => {
-	it('gives the desktop panel its usual width, as a style, and folds nothing yet', () => {
-		expect(look(false)).toBe('260;{&quot;--panel-width&quot;:&quot;260px&quot;};folding:0');
+	it('gives the desktop panel its usual width, as a style, and starts with only Resin folded', () => {
+		expect(look(false)).toBe('260;{&quot;--panel-width&quot;:&quot;260px&quot;};folding:1');
 	});
 
 	it('gives the compact layout no width and no folding: its panel is tabs', () => {

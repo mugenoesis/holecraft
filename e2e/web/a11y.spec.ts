@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
-import { createDesignViaApi, newDesign, openPanel } from './helpers.ts';
+import { createDesignViaApi, newDesign, openPanel, unfoldSections } from './helpers.ts';
 
 /** The WCAG A and AA problems axe finds on the page as it is now, each as "rule: element" so a failure says what to fix. */
 async function problems(page: Page): Promise<string[]> {
@@ -27,8 +27,9 @@ test.describe('accessibility (axe, WCAG A and AA)', () => {
 		await newDesign(page);
 		await page.getByRole('separator', { name: 'Resize the side panel' }).focus();
 		await page.keyboard.press('Shift+ArrowLeft');
-		await page.getByRole('button', { name: 'Collapse Resin' }).click();
-		await expect(page.getByRole('button', { name: 'Expand Resin' })).toHaveAttribute('aria-expanded', 'false');
+		await page.getByRole('button', { name: 'Collapse Arrange' }).click();
+		await expect(page.getByRole('button', { name: 'Expand Arrange' })).toHaveAttribute('aria-expanded', 'false');
+		await expect(page.getByRole('button', { name: 'Expand Resin' })).toHaveAttribute('aria-expanded', 'false'); // folded from the start
 		expect(await problems(page)).toEqual([]);
 	});
 
@@ -51,6 +52,7 @@ test.describe('accessibility (axe, WCAG A and AA)', () => {
 	});
 
 	test('the Resin panel with a shape selected, and with a diameter that cannot be used', async ({ page }) => {
+		await unfoldSections(page);
 		await newDesign(page);
 		await page.getByRole('button', { name: /^Box/ }).first().press('Enter');
 		await openPanel(page, 'Objects');

@@ -2,13 +2,15 @@ import { readFile } from 'node:fs/promises';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { expect, type Page, test } from '@playwright/test';
-import { newDesign, openPanel, properties } from './helpers.ts';
+import { newDesign, openPanel, properties, unfoldSections } from './helpers.ts';
 import { parseStl } from './meshFiles.ts';
 
 /*
  * The Resin panel: drain and vent holes (ordinary holes, grouped with the shape so they cut) and the tilt buttons. The cut is proved by a
  * real STL export: its volume is the box's less the two round holes, worked out here by hand.
  */
+
+test.beforeEach(({ page }) => unfoldSections(page));
 
 const list = (page: Page) => page.getByTestId('object-list');
 const resin = (page: Page) => page.getByRole('region', { name: 'Resin' });

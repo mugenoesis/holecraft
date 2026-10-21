@@ -1,6 +1,6 @@
 import { type CSSProperties, createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { browserStorage } from './importUpAxis.ts';
-import { clampPanelWidth, DEFAULT_PANEL_WIDTH, parseCollapsed, parsePanelWidth, toggleCollapsed } from './panelLayout.ts';
+import { clampPanelWidth, DEFAULT_PANEL_WIDTH, initialFolded, parsePanelWidth, toggleCollapsed } from './panelLayout.ts';
 
 const WIDTH_KEY = 'holecraft.panelWidth';
 const FOLDED_KEY = 'holecraft.foldedSections';
@@ -36,7 +36,7 @@ export const SectionFoldingContext = createContext<SectionFolding | null>(null);
  */
 export function usePanelLayout(compact: boolean) {
 	const [width, setWidthState] = useState(() => parsePanelWidth(read(WIDTH_KEY)));
-	const [folded, setFolded] = useState(() => parseCollapsed(read(FOLDED_KEY)));
+	const [folded, setFolded] = useState(() => initialFolded(read(FOLDED_KEY)));
 	useEffect(() => write(WIDTH_KEY, String(width)), [width]);
 	useEffect(() => write(FOLDED_KEY, JSON.stringify(folded)), [folded]);
 

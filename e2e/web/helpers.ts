@@ -137,3 +137,10 @@ export async function cameraSettled(page: Page) {
 		})
 		.toBe(true);
 }
+
+/** Opens every section of the side panel for this page, unless the test (or a reload) has folded some: Resin starts folded for a new visitor. */
+export async function unfoldSections(page: Page) {
+	await page.addInitScript(() => {
+		if (localStorage.getItem('holecraft.foldedSections') === null) localStorage.setItem('holecraft.foldedSections', '[]');
+	});
+}
