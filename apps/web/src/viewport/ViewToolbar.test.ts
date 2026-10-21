@@ -29,7 +29,7 @@ describe('ViewToolbar', () => {
 		expect(buttons(render(false))).toEqual([
 			'Home view',
 			'Fit all',
-			'Orthographic',
+			'Ortho (orthographic projection)',
 			'Select',
 			'Ruler',
 			'Workplane',
@@ -37,6 +37,22 @@ describe('ViewToolbar', () => {
 			'Paint',
 			'Sketch',
 		]);
+	});
+
+	// WCAG 2.5.3 (Label in Name), which axe 4.14 checks: someone who says what they see on a button (voice control) must hit it, so the visible
+	// words have to be words of the accessible name.
+	it('names every button so that the words on it are in its name', () => {
+		for (const compact of [false, true]) {
+			for (const [, label, text] of render(compact).matchAll(/<button[^>]*aria-label="([^"]+)"[^>]*>([^<]*)</g)) {
+				const name = label!.toLowerCase().split(/[^a-z0-9]+/);
+				for (const word of text!
+					.toLowerCase()
+					.split(/[^a-z0-9]+/)
+					.filter(Boolean)) {
+					expect(name, `"${text}" on the button named "${label}"`).toContain(word);
+				}
+			}
+		}
 	});
 
 	it('tucks the tools into a menu in the compact layout', () => {
