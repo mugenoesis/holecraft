@@ -3,7 +3,14 @@ import { createEmptyDesign, type Design, type GroupNode, type ShapeNode } from '
 import { setNodeEuler, setShapeSize } from './edit.ts';
 import { groupNodes } from './groups.ts';
 import { addShape, nodeBoundsIn } from './ops.ts';
-import { addResinHole, canAddResinHole, DEFAULT_DRAIN_DIAMETER, MAX_DRAIN_DIAMETER, MIN_DRAIN_DIAMETER } from './resinHoles.ts';
+import {
+	addResinHole,
+	canAddResinHole,
+	DEFAULT_DRAIN_DIAMETER,
+	MAX_DRAIN_DIAMETER,
+	MIN_DRAIN_DIAMETER,
+	whyNotResinHole,
+} from './resinHoles.ts';
 
 /** A 20 mm box at (30, -10). */
 function box(at: [number, number] = [30, -10]): Design {
@@ -108,5 +115,40 @@ describe('addResinHole', () => {
 		expect((huge.design.nodes.h as ShapeNode).params).toMatchObject({ width: MAX_DRAIN_DIAMETER });
 		const odd = addResinHole(box(), ['b'], 'drain', Number.NaN, { groupId: 'g', holeId: 'h' });
 		expect((odd.design.nodes.h as ShapeNode).params).toMatchObject({ width: DEFAULT_DRAIN_DIAMETER });
+	});
+});
+
+describe('whyNotResinHole', () => {
+	it('is null when a hole can be added', () => {
+		expect(whyNotResinHole(box(), ['b'], 3.5)).toBeNull();
+	});
+
+	it('says what to select when nothing or several things are', () => {
+		const d = box();
+		expect(whyNotResinHole(d, [], 3.5)).toBe('Select one shape or group to add a drain or vent hole to it.');
+		const two = addShape(d, 'box', [100, 0], { id: 'c' }).design;
+		expect(whyNotResinHole(two, ['b', 'c'], 3.5)).toBe('Select one shape or group to add a drain or vent hole to it.');
+	});
+
+	it('names what is wrong with the selection: locked, hidden, a hole, or inside a group', () => {
+		const d = box();
+		const locked = { ...d, nodes: { ...d.nodes, b: { ...d.nodes.b!, locked: true } } };
+		expect(whyNotResinHole(locked, ['b'], 3.5)).toMatch(/locked/i);
+		const hidden = { ...d, nodes: { ...d.nodes, b: { ...d.nodes.b!, hidden: true } } };
+		expect(whyNotResinHole(hidden, ['b'], 3.5)).toMatch(/hidden/i);
+		const aHole = { ...d, nodes: { ...d.nodes, b: { ...d.nodes.b!, mode: 'hole' as const } } };
+		expect(whyNotResinHole(aHole, ['b'], 3.5)).toMatch(/hole/i);
+	});
+
+	it('says the diameter range when the diameter is not one a hole can have', () => {
+		const range = `The diameter must be between ${MIN_DRAIN_DIAMETER} and ${MAX_DRAIN_DIAMETER} mm.`;
+		expect(whyNotResinHole(box(), ['b'], Number.NaN)).toBe(range);
+		expect(whyNotResinHole(box(), ['b'], 0.1)).toBe(range);
+		expect(whyNotResinHole(box(), ['b'], 31)).toBe(range);
+	});
+
+	it('agrees with canAddResinHole about everything but the diameter', () => {
+		const d = box();
+		for (const ids of [[], ['nope'], ['b']]) expect(whyNotResinHole(d, ids, 3.5) === null).toBe(canAddResinHole(d, ids));
 	});
 });

@@ -119,7 +119,7 @@ trusted network.
 
 ## Resin printing
 
-The **Resin** section of the side panel (under Properties) has tools for printing with resin. Select one shape or group first.
+The **Resin** section of the side panel (under Properties) has tools for printing with resin. Select one shape or group first. When a button is off, the panel says why in plain text beside it: nothing (or several things) selected, the shape locked, hidden or a hole, a diameter or wall outside its range, or no Trident set up.
 
 - **Hollow.** Select a shape or group, set the **Wall thickness** (2 mm to start, 0.5 to 20) and the **Accuracy** (Fast, Normal or Fine) and press **Hollow the
   selected shape**. Holecraft's server sends the shape to your Trident Studio (see *Send to Trident* above), which works out the cavity, and the shape is swapped
