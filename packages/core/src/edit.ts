@@ -226,6 +226,15 @@ export function setNodeMode(design: Design, ids: readonly NodeId[], mode: SolidM
 	return changed ? withNodes(design, nodes, now) : design;
 }
 
+/** Points an imported model at another stored mesh (a repaired copy of it, say); its size, place, colour and name are kept. */
+export function setMeshRef(design: Design, id: NodeId, ref: string, now?: Date): Design {
+	const node = design.nodes[id];
+	// 'mesh' is MESH_SHAPE_TYPE (meshShape.ts imports this file, so the name is written out here)
+	if (!isEditable(node) || node.kind !== 'shape' || node.shapeType !== 'mesh' || !/^[0-9a-f]{64}$/.test(ref) || node.params.mesh === ref)
+		return design;
+	return withNodes(design, { ...design.nodes, [id]: { ...node, params: { ...node.params, mesh: ref } } }, now);
+}
+
 /** Deletes shapes and groups, including everything inside any group. */
 export function deleteNodes(design: Design, ids: readonly NodeId[], now?: Date): Design {
 	const doomed = new Set<NodeId>();

@@ -13,6 +13,7 @@ import { type PanelTab, useCompactLayout, usePanelTab } from './compactLayout.ts
 import { ApiError, getDesign, uploadThumbnail } from './designsApi.ts';
 import { useEditorShortcuts } from './editorShortcuts.ts';
 import { createEditorState, editorReducer } from './editorState.ts';
+import { ModelCheckPanel } from './ModelCheckPanel.tsx';
 import { NotFound } from './NotFound.tsx';
 import { PalettePanel } from './PalettePanel.tsx';
 import { PanelEdge } from './PanelEdge.tsx';
@@ -27,6 +28,7 @@ import { useAutosave } from './useAutosave.ts';
 import { useLibrary } from './useLibrary.ts';
 import { useMerge } from './useMerge.ts';
 import { useMeshes } from './useMeshes.ts';
+import { useModelCheck } from './useModelCheck.ts';
 import { SectionFoldingContext, usePanelLayout } from './usePanelLayout.ts';
 import { usePlacing } from './usePlacing.ts';
 import { useSupportsUi } from './useSupportsUi.ts';
@@ -88,6 +90,7 @@ function EditorView({ initial }: { initial: Design }) {
 	const { meshes, add: addMesh } = useMeshes(design);
 	const supportsUi = useSupportsUi(design);
 	const merge = useMerge(design, state.selection, meshes, addMesh, dispatch);
+	const modelCheck = useModelCheck(design, state.selection, meshes, addMesh, dispatch);
 	const save = useAutosave(design, initial);
 	useDocumentTitle(design.name);
 	const [help, setHelp] = useState(false);
@@ -247,6 +250,7 @@ function EditorView({ initial }: { initial: Design }) {
 								onEditSketch={setSketchEdit}
 								unlockedStretch={state.unlockedStretch}
 							/>
+							<ModelCheckPanel check={modelCheck} />
 							<ResinPanel
 								design={design}
 								selection={state.selection}

@@ -2554,3 +2554,21 @@ button.primary:disabled {
 	user-select: none;
 	-webkit-user-select: none;
 }
+
+/* The Model check lines: a closed surface in the ok colour, each fault in the warning one */
+.model-check-lines {
+	margin: 0 0 8px;
+	padding: 0;
+	list-style: none;
+	font-size: 13px;
+}
+
+.model-check-lines .model-ok {
+	color: var(--ok-text);
+}
+
+.model-check-lines .model-problem {
+	padding-left: 8px;
+	border-left: 3px solid var(--warn);
+	margin-bottom: 4px;
+}
