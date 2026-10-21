@@ -41,6 +41,21 @@ export function canAddResinHole(design: Design, ids: readonly NodeId[]): boolean
 	);
 }
 
+/** Why a drain or vent hole cannot be added now, in words for the panel (the selection first, then the diameter), or null when it can. */
+export function whyNotResinHole(design: Design, ids: readonly NodeId[], diameter: number): string | null {
+	const id = ids.length === 1 ? ids[0]! : null;
+	const node = id ? design.nodes[id] : undefined;
+	if (!id || !node || !design.roots.includes(id)) return 'Select one shape or group to add a drain or vent hole to it.';
+	if (node.locked) return `${node.name} is locked: unlock it in the Objects list to add a hole to it.`;
+	if (node.hidden) return `${node.name} is hidden: show it in the Objects list to add a hole to it.`;
+	if (node.mode === 'hole') return `${node.name} is a hole: select a solid to add a drain or vent hole to.`;
+	if (nodeBoundsIn(design, id) === null) return 'Select one shape or group to add a drain or vent hole to it.';
+	if (!(diameter >= MIN_DRAIN_DIAMETER && diameter <= MAX_DRAIN_DIAMETER)) {
+		return `The diameter must be between ${MIN_DRAIN_DIAMETER} and ${MAX_DRAIN_DIAMETER} mm.`;
+	}
+	return null;
+}
+
 const cleanDiameter = (d: number) =>
 	Number.isFinite(d) ? Math.min(MAX_DRAIN_DIAMETER, Math.max(MIN_DRAIN_DIAMETER, d)) : DEFAULT_DRAIN_DIAMETER;
 

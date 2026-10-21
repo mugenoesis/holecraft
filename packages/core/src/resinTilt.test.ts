@@ -3,7 +3,7 @@ import { createEmptyDesign, type Design } from './design.ts';
 import { setShapeSize } from './edit.ts';
 import { groupNodes } from './groups.ts';
 import { addShape, nodeBoundsIn } from './ops.ts';
-import { canTilt, tiltNode } from './resinTilt.ts';
+import { canTilt, tiltNode, whyNotTilt } from './resinTilt.ts';
 
 /** A 20 mm box at (30, -10), standing on the plane. */
 function box(): Design {
@@ -66,5 +66,26 @@ describe('tiltNode', () => {
 		const locked = { ...d, nodes: { ...d.nodes, b: { ...d.nodes.b!, locked: true } } };
 		expect(canTilt(locked, ['b'])).toBe(false);
 		expect(tiltNode(locked, 'b', 30)).toBe(locked);
+	});
+});
+
+describe('whyNotTilt', () => {
+	it('is null when the selection can be tilted', () => {
+		expect(whyNotTilt(box(), ['b'])).toBeNull();
+	});
+
+	it('says what to select, and names a locked or hidden one', () => {
+		const d = box();
+		expect(whyNotTilt(d, [])).toBe('Select one shape or group to tilt it.');
+		expect(whyNotTilt(addShape(d, 'box', [100, 0], { id: 'c' }).design, ['b', 'c'])).toBe('Select one shape or group to tilt it.');
+		const locked = { ...d, nodes: { ...d.nodes, b: { ...d.nodes.b!, locked: true } } };
+		expect(whyNotTilt(locked, ['b'])).toMatch(/locked/i);
+		const hidden = { ...d, nodes: { ...d.nodes, b: { ...d.nodes.b!, hidden: true } } };
+		expect(whyNotTilt(hidden, ['b'])).toMatch(/hidden/i);
+	});
+
+	it('agrees with canTilt', () => {
+		const d = box();
+		for (const ids of [[], ['nope'], ['b']]) expect(whyNotTilt(d, ids) === null).toBe(canTilt(d, ids));
 	});
 });

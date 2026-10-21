@@ -1,12 +1,12 @@
 import type { MeshData } from '@holecraft/core';
 import {
-	canAddResinHole,
-	canTilt,
 	DEFAULT_DRAIN_DIAMETER,
 	type Design,
 	MAX_DRAIN_DIAMETER,
 	MIN_DRAIN_DIAMETER,
 	type NodeId,
+	whyNotResinHole,
+	whyNotTilt,
 } from '@holecraft/core';
 import { type Dispatch, useState } from 'react';
 import type { EditorAction } from './editorState.ts';
@@ -74,11 +74,16 @@ function HollowGroup({ design, selection, dispatch, meshes, onMeshAdded }: Omit<
 					{h.error}
 				</p>
 			)}
-			<p className="muted hint">
-				{h.note ??
-					h.why ??
-					'Trident works out the cavity. The shape becomes a hollow mesh; Undo brings the original back. A hollow print needs drain holes: add them with a hole shape once it is hollow.'}
-			</p>
+			{h.why && !h.note ? (
+				<p className="resin-why" aria-live="polite" data-testid="resin-hollow-why">
+					{h.why}
+				</p>
+			) : (
+				<p className="muted hint">
+					{h.note ??
+						'Trident works out the cavity. The shape becomes a hollow mesh; Undo brings the original back. A hollow print needs drain holes: add them with a hole shape once it is hollow.'}
+				</p>
+			)}
 		</div>
 	);
 }
@@ -88,8 +93,10 @@ export function ResinPanel({ design, selection, dispatch, meshes, onMeshAdded, s
 	const [diameter, setDiameter] = useState(String(DEFAULT_DRAIN_DIAMETER));
 	const value = Number(diameter);
 	const validDiameter = diameter.trim() !== '' && value >= MIN_DRAIN_DIAMETER && value <= MAX_DRAIN_DIAMETER;
-	const canHole = canAddResinHole(design, selection) && validDiameter;
-	const tilt = canTilt(design, selection);
+	const holeWhy = whyNotResinHole(design, selection, diameter.trim() === '' ? Number.NaN : value);
+	const canHole = holeWhy === null;
+	const tiltWhy = whyNotTilt(design, selection);
+	const tilt = tiltWhy === null;
 
 	return (
 		<section aria-label="Resin">
@@ -131,11 +138,16 @@ export function ResinPanel({ design, selection, dispatch, meshes, onMeshAdded, s
 						Add vent hole
 					</button>
 				</div>
-				<p className="muted hint">
-					{canAddResinHole(design, selection)
-						? 'Ordinary holes: a drain at the bottom, a vent at the top, grouped with the shape so they cut. Move, resize or delete them like any shape. They only help a hollow model.'
-						: 'Select one shape or group to add a drain or vent hole to it.'}
-				</p>
+				{holeWhy ? (
+					<p className="resin-why" aria-live="polite" data-testid="resin-hole-why">
+						{holeWhy}
+					</p>
+				) : (
+					<p className="muted hint">
+						Ordinary holes: a drain at the bottom, a vent at the top, grouped with the shape so they cut. Move, resize or delete them like
+						any shape. They only help a hollow model.
+					</p>
+				)}
 			</div>
 			<div className="resin-group" role="group" aria-label="Orientation">
 				<h3>Orientation</h3>
@@ -152,11 +164,15 @@ export function ResinPanel({ design, selection, dispatch, meshes, onMeshAdded, s
 						</button>
 					))}
 				</div>
-				<p className="muted hint">
-					{tilt
-						? 'A tilted model peels from the film a thin line at a time. Each press turns the selection further about the X axis.'
-						: 'Select one shape or group to tilt it.'}
-				</p>
+				{tiltWhy ? (
+					<p className="resin-why" aria-live="polite" data-testid="resin-tilt-why">
+						{tiltWhy}
+					</p>
+				) : (
+					<p className="muted hint">
+						A tilted model peels from the film a thin line at a time. Each press turns the selection further about the X axis.
+					</p>
+				)}
 			</div>
 			<SupportsGroup design={design} meshes={meshes} dispatch={dispatch} ui={supportsUi} />
 		</section>

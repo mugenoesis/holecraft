@@ -259,3 +259,27 @@ test.describe('Hollow', () => {
 		expect((await exportStl(page)).volume).toBeCloseTo(8000, 0);
 	});
 });
+
+test('a button that is off says why, in plain text beside it', async ({ page }) => {
+	const diameter = resin(page).getByRole('spinbutton', { name: 'Diameter' });
+	await diameter.fill('0');
+	await diameter.blur();
+	await expect(resin(page).getByRole('button', { name: 'Add drain hole' })).toBeDisabled();
+	const why = resin(page).getByTestId('resin-hole-why');
+	await expect(why).toHaveText('The diameter must be between 0.5 and 30 mm.');
+	// plain text, not the small muted hint (which the explanations of what a button does stay in)
+	expect(await why.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+	await diameter.fill('3.5');
+	await diameter.blur();
+	await expect(resin(page).getByRole('button', { name: 'Add drain hole' })).toBeEnabled();
+	await expect(resin(page).getByTestId('resin-hole-why')).toHaveCount(0);
+});
+
+test('a locked shape says it is locked, for the holes and for tilting', async ({ page }) => {
+	await openPanel(page, 'Objects');
+	await list(page).getByRole('button', { name: /^Lock/ }).click();
+	await openPanel(page, 'Edit');
+	await expect(resin(page).getByTestId('resin-hole-why')).toContainText('locked');
+	await expect(resin(page).getByTestId('resin-tilt-why')).toContainText('locked');
+	await expect(resin(page).getByRole('button', { name: 'Tilt 30°' })).toBeDisabled();
+});

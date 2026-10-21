@@ -2340,6 +2340,15 @@ button.primary:disabled {
 	background: var(--accent);
 	color: #fff;
 }
+/* Why a resin button is off: plain text next to the button, not the small muted hint that says what a button does */
+.resin-why {
+	margin: 6px 0 10px;
+	padding: 4px 8px;
+	font-size: 13px;
+	color: var(--text);
+	border-left: 3px solid var(--warn);
+}
+
 .resin-warning {
 	margin: 8px 0 4px;
 	padding: 6px 8px;
