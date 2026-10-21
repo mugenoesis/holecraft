@@ -26,8 +26,15 @@ export function ExportMenuItems({
 		<>
 			<div role="menu" aria-label="Export format">
 				{EXPORT_FORMATS.map((f) => (
-					<button key={f.id} type="button" role="menuitem" aria-label={`Export as ${f.label}`} onClick={() => onFormat(f.id)}>
+					<button
+						key={f.id}
+						type="button"
+						role="menuitem"
+						aria-label={`${f.label} ${f.hint}, export as ${f.label}`}
+						onClick={() => onFormat(f.id)}
+					>
 						<strong>{f.label}</strong>
+						{/* a space between the two, so the words on the button read "STL Best for 3D printing" and the name can start with them (Label in Name) */}{' '}
 						<span className="muted">{f.hint}</span>
 					</button>
 				))}

@@ -68,3 +68,17 @@ describe('PanelEdge', () => {
 		expect(html).toContain('tabindex="0"');
 	});
 });
+
+describe('PanelSection with a two-word title', () => {
+	it('names the contents by an id that has no space, which aria-controls needs', () => {
+		const html = renderToStaticMarkup(
+			createElement(
+				SectionFoldingContext.Provider,
+				{ value: { folded: [], toggle: () => {} } },
+				createElement(Section, { title: 'Model check' }, createElement('p', null, 'inside')),
+			),
+		);
+		expect(html).toContain('aria-controls="section-model-check"');
+		expect(html).toContain('id="section-model-check"');
+	});
+});

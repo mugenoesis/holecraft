@@ -167,7 +167,7 @@ test.describe('the Paint tool', () => {
 		const orca = await exportAs('Export as 3MF for OrcaSlicer');
 		expect(orca.match(/paint_color="8"/g)).toHaveLength(2); // the top of a box: two triangles, filament 2
 		expect(orca.match(/<triangle /g)).toHaveLength(12);
-		expect(await exportAs('Export as 3MF', true)).not.toContain('paint_color');
+		expect(await exportAs('3MF For viewers, not slicers, export as 3MF', true)).not.toContain('paint_color');
 	});
 });
 

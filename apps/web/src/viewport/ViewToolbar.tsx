@@ -67,9 +67,10 @@ function toggles(p: Props): Toggle[] {
 	return list;
 }
 
-function ToggleButton({ toggle, text }: { toggle: Toggle; text?: string }) {
+/** A toggle on the bar. `name` is for a button whose visible `text` is shorter than its label: the text must still be words of the name (Label in Name). */
+function ToggleButton({ toggle, text, name }: { toggle: Toggle; text?: string; name?: string }) {
 	return (
-		<button type="button" aria-pressed={toggle.pressed} aria-label={toggle.label} title={toggle.title} onClick={toggle.onClick}>
+		<button type="button" aria-pressed={toggle.pressed} aria-label={name ?? toggle.label} title={toggle.title} onClick={toggle.onClick}>
 			{text ?? toggle.label}
 		</button>
 	);
@@ -150,7 +151,7 @@ export function ViewToolbar(props: Props) {
 			<button type="button" onClick={() => viewport.current?.fitAll()} aria-label="Fit all" title="Fit all (F)">
 				Fit
 			</button>
-			{!compact && <ToggleButton toggle={ortho} text="Ortho" />}
+			{!compact && <ToggleButton toggle={ortho} text="Ortho" name="Ortho (orthographic projection)" />}
 			<ToggleButton toggle={select} />
 			{compact ? (
 				<>

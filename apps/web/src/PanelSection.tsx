@@ -9,7 +9,8 @@ import { SectionFoldingContext } from './usePanelLayout.ts';
 export function PanelSection({ title, children }: { title: string; children: ReactNode }) {
 	const folding = useContext(SectionFoldingContext);
 	const folded = !!folding?.folded.includes(title);
-	const bodyId = `section-${title.toLowerCase()}`;
+	// an id has no spaces (a title like "Model check" has one)
+	const bodyId = `section-${title.toLowerCase().replace(/\s+/g, '-')}`;
 	return (
 		<section aria-label={title}>
 			<div className="section-head">

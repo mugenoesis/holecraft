@@ -55,6 +55,7 @@ import {
 	setGroupSize,
 	setHidden,
 	setLocked,
+	setMeshRef,
 	setNodeColor,
 	setNodeEuler,
 	setNodeMode,
@@ -148,6 +149,8 @@ export type EditorAction =
 	| { type: 'renameDesign'; name: string }
 	// Solid or hole, for everything selected.
 	| { type: 'setMode'; mode: SolidMode }
+	// An imported model is pointed at another stored mesh (its repaired copy).
+	| { type: 'setMeshRef'; id: NodeId; ref: string }
 	// A rotation ring being dragged: previews the shape's orientation (a row-major 3x3). Runs
 	// between moveStart and moveEnd, like a move.
 	| { type: 'setRotation'; id: NodeId; rotation: number[] }
@@ -480,6 +483,9 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 
 		case 'setMode':
 			return commit(state, setNodeMode(design, state.selection, action.mode));
+
+		case 'setMeshRef':
+			return commit(state, setMeshRef(design, action.id, action.ref));
 
 		case 'renameDesign':
 			return commit(state, renameDesign(design, action.name));
