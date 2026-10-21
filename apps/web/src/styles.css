@@ -2572,3 +2572,21 @@ button.primary:disabled {
 	border-left: 3px solid var(--warn);
 	margin-bottom: 4px;
 }
+
+/* Report a problem (in the shortcut sheet and at the foot of the designs list) */
+.report-problem {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-top: 10px;
+	padding-top: 10px;
+	border-top: 1px solid var(--border);
+}
+.report-problem .muted,
+.report-problem textarea {
+	flex-basis: 100%;
+}
+.dashboard-foot {
+	margin-top: 24px;
+}

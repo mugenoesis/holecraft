@@ -16,6 +16,7 @@ import {
 import { FolderSelect } from './FolderSelect.tsx';
 import { Link } from './Link.tsx';
 import { afterLeaving } from './leaving.ts';
+import { ReportProblem } from './ReportProblem.tsx';
 import { designPath, navigate } from './router.ts';
 import { ServerStatus } from './ServerStatus.tsx';
 import { formatWhen } from './time.ts';
@@ -102,6 +103,9 @@ export function Dashboard() {
 				{load.kind === 'ready' && load.designs.length > 0 && (
 					<DesignList designs={load.designs} onChanged={refresh} onProblem={setProblem} />
 				)}
+				<footer className="dashboard-foot">
+					<ReportProblem />
+				</footer>
 			</main>
 		</div>
 	);
