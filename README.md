@@ -157,6 +157,8 @@ editing; designs with nothing in them show a placeholder). Undo history is not k
 sessions. Designs are plain JSON files, one per design, in `<data folder>/designs/`, so they are
 easy to back up or copy.
 
+**Folders, search and order.** Each design has a **Folder** list under its name: pick a folder, **No folder**, or **New folder…** and type a name. Designs in no folder come first, then each folder under its own heading, with how many designs it holds. The arrow beside a heading folds the folder away (kept in this browser), **Rename** renames the folder for everything in it (a name that is another folder's joins it), and **Remove folder** takes the folder apart and keeps its designs (it asks first). Folders are one level deep, and a folder exists while a design is in it. The **search** box keeps the designs whose name or folder holds every word you type, and shows a matching folder even if it is folded. **Sort by** changes the order inside each folder: last changed (the usual), name, or date made, which is also kept in this browser. A design's folder is saved in its own file (`"folder": "Name"`) and moving a design does not count as changing it; editing a design never moves it out of its folder, and a copy stays in the original's folder.
+
 ## Using the editor
 
 | Action | How |

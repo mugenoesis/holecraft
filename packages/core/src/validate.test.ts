@@ -361,3 +361,17 @@ describe('renameDesign', () => {
 		expect(renameDesign(d, 'Bracket')).toBe(d);
 	});
 });
+
+describe('a design in a folder', () => {
+	it('keeps its folder name, tidied', () => {
+		expect(parseDesign({ ...sample(), folder: '  Printer   parts ' }).folder).toBe('Printer parts');
+	});
+
+	it('has no folder when it is blank or not text', () => {
+		for (const folder of ['', '   ', 5, null, {}]) expect('folder' in parseDesign({ ...sample(), folder })).toBe(false);
+	});
+
+	it('has no folder when none was given', () => {
+		expect('folder' in parseDesign(sample())).toBe(false);
+	});
+});

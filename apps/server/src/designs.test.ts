@@ -238,3 +238,83 @@ async function withSaved(s: DesignStore, edit: (d: Design) => Design, name?: str
 	const created = await s.create(name);
 	return (await s.save(created.id, edit(created)))!;
 }
+
+describe('folders', () => {
+	it('puts a design in a folder (the name tidied), shows it in the list, and takes it out again', async () => {
+		const d = await store.create('Bracket');
+		const moved = await store.setFolder(d.id, '  Printer   parts ');
+		expect(moved?.folder).toBe('Printer parts');
+		expect((await store.list())[0]).toMatchObject({ id: d.id, folder: 'Printer parts' });
+		expect((await store.get(d.id))?.folder).toBe('Printer parts');
+		const out = await store.setFolder(d.id, null);
+		expect(out && 'folder' in out).toBe(false);
+		expect('folder' in (await store.list())[0]!).toBe(false);
+	});
+
+	it('does not count moving a design as changing it', async () => {
+		const d = await store.create('Bracket');
+		const before = (await store.get(d.id))!.updatedAt;
+		await new Promise((r) => setTimeout(r, 5));
+		expect((await store.setFolder(d.id, 'Home'))?.updatedAt).toBe(before);
+	});
+
+	it('uses the spelling the folder already has, whatever the capitals asked for', async () => {
+		const a = await store.create('A');
+		const b = await store.create('B');
+		await store.setFolder(a.id, 'Printer parts');
+		expect((await store.setFolder(b.id, 'PRINTER PARTS'))?.folder).toBe('Printer parts');
+	});
+
+	it('treats a blank folder as no folder, and reports an unknown design as null', async () => {
+		const d = await store.create('A');
+		await store.setFolder(d.id, 'Home');
+		expect('folder' in (await store.setFolder(d.id, '   '))!).toBe(false);
+		expect(await store.setFolder('ffffffffffffffffffffffffffffffff', 'Home')).toBeNull();
+		expect(await store.setFolder('../x', 'Home')).toBeNull();
+	});
+
+	it('keeps the folder when the editor saves the design, whatever that copy of it says', async () => {
+		const d = await store.create('A');
+		await store.setFolder(d.id, 'Home');
+		const saved = await store.save(d.id, { ...withBox(d), folder: 'Elsewhere' });
+		expect(saved?.folder).toBe('Home');
+		const fresh = await store.create('B');
+		const stale = { ...withBox(fresh), folder: 'Sneaky' };
+		expect((await store.save(fresh.id, stale))?.folder).toBeUndefined();
+	});
+
+	it('keeps a copy in the folder of the original', async () => {
+		const d = await store.create('A');
+		await store.setFolder(d.id, 'Home');
+		expect((await store.duplicate(d.id))?.folder).toBe('Home');
+	});
+
+	it('renames a folder for every design in it, and merges into one that exists', async () => {
+		const a = await store.create('A');
+		const b = await store.create('B');
+		const c = await store.create('C');
+		await store.setFolder(a.id, 'Old');
+		await store.setFolder(b.id, 'old');
+		await store.setFolder(c.id, 'Keep');
+		expect(await store.renameFolder('OLD', 'New name')).toBe(2);
+		const byName = Object.fromEntries((await store.list()).map((s) => [s.name, s.folder]));
+		expect(byName).toEqual({ A: 'New name', B: 'New name', C: 'Keep' });
+		expect(await store.renameFolder('New name', 'keep')).toBe(2);
+		expect((await store.list()).filter((s) => s.folder === 'Keep')).toHaveLength(3);
+		expect(await store.renameFolder('Nothing here', 'Whatever')).toBe(0);
+		await expect(store.renameFolder('Keep', '   ')).rejects.toThrow(/folder/i);
+	});
+
+	it('takes a folder apart: its designs are kept and are in no folder', async () => {
+		const a = await store.create('A');
+		const b = await store.create('B');
+		await store.setFolder(a.id, 'Gone');
+		await store.setFolder(b.id, 'Stays');
+		expect(await store.removeFolder('gone')).toBe(1);
+		const list = await store.list();
+		expect(list).toHaveLength(2);
+		expect(list.find((s) => s.name === 'A')?.folder).toBeUndefined();
+		expect(list.find((s) => s.name === 'B')?.folder).toBe('Stays');
+		expect(await store.removeFolder('gone')).toBe(0);
+	});
+});

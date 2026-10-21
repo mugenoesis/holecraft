@@ -239,3 +239,64 @@ describe('persistence', () => {
 		expect((await app.inject('/api/designs')).headers['content-type']).toContain('application/json');
 	});
 });
+
+describe('folders', () => {
+	const patch = (id: string, body: unknown) => app.inject({ method: 'PATCH', url: `/api/designs/${id}`, ...json(body) });
+	const summaries = async () => (await app.inject('/api/designs')).json<{ id: string; name: string; folder?: string }[]>();
+
+	it('PATCH puts a design in a folder, shows it in the list, and takes it out with null', async () => {
+		const d = await create('Bracket');
+		const moved = await patch(d.id, { folder: 'Printer parts' });
+		expect(moved.statusCode).toBe(200);
+		expect(moved.json<Design>().folder).toBe('Printer parts');
+		expect((await summaries())[0]?.folder).toBe('Printer parts');
+		expect((await patch(d.id, { folder: null })).json<Design>().folder).toBeUndefined();
+		expect((await summaries())[0]?.folder).toBeUndefined();
+	});
+
+	it('PATCH can rename and move at once, and a folder that is not text is refused', async () => {
+		const d = await create('Old');
+		const both = (await patch(d.id, { name: 'New', folder: 'Home' })).json<Design>();
+		expect(both).toMatchObject({ name: 'New', folder: 'Home' });
+		for (const folder of [5, {}, ['x']]) expect((await patch(d.id, { folder })).statusCode, JSON.stringify(folder)).toBe(400);
+	});
+
+	it('PATCH on an unknown design is 404, also when it only moves it', async () => {
+		expect((await patch('0123456789abcdef0123456789abcdef', { folder: 'x' })).statusCode).toBe(404);
+	});
+
+	it('a save from the editor does not change the folder', async () => {
+		const d = await create('A');
+		await patch(d.id, { folder: 'Home' });
+		const res = await app.inject({ method: 'PUT', url: `/api/designs/${d.id}`, ...json({ ...d, folder: 'Elsewhere' }) });
+		expect(res.json<Design>().folder).toBe('Home');
+	});
+
+	it('renames a folder for all the designs in it', async () => {
+		const a = await create('A');
+		const b = await create('B');
+		await patch(a.id, { folder: 'Old' });
+		await patch(b.id, { folder: 'Old' });
+		const res = await app.inject({ method: 'POST', url: '/api/design-folders/rename', ...json({ from: 'Old', to: 'New' }) });
+		expect(res.statusCode).toBe(200);
+		expect(res.json()).toEqual({ moved: 2 });
+		expect((await summaries()).map((s) => s.folder)).toEqual(['New', 'New']);
+	});
+
+	it('refuses a folder rename with a blank or missing name', async () => {
+		for (const body of [{ from: 'Old', to: '  ' }, { from: 'Old' }, { to: 'x' }, { from: 5, to: 'x' }, {}]) {
+			const res = await app.inject({ method: 'POST', url: '/api/design-folders/rename', ...json(body) });
+			expect(res.statusCode, JSON.stringify(body)).toBe(400);
+		}
+	});
+
+	it('takes a folder apart and keeps its designs', async () => {
+		const a = await create('A');
+		await patch(a.id, { folder: 'Gone' });
+		const res = await app.inject({ method: 'POST', url: '/api/design-folders/remove', ...json({ name: 'Gone' }) });
+		expect(res.json()).toEqual({ moved: 1 });
+		expect((await summaries())[0]).toMatchObject({ name: 'A' });
+		expect((await summaries())[0]?.folder).toBeUndefined();
+		expect((await app.inject({ method: 'POST', url: '/api/design-folders/remove', ...json({}) })).statusCode).toBe(400);
+	});
+});

@@ -414,6 +414,10 @@ button.primary:disabled {
 	padding: 0;
 	list-style: none;
 }
+/* a folded folder's designs: the grid's own display would otherwise win over the hidden attribute */
+.design-grid[hidden] {
+	display: none;
+}
 
 .design-card {
 	display: flex;
@@ -474,6 +478,106 @@ button.primary:disabled {
 	border: 1px solid var(--accent);
 	border-radius: 6px;
 	padding: 2px 6px;
+}
+
+/* Search and order over the designs list, and the folders it is grouped in */
+.design-tools {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 18px;
+}
+
+.design-search {
+	flex: 1 1 220px;
+	min-width: 0;
+	font: inherit;
+	color: var(--text);
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 6px 10px;
+}
+
+.design-sort {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.design-sort select,
+.folder-select {
+	font: inherit;
+	color: var(--text);
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	padding: 4px 6px;
+}
+
+.folder-select,
+.folder-name-box {
+	margin: 0 0 8px;
+	max-width: 100%;
+}
+
+.folder-name-box {
+	font: inherit;
+	color: var(--text);
+	background: var(--bg);
+	border: 1px solid var(--accent);
+	border-radius: 6px;
+	padding: 4px 6px;
+}
+
+.folder-group {
+	margin-bottom: 26px;
+}
+
+.folder-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 10px;
+	padding-bottom: 6px;
+	border-bottom: 1px solid var(--border);
+}
+
+.folder-title {
+	margin: 0;
+	font-size: 16px;
+}
+
+.folder-group > .folder-title {
+	margin-bottom: 10px;
+}
+
+.folder-count {
+	font-size: 12px;
+}
+
+.folder-toggle {
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	color: var(--muted);
+	background: transparent;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	cursor: pointer;
+}
+
+.folder-toggle:hover,
+.folder-toggle:focus-visible {
+	color: var(--text);
+	border-color: var(--border);
+}
+
+.folder-head .rename-box {
+	min-width: 0;
+	flex: 0 1 280px;
 }
 
 .confirm {

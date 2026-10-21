@@ -16,6 +16,8 @@ export interface DesignSummary {
 	updatedAt: string;
 	/** Top-level shapes and groups. */
 	objectCount: number;
+	/** The folder the design is in (one level, no nesting); absent if it is in none. */
+	folder?: string;
 	/** When the design's thumbnail picture was last made (ms since 1970); absent if it has none. */
 	thumbnailAt?: number;
 }
@@ -169,6 +171,8 @@ export interface Design {
 	roots: NodeId[];
 	/** Support points for resin printing, once they have been made or added to (see supportPoints.ts). */
 	supports?: SupportPlan;
+	/** The folder the design is in on the designs list (one level); the server owns it, so a save never changes it. */
+	folder?: string;
 	createdAt: string;
 	updatedAt: string;
 }

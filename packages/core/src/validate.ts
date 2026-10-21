@@ -13,6 +13,7 @@ import {
 	type SupportPlan,
 	type SupportPoint,
 } from './design.ts';
+import { cleanFolderName } from './designFolders.ts';
 import { MAX_SHAPE_SIZE } from './edit.ts';
 import type { GridSettings } from './grid.ts';
 import { MAX_STRETCH, MIN_STRETCH } from './groupFrame.ts';
@@ -469,6 +470,7 @@ export function parseDesign(input: unknown): Design {
 		visit(id, `roots[${i}]`, 0);
 	});
 
+	const folder = cleanFolderName(raw.folder);
 	return {
 		formatVersion: DESIGN_FORMAT_VERSION,
 		palette: parsePalette(raw.palette),
@@ -479,6 +481,7 @@ export function parseDesign(input: unknown): Design {
 		nodes: reached,
 		roots: [...roots],
 		...(supports ? { supports } : {}),
+		...(folder ? { folder } : {}),
 		createdAt: date(raw.createdAt),
 		updatedAt: date(raw.updatedAt),
 	};

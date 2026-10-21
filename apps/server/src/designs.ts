@@ -1,14 +1,18 @@
 import { mkdir, readdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
+	cleanFolderName,
 	createEmptyDesign,
 	type Design,
 	type DesignSummary,
 	DesignValidationError,
+	folderKey,
+	folderNames,
 	MAX_NAME_LENGTH,
 	newId,
 	parseDesign,
 	renameDesign,
+	withFolder,
 } from '@holecraft/core';
 
 export type { DesignSummary };
@@ -59,9 +63,11 @@ export class DesignStore {
 				const raw = JSON.parse(await readFile(path.join(this.folder, name), 'utf8')) as Record<string, unknown>;
 				const id = name.slice(0, -'.json'.length);
 				if (raw.id !== id || typeof raw.name !== 'string' || !Array.isArray(raw.roots)) continue;
+				const folder = cleanFolderName(raw.folder);
 				summaries.push({
 					id,
 					name: raw.name,
+					...(folder ? { folder } : {}),
 					createdAt: String(raw.createdAt),
 					updatedAt: String(raw.updatedAt),
 					objectCount: raw.roots.length,
@@ -123,7 +129,12 @@ export class DesignStore {
 
 			const parsed = parseDesign(input);
 			if (parsed.id !== id) throw new DesignValidationError('id', 'does not match the design being saved');
-			const saved: Design = { ...parsed, createdAt: existing.createdAt, updatedAt: new Date().toISOString() };
+			// the folder is the server's, set only by moving: what the editor held when it opened the design may be out of date
+			const saved: Design = {
+				...withFolder(parsed, existing.folder ?? null),
+				createdAt: existing.createdAt,
+				updatedAt: new Date().toISOString(),
+			};
 			await this.write(saved);
 			return saved;
 		});
@@ -138,6 +149,48 @@ export class DesignStore {
 			const renamed = renameDesign(design, cleaned);
 			if (renamed !== design) await this.write(renamed);
 			return renamed;
+		});
+	}
+
+	/**
+	 * Puts a design in a folder (null or a blank name takes it out of its folder). A folder is only a name carried by the designs in it, so
+	 * naming one makes it, and a spelling that differs only in capitals from an existing folder's joins that folder. Moving is not changing
+	 * the design, so its modification time stays. Null if there is no such design.
+	 */
+	async setFolder(id: string, name: string | null): Promise<Design | null> {
+		const wanted = cleanFolderName(name);
+		const known = wanted ? folderNames(await this.list()).find((f) => folderKey(f) === folderKey(wanted)) : undefined;
+		return this.changeFolder(id, () => known ?? wanted);
+	}
+
+	/** Renames a folder for every design in it (a name that is another folder's joins that folder); how many designs were moved. */
+	async renameFolder(from: string, to: string): Promise<number> {
+		const target = cleanFolderName(to);
+		if (!target) throw new DesignValidationError('folder', 'must not be blank');
+		const designs = await this.list();
+		const other = folderNames(designs).find((f) => folderKey(f) === folderKey(target) && folderKey(f) !== folderKey(from));
+		return this.moveFolder(designs, from, other ?? target);
+	}
+
+	/** Takes a folder apart: its designs stay, in no folder. How many designs were moved. */
+	async removeFolder(name: string): Promise<number> {
+		return this.moveFolder(await this.list(), name, null);
+	}
+
+	private async moveFolder(designs: DesignSummary[], from: string, to: string | null): Promise<number> {
+		const inFolder = designs.filter((d) => d.folder && folderKey(d.folder) === folderKey(from));
+		const moved = await Promise.all(inFolder.map((d) => this.changeFolder(d.id, () => to)));
+		return moved.filter(Boolean).length;
+	}
+
+	private async changeFolder(id: string, choose: () => string | null): Promise<Design | null> {
+		if (!isValidDesignId(id)) return null;
+		return this.serial(id, async () => {
+			const design = await this.get(id);
+			if (!design) return null;
+			const moved = withFolder(design, choose());
+			if (moved !== design) await this.write(moved);
+			return moved;
 		});
 	}
 
