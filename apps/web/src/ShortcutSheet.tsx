@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef } from 'react';
+import { ReportProblem } from './ReportProblem.tsx';
 import { SHORTCUT_GROUPS } from './shortcutList.ts';
 
 /** A list of keys as keycaps: "Ctrl Shift Z" is three. */
@@ -9,14 +10,25 @@ function Keys({ keys }: { keys: string }) {
 	));
 }
 
+/** Tab goes round the buttons and links in the sheet and never out of it. */
+function keepTabInside(e: KeyboardEvent, sheet: HTMLElement | null) {
+	e.preventDefault();
+	const items = Array.from(sheet?.querySelectorAll<HTMLElement>('a[href], button, textarea') ?? []);
+	if (items.length === 0) return;
+	const at = items.indexOf(document.activeElement as HTMLElement);
+	const next = (at + (e.shiftKey ? -1 : 1) + items.length) % items.length;
+	items[next]?.focus();
+}
+
 /** Every keyboard shortcut and mouse move in the editor, over the view. Escape, Close or a click outside it shuts it. */
 export function ShortcutSheet({ onClose }: { onClose: () => void }) {
 	const close = useRef<HTMLButtonElement>(null);
+	const dialog = useRef<HTMLDivElement>(null);
 	useEffect(() => {
 		const opener = document.activeElement;
 		close.current?.focus();
 		const onKey = (e: KeyboardEvent) => {
-			if (e.key === 'Tab') return e.preventDefault(); // Close is the only thing in the sheet to reach
+			if (e.key === 'Tab') return keepTabInside(e, dialog.current);
 			if (e.key !== 'Escape') return;
 			e.stopImmediatePropagation();
 			onClose();
@@ -37,7 +49,7 @@ export function ShortcutSheet({ onClose }: { onClose: () => void }) {
 				if (e.target === e.currentTarget) onClose();
 			}}
 		>
-			<div className="shortcuts" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+			<div className="shortcuts" ref={dialog} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
 				<header>
 					<h2>Keyboard shortcuts</h2>
 					<button type="button" ref={close} onClick={onClose}>
@@ -64,6 +76,7 @@ export function ShortcutSheet({ onClose }: { onClose: () => void }) {
 				<p className="muted">
 					Press <kbd>?</kbd> any time to open this; <kbd>Esc</kbd> closes it.
 				</p>
+				<ReportProblem />
 			</div>
 		</div>
 	);

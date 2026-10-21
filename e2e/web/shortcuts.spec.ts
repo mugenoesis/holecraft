@@ -28,8 +28,16 @@ test.describe('the keyboard shortcut sheet', () => {
 		await page.keyboard.press('Enter');
 		const close = page.getByRole('button', { name: 'Close' });
 		await expect(close).toBeFocused();
+		const sheet = page.getByRole('dialog');
 		await page.keyboard.press('Tab');
-		await expect(close).toBeFocused();
+		await expect(sheet.getByRole('link', { name: 'Report a problem' })).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(sheet.getByRole('button', { name: 'Copy diagnostics' })).toBeFocused();
+		await page.keyboard.press('Tab');
+		await expect(close).toBeFocused(); // round again: focus never leaves the sheet
+		await page.keyboard.press('Shift+Tab');
+		await expect(sheet.getByRole('button', { name: 'Copy diagnostics' })).toBeFocused();
+		await page.keyboard.press('Shift+Tab');
 		await page.keyboard.press('Shift+Tab');
 		await expect(close).toBeFocused();
 		await page.keyboard.press('Escape');

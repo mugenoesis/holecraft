@@ -304,6 +304,10 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/make-fonts.sh` | Rebuild the bundled Text fonts (`packages/core/src/fonts/fontData.generated.ts`: outlines, widths and boxes of Basic Latin and Latin-1 for four open fonts) and the licence texts in `licenses/` from the `@fontsource` dev dependencies. Only needed when a font changes |
 | `scripts/make-icon.sh` | Regenerate the app icons from the cube mark cropped out of `branding/logo.jpg` |
 
+## Reporting a problem
+
+The keyboard shortcut sheet (the **?** button, or the key) and the foot of the designs list have **Report a problem**: it opens a new issue on GitHub in your own browser with the Holecraft version, browser, platform and screen size already filled in, and headings for what happened and what you expected. Nothing is sent from your server or your design, and a page cannot attach a screenshot for you, so drag one into the issue. **Copy diagnostics** puts the same details on the clipboard, with the last few errors the page hit (messages only, since the page was opened); there is no design data in it. Where the browser will not allow clipboard access (a page opened over plain http from another computer), the text is shown in a box to copy by hand.
+
 ## Support the project
 
 Holecraft is free and I build it in my spare time. If it saves you time or gets your next print designed, you can
