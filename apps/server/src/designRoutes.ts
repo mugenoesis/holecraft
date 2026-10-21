@@ -10,6 +10,20 @@ export const MAX_DESIGN_BYTES = 8 * 1024 * 1024;
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
+interface DesignChange {
+	name?: string;
+	folder?: string | null;
+}
+
+/** What a PATCH asks for (a new name and/or a folder, null for none), or the problem with it in words. */
+function readChange(body: unknown): DesignChange | string {
+	const { name, folder } = isObject(body) ? body : ({} as Record<string, unknown>);
+	if (name === undefined && folder === undefined) return 'Expected a name or a folder';
+	if (name !== undefined && typeof name !== 'string') return 'name must be text';
+	if (folder !== undefined && folder !== null && typeof folder !== 'string') return 'folder must be text, or null for no folder';
+	return { ...(name === undefined ? {} : { name }), ...(folder === undefined ? {} : { folder }) };
+}
+
 /** The design storage API: list, create, open, save, rename, duplicate and delete. */
 export function registerDesignRoutes(app: FastifyInstance, store: DesignStore, thumbnails: ThumbnailStore): void {
 	app.setErrorHandler((error, request, reply) => {
@@ -47,11 +61,28 @@ export function registerDesignRoutes(app: FastifyInstance, store: DesignStore, t
 		return saved ?? reply.code(404).send(NOT_FOUND);
 	});
 
+	// Renames a design and/or moves it to a folder (a folder name, or null for none).
 	app.patch<{ Params: { id: string } }>('/api/designs/:id', async (request, reply) => {
+		const change = readChange(request.body);
+		if (typeof change === 'string') return reply.code(400).send({ error: change });
+		let design = change.name === undefined ? await store.get(request.params.id) : await store.rename(request.params.id, change.name);
+		if (design && change.folder !== undefined) design = await store.setFolder(request.params.id, change.folder);
+		return design ?? reply.code(404).send(NOT_FOUND);
+	});
+
+	// Folders are names the designs carry, so renaming or removing one moves the designs in it.
+	app.post('/api/design-folders/rename', async (request, reply) => {
+		const { from, to } = isObject(request.body) ? request.body : ({} as Record<string, unknown>);
+		if (typeof from !== 'string' || typeof to !== 'string' || from.trim() === '') {
+			return reply.code(400).send({ error: 'Expected the folder (from) and its new name (to), as text' });
+		}
+		return { moved: await store.renameFolder(from, to) };
+	});
+
+	app.post('/api/design-folders/remove', async (request, reply) => {
 		const name = isObject(request.body) ? request.body.name : undefined;
-		if (typeof name !== 'string') return reply.code(400).send({ error: 'name must be text' });
-		const renamed = await store.rename(request.params.id, name);
-		return renamed ?? reply.code(404).send(NOT_FOUND);
+		if (typeof name !== 'string' || name.trim() === '') return reply.code(400).send({ error: 'Expected the folder name, as text' });
+		return { moved: await store.removeFolder(name) };
 	});
 
 	app.post<{ Params: { id: string } }>('/api/designs/:id/duplicate', async (request, reply) => {

@@ -90,3 +90,18 @@ export async function uploadThumbnail(id: string, picture: Blob): Promise<void> 
 export function thumbnailUrl(design: { id: string; thumbnailAt?: number }): string | null {
 	return design.thumbnailAt === undefined ? null : `/api/designs/${design.id}/thumbnail?v=${design.thumbnailAt}`;
 }
+
+/** Puts a design in a folder (a name, which makes the folder if it is new) or takes it out of its folder (null). */
+export async function moveDesignToFolder(id: string, folder: string | null): Promise<Design> {
+	return readDesign(await request(`/api/designs/${id}`, jsonInit('PATCH', { folder })));
+}
+
+/** Renames a folder for every design in it. */
+export async function renameFolderOnServer(from: string, to: string): Promise<void> {
+	await request('/api/design-folders/rename', jsonInit('POST', { from, to }));
+}
+
+/** Takes a folder apart: its designs are kept, in no folder. */
+export async function removeFolderOnServer(name: string): Promise<void> {
+	await request('/api/design-folders/remove', jsonInit('POST', { name }));
+}

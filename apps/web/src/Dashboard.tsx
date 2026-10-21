@@ -1,11 +1,25 @@
-import type { DesignSummary } from '@holecraft/core';
+import { type DesignOrder, type DesignSummary, folderNames } from '@holecraft/core';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError, createDesign, deleteDesign, duplicateDesign, listDesigns, renameDesignOnServer, thumbnailUrl } from './designsApi.ts';
+import { DesignGroup } from './DesignFolders.tsx';
+import {
+	ApiError,
+	createDesign,
+	deleteDesign,
+	duplicateDesign,
+	listDesigns,
+	moveDesignToFolder,
+	removeFolderOnServer,
+	renameDesignOnServer,
+	renameFolderOnServer,
+	thumbnailUrl,
+} from './designsApi.ts';
+import { FolderSelect } from './FolderSelect.tsx';
 import { Link } from './Link.tsx';
 import { afterLeaving } from './leaving.ts';
 import { designPath, navigate } from './router.ts';
 import { ServerStatus } from './ServerStatus.tsx';
 import { formatWhen } from './time.ts';
+import { useDesignsView } from './useDesignsView.ts';
 
 type Load = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; designs: DesignSummary[] };
 
@@ -86,24 +100,97 @@ export function Dashboard() {
 				)}
 
 				{load.kind === 'ready' && load.designs.length > 0 && (
-					<ul className="design-grid" data-testid="design-list" aria-label="Designs">
-						{load.designs.map((design) => (
-							<DesignCard key={design.id} design={design} onChanged={refresh} onProblem={setProblem} />
-						))}
-					</ul>
+					<DesignList designs={load.designs} onChanged={refresh} onProblem={setProblem} />
 				)}
 			</main>
 		</div>
 	);
 }
 
-interface CardProps {
-	design: DesignSummary;
+const ORDER_LABELS: readonly { id: DesignOrder; label: string }[] = [
+	{ id: 'updated', label: 'Last changed' },
+	{ id: 'name', label: 'Name' },
+	{ id: 'created', label: 'Date made' },
+];
+
+interface ListProps {
+	designs: DesignSummary[];
 	onChanged: () => Promise<void>;
 	onProblem: (message: string | null) => void;
 }
 
-function DesignCard({ design, onChanged, onProblem }: CardProps) {
+/** The designs in folders, with a search box and a choice of order over them. */
+function DesignList({ designs, onChanged, onProblem }: ListProps) {
+	const view = useDesignsView(designs);
+	const folders = folderNames(designs);
+	const hasFolders = folders.length > 0;
+
+	/** Changes something on the server, then reloads the list; says so if the design or folder has gone. */
+	const change = async (action: () => Promise<unknown>) => {
+		onProblem(null);
+		try {
+			await action();
+		} catch (error) {
+			onProblem(error instanceof ApiError && error.status === 404 ? 'That design no longer exists' : messageOf(error));
+		}
+		await onChanged();
+	};
+
+	return (
+		<>
+			<div className="design-tools">
+				<input
+					type="search"
+					className="design-search"
+					aria-label="Search designs"
+					placeholder="Search designs and folders"
+					value={view.query}
+					onChange={(e) => view.setQuery(e.target.value)}
+				/>
+				<label className="design-sort">
+					<span className="muted">Sort by</span>
+					<select aria-label="Sort designs by" value={view.order} onChange={(e) => view.setOrder(e.target.value as DesignOrder)}>
+						{ORDER_LABELS.map((o) => (
+							<option key={o.id} value={o.id}>
+								{o.label}
+							</option>
+						))}
+					</select>
+				</label>
+			</div>
+
+			<div data-testid="design-list">
+				{view.groups.length === 0 && <p className="muted">No designs match “{view.query.trim()}”.</p>}
+				{view.groups.map((group) => (
+					<DesignGroup
+						key={group.folder ?? ''}
+						group={group}
+						hasFolders={hasFolders}
+						open={group.folder === null || view.isOpen(group.folder)}
+						onToggle={() => group.folder !== null && view.toggleFolder(group.folder)}
+						onRename={(to) => change(() => renameFolderOnServer(group.folder ?? '', to))}
+						onRemove={() => change(() => removeFolderOnServer(group.folder ?? ''))}
+					>
+						<ul className="design-grid" aria-label={group.folder ?? 'Designs'} hidden={group.folder !== null && !view.isOpen(group.folder)}>
+							{group.designs.map((design) => (
+								<DesignCard key={design.id} design={design} folders={folders} onChanged={onChanged} onProblem={onProblem} />
+							))}
+						</ul>
+					</DesignGroup>
+				))}
+			</div>
+		</>
+	);
+}
+
+interface CardProps {
+	design: DesignSummary;
+	folders: readonly string[];
+	onChanged: () => Promise<void>;
+	onProblem: (message: string | null) => void;
+}
+
+function DesignCard({ design, folders, onChanged, onProblem }: CardProps) {
 	const [mode, setMode] = useState<'view' | 'renaming' | 'confirming'>('view');
 	const [busy, setBusy] = useState(false);
 
@@ -149,6 +236,13 @@ function DesignCard({ design, onChanged, onProblem }: CardProps) {
 			<p className="muted design-meta">
 				{objects} · updated {formatWhen(design.updatedAt)}
 			</p>
+			<FolderSelect
+				name={design.name}
+				folder={design.folder}
+				folders={folders}
+				disabled={busy}
+				onMove={(folder) => void run(() => moveDesignToFolder(design.id, folder))}
+			/>
 
 			{mode === 'confirming' ? (
 				<div className="confirm" role="group" aria-label="Confirm delete">

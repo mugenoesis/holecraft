@@ -4,6 +4,7 @@ export * from './chamfer.ts';
 export * from './colour.ts';
 export * from './countersink.ts';
 export * from './design.ts';
+export * from './designFolders.ts';
 export * from './edgeEdits.ts';
 export * from './edges.ts';
 export * from './edgeTool.ts';
