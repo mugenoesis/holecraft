@@ -27,6 +27,7 @@ import {
 	groupNodes,
 	type History,
 	type MeshShapeInput,
+	mergeShapes,
 	moveNodes,
 	moveSelection,
 	moveSupportPoint,
@@ -131,6 +132,8 @@ export type EditorAction =
 	| { type: 'resinHole'; kind: ResinHoleKind; diameter: number }
 	| { type: 'tilt'; degrees: number }
 	| { type: 'replaceWithMesh'; id: NodeId; input: MeshShapeInput }
+	// The selected shapes (or one group) become one mesh solid: `input` is the merged model the engine worked out from them.
+	| { type: 'mergeToMesh'; ids: NodeId[]; input: MeshShapeInput }
 	// Support points for resin printing: the ones the slicer made, one added or taken away, and a point dragged (supportDragStart, then
 	// supportMove as it goes, then moveEnd to keep it or cancelDrag to take it back).
 	| { type: 'supportsMade'; doc: SupportPointsDocument }
@@ -213,8 +216,8 @@ type ColourDragAction = ActionOf<'colourStart' | 'previewColor' | 'previewPalett
 type HistoryAction = ActionOf<'undo' | 'redo'>;
 type StretchLockAction = ActionOf<'setStretchUnlocked'>;
 /** Everything else: edits to the document itself, each one an undoable step. */
-/** The resin printing tools: holes for the resin to drain through, and tilting a model to peel more gently. */
-type ResinAction = ActionOf<'resinHole' | 'tilt' | 'replaceWithMesh'>;
+/** The resin printing tools (drain holes, tilting) and the two edits that swap shapes for a mesh from the engine: Hollow and Merge. */
+type ResinAction = ActionOf<'resinHole' | 'tilt' | 'replaceWithMesh' | 'mergeToMesh'>;
 /** Support points: the slicer's, and the user's own. */
 type SupportAction = ActionOf<
 	'supportsMade' | 'supportAdd' | 'supportRemove' | 'supportRadius' | 'supportsClear' | 'supportDragStart' | 'supportMove'
@@ -411,6 +414,10 @@ function reduceResin(state: EditorState, action: ResinAction): EditorState {
 		const swapped = replaceWithMesh(design, action.id, action.input);
 		return swapped.design === design ? state : commit(state, swapped.design, [swapped.id]);
 	}
+	if (action.type === 'mergeToMesh') {
+		const merged = mergeShapes(design, action.ids, action.input);
+		return merged.id === null ? state : commit(state, merged.design, [merged.id]);
+	}
 	const made = addResinHole(design, state.selection, action.kind, action.diameter);
 	return made.design === design ? state : commit(state, made.design, made.selection);
 }
@@ -591,6 +598,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 		case 'resinHole':
 		case 'tilt':
 		case 'replaceWithMesh':
+		case 'mergeToMesh':
 			return reduceResin(state, action);
 
 		case 'supportsMade':

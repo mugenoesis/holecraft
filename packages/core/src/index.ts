@@ -17,6 +17,7 @@ export * from './history.ts';
 export * from './ids.ts';
 export * from './libraryShape.ts';
 export * from './mat4.ts';
+export * from './mergeShapes.ts';
 export * from './meshShape.ts';
 export * from './ops.ts';
 export * from './paintEdits.ts';
