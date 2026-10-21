@@ -19,6 +19,7 @@ import { ChamferFields } from './ChamferFields.tsx';
 import { ColourField, useColourEdit } from './ColourField.tsx';
 import { CountersinkFields } from './CountersinkFields.tsx';
 import type { EditorAction } from './editorState.ts';
+import { PanelSection } from './PanelSection.tsx';
 import { SaveToLibrary } from './SaveToLibrary.tsx';
 import { ShapeParamFields } from './ShapeParamFields.tsx';
 import { useDraft } from './useDraft.ts';
@@ -123,10 +124,9 @@ export function PropertiesPanel({ design, selection, dispatch, library, onEditSk
 
 	if (nodes.length === 0) {
 		return (
-			<section aria-label="Properties">
-				<h2>Properties</h2>
+			<PanelSection title="Properties">
 				<p className="muted">Select a shape to edit its properties.</p>
-			</section>
+			</PanelSection>
 		);
 	}
 
@@ -172,14 +172,13 @@ export function PropertiesPanel({ design, selection, dispatch, library, onEditSk
 
 	if (!only) {
 		return (
-			<section aria-label="Properties">
-				<h2>Properties</h2>
+			<PanelSection title="Properties">
 				<p>{nodes.length} shapes selected</p>
 				{typeToggle}
 				{color}
 				{actions}
 				{saveBox}
-			</section>
+			</PanelSection>
 		);
 	}
 
@@ -192,8 +191,7 @@ export function PropertiesPanel({ design, selection, dispatch, library, onEditSk
 		const unlocked = unlockedStretch.includes(only.id);
 		const resizable = canResizeGroup(design, only.id, { fasteners: unlocked });
 		return (
-			<section aria-label="Properties">
-				<h2>Properties</h2>
+			<PanelSection title="Properties">
 				<div key={only.id} className="fields">
 					<TextField label="Name" value={only.name} onCommit={(name) => dispatch({ type: 'rename', id: only.id, name })} />
 					{(['X', 'Y', 'Z'] as const).map((axis, i) => (
@@ -231,7 +229,7 @@ export function PropertiesPanel({ design, selection, dispatch, library, onEditSk
 				{color}
 				{actions}
 				{saveBox}
-			</section>
+			</PanelSection>
 		);
 	}
 
@@ -249,8 +247,7 @@ export function PropertiesPanel({ design, selection, dispatch, library, onEditSk
 	const size = only.kind === 'shape' ? (only.params as { width: number; depth: number; height: number }) : null;
 
 	return (
-		<section aria-label="Properties">
-			<h2>Properties</h2>
+		<PanelSection title="Properties">
 			{/* Keyed by id so half-typed values never leak from one shape to another. */}
 			<div key={only.id} className="fields">
 				<TextField label="Name" value={only.name} onCommit={(name) => dispatch({ type: 'rename', id: only.id, name })} />
@@ -287,7 +284,7 @@ export function PropertiesPanel({ design, selection, dispatch, library, onEditSk
 			</div>
 			{actions}
 			{saveBox}
-		</section>
+		</PanelSection>
 	);
 }
 

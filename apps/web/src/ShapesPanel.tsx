@@ -12,6 +12,7 @@ import {
 } from '@holecraft/core';
 import { type Dispatch, useState } from 'react';
 import type { EditorAction } from './editorState.ts';
+import { PanelSection } from './PanelSection.tsx';
 import { type Placing, placingHint, samePlacing } from './placing.ts';
 import { matchingSaved, SavedShapes } from './SavedShapes.tsx';
 import { SHAPE_DRAG_TYPE } from './shapeDrag.ts';
@@ -55,8 +56,7 @@ export function ShapesPanel({ onAddShape, onArm, onLift, onRelease, placing, tou
 	const shapes = category === 'mine' ? [] : filterShapes(query, category);
 
 	return (
-		<section aria-label="Shapes">
-			<h2>Shapes</h2>
+		<PanelSection title="Shapes">
 			<input
 				type="search"
 				className="shape-search"
@@ -118,7 +118,7 @@ export function ShapesPanel({ onAddShape, onArm, onLift, onRelease, placing, tou
 					</div>
 				</>
 			)}
-		</section>
+		</PanelSection>
 	);
 }
 
@@ -131,8 +131,7 @@ interface ObjectListProps {
 
 export function ObjectList({ design, selection, onSelect, dispatch }: ObjectListProps) {
 	return (
-		<section aria-label="Objects">
-			<h2>Objects</h2>
+		<PanelSection title="Objects">
 			{design.roots.length > 1 && (
 				<button type="button" className="show-all" onClick={() => dispatch({ type: 'selectAll' })} title="Select every object (Ctrl+A)">
 					Select all
@@ -149,7 +148,7 @@ export function ObjectList({ design, selection, onSelect, dispatch }: ObjectList
 				))}
 			</ul>
 			{design.roots.length === 0 && <p className="muted">Nothing here yet.</p>}
-		</section>
+		</PanelSection>
 	);
 }
 

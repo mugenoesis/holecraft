@@ -537,8 +537,9 @@ button.primary:disabled {
 }
 
 .workspace {
+	position: relative;
 	display: grid;
-	grid-template-columns: 1fr 260px;
+	grid-template-columns: 1fr var(--panel-width, 260px);
 	min-height: 0;
 }
 
@@ -1458,6 +1459,69 @@ button.primary:disabled {
 	font-size: 13px;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
+}
+
+/* The edge between the view and the side panel (desktop): a wide, invisible hit area over a thin line that shows on hover and focus. */
+.panel-edge {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: calc(var(--panel-width, 260px) - 3px);
+	z-index: 2;
+	width: 7px;
+	cursor: col-resize;
+	touch-action: none;
+}
+
+.panel-edge::after {
+	content: "";
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 3px;
+	width: 2px;
+	background: transparent;
+}
+
+.panel-edge:hover::after,
+.panel-edge:focus-visible::after {
+	background: var(--accent);
+}
+
+.panel-edge:focus-visible {
+	outline: none;
+}
+
+/* A section's heading with the arrow that folds it away */
+.section-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.section-head h2 {
+	flex: 1;
+	min-width: 0;
+}
+
+.panel .section-toggle {
+	flex: none;
+	width: auto;
+	margin: 0 0 8px;
+	padding: 0 6px;
+	font-size: 12px;
+	line-height: 18px;
+	color: var(--muted);
+	background: transparent;
+	border: 1px solid transparent;
+	cursor: pointer;
+}
+
+.panel .section-toggle:hover,
+.panel .section-toggle:focus-visible {
+	color: var(--text);
+	border-color: var(--border);
 }
 
 .muted {

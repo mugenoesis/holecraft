@@ -1,6 +1,7 @@
 import { type AlignEdge, type Axis, canAlign, canFlip, canStandOnPlane, type Design, type NodeId, type WorkPlane } from '@holecraft/core';
 import type { Dispatch } from 'react';
 import type { EditorAction } from './editorState.ts';
+import { PanelSection } from './PanelSection.tsx';
 
 const AXES: readonly Axis[] = ['x', 'y', 'z'];
 
@@ -26,8 +27,7 @@ export function ArrangePanel({ design, selection, plane, dispatch }: Props) {
 	const align = canAlign(design, selection);
 	const flip = canFlip(design, selection);
 	return (
-		<section aria-label="Arrange">
-			<h2>Arrange</h2>
+		<PanelSection title="Arrange">
 			<div className="arrange-grid" role="group" aria-label="Align">
 				{AXES.map((axis) => (
 					<AlignRow key={axis} axis={axis} enabled={align} dispatch={dispatch} />
@@ -59,7 +59,7 @@ export function ArrangePanel({ design, selection, plane, dispatch }: Props) {
 					</button>
 				</div>
 			)}
-		</section>
+		</PanelSection>
 	);
 }
 
