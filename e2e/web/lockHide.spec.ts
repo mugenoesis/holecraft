@@ -121,3 +121,19 @@ test.describe('hide and lock inside a group', () => {
 		expect(await selectedNames(page)).toEqual(['Group 1']);
 	});
 });
+
+test.describe('the Objects list layout', () => {
+	test('the first row keeps its width beside Select all and Show all, so its name is not broken one letter per line', async ({ page }) => {
+		await dropShape(page, 'Box');
+		await toggle(page, 0, /^Hide/).click();
+		await expect(page.getByRole('button', { name: 'Select all' })).toBeVisible();
+		await expect(page.getByRole('button', { name: 'Show all' })).toBeVisible();
+		const list = await page.getByTestId('object-list').boundingBox();
+		const first = await row(page, 0).locator('button').first().boundingBox();
+		const second = await row(page, 1).locator('button').first().boundingBox();
+		if (!list || !first || !second) throw new Error('the list has no rows');
+		expect(first.width).toBeGreaterThan(list.width * 0.5);
+		expect(second.width).toBeGreaterThan(list.width * 0.5);
+		expect(first.height).toBeLessThan(second.height * 1.5);
+	});
+});
