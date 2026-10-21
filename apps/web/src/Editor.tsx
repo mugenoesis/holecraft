@@ -25,6 +25,7 @@ import { ShortcutSheet } from './ShortcutSheet.tsx';
 import { TopBar } from './TopBar.tsx';
 import { useAutosave } from './useAutosave.ts';
 import { useLibrary } from './useLibrary.ts';
+import { useMerge } from './useMerge.ts';
 import { useMeshes } from './useMeshes.ts';
 import { SectionFoldingContext, usePanelLayout } from './usePanelLayout.ts';
 import { usePlacing } from './usePlacing.ts';
@@ -86,6 +87,7 @@ function EditorView({ initial }: { initial: Design }) {
 	const design = state.history.present;
 	const { meshes, add: addMesh } = useMeshes(design);
 	const supportsUi = useSupportsUi(design);
+	const merge = useMerge(design, state.selection, meshes, addMesh, dispatch);
 	const save = useAutosave(design, initial);
 	useDocumentTitle(design.name);
 	const [help, setHelp] = useState(false);
@@ -156,6 +158,7 @@ function EditorView({ initial }: { initial: Design }) {
 				dispatch={dispatch}
 				meshes={meshes}
 				save={save}
+				merge={merge}
 				onHelp={openHelp}
 				onImported={(input, mesh) => {
 					addMesh(input.ref, mesh);
@@ -210,7 +213,7 @@ function EditorView({ initial }: { initial: Design }) {
 					}
 					supports={supportsView}
 					compact={compact}
-					selectionBar={compact && <SelectionBar design={design} selection={state.selection} dispatch={dispatch} />}
+					selectionBar={compact && <SelectionBar design={design} selection={state.selection} dispatch={dispatch} merge={merge} />}
 				/>
 				<PanelEdge compact={compact} width={panelLayout.width} onWidth={panelLayout.setWidth} onReset={panelLayout.resetWidth} />
 				<aside className="panel">

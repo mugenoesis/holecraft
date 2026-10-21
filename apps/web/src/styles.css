@@ -623,6 +623,11 @@ button.primary:disabled {
 	.server-status .server-label {
 		display: none;
 	}
+
+	/* the logo stays; its name makes room for the buttons in the top bar (Merge made it just too long for a 1024 px screen) */
+	.topbar .brand span {
+		display: none;
+	}
 }
 
 .server-status .dot {

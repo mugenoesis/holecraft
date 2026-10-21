@@ -7,6 +7,7 @@ import { Link } from './Link.tsx';
 import { ServerStatus } from './ServerStatus.tsx';
 import type { SaveStatus } from './saveController.ts';
 import { useDraft } from './useDraft.ts';
+import type { MergeUi } from './useMerge.ts';
 
 const STATUS_LABEL: Record<SaveStatus, string> = {
 	saved: 'Saved',
@@ -19,6 +20,8 @@ interface Props {
 	state: EditorState;
 	dispatch: Dispatch<EditorAction>;
 	meshes: ReadonlyMap<string, MeshData>;
+	/** Merging the selected shapes into one solid. */
+	merge: MergeUi;
 	onImported: (input: MeshShapeInput, mesh: MeshData) => void;
 	save: { status: SaveStatus; problem: string | null; lastError: string | undefined };
 	/** The compact layout: arrows for undo and redo, and group and ungroup left to the bar over the view. */
@@ -28,7 +31,7 @@ interface Props {
 }
 
 /** The bar across the top of the editor: back link, undo/redo, group, name, import/export and save status. */
-export function TopBar({ state, dispatch, meshes, onImported, save, compact, onHelp }: Props) {
+export function TopBar({ state, dispatch, meshes, merge, onImported, save, compact, onHelp }: Props) {
 	const design = state.history.present;
 	const selection: readonly NodeId[] = state.selection;
 
@@ -78,7 +81,23 @@ export function TopBar({ state, dispatch, meshes, onImported, save, compact, onH
 				>
 					Ungroup
 				</button>
+				<button
+					type="button"
+					onClick={() => void merge.merge()}
+					disabled={merge.why !== null || merge.busy}
+					title={merge.why ?? 'Join the selected shapes into one solid (a hole among them cuts); it can no longer be edited shape by shape'}
+				>
+					{merge.busy ? 'Merging…' : 'Merge'}
+				</button>
 			</div>
+			{merge.error && (
+				<span className="export-problem merge-problem" role="alert">
+					{merge.error}
+					<button type="button" onClick={merge.clearError} aria-label="Dismiss">
+						×
+					</button>
+				</span>
+			)}
 			<DesignNameField name={design.name} onCommit={(name) => dispatch({ type: 'renameDesign', name })} />
 			<ImportButton onImported={onImported} />
 			<ExportMenu design={design} selection={selection} meshes={meshes} />

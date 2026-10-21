@@ -537,12 +537,17 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
 - **The server owns the folder.** `DesignStore.save` keeps the stored design's folder whatever the saved copy says (the editor holds the design as it was when it was opened), `setFolder` / `renameFolder` / `removeFolder` are the only ways to change it, and moving does not touch `updatedAt`. Routes: `PATCH /api/designs/:id` takes `name` and/or `folder` (null for none), `POST /api/design-folders/rename` `{from, to}` and `/remove` `{name}`. A new field that the editor does not change should be treated the same way.
 - Web: `useDesignsView` (search, order and folded folders; the order and the folded names are in localStorage, `holecraft.designOrder` and `holecraft.foldedFolders`), `DesignGroup` (a folder's heading with fold, rename and remove) and `FolderSelect` (the list on each card). A grid hidden by folding needs `.design-grid[hidden]` in the CSS, since the grid's own `display` beats the attribute. Tests: designFolders.test.ts, designs.test.ts and designRoutes.test.ts (server), `e2e/web/designFolders.spec.ts` (shared list: use unique names).
 
+## Merge (shapes into one solid)
+- `core/mergeShapes.ts` is the pure part: `whyNotMerge(design, ids)` (two or more top-level shapes, or one group; not locked or hidden; at least one solid), `groupToMerge` (the selection joined as a group, which is what the engine evaluates, so a hole among them cuts; one group stays as it is) and `mergeShapes` (that group replaced by the mesh input, via `replaceWithMesh`, so it takes the place of the first shape). Reducer action `mergeToMesh { ids, input }` is one undo step and selects the new shape.
+- `useMerge` (web) does the async part and is the same road Hollow's result takes: `groupToMerge`, then `exportStlBytes(onlySelected(...))` (the geometry engine's real result), `importModelFile` (an ordinary imported-model shape, stored once by hash), then the action. Errors (a part that is not watertight names itself) show in the top bar / the bar over the view. The button is in `TopBar`'s Group toolbar and in `SelectionBar` (touch). The result keeps no paint or edge treatments and its parts cannot be edited: that is the point, and the README says so.
+- Tests: mergeShapes.test.ts (core), editorStateMerge.test.ts, SelectionBar.test.ts, and `e2e/web/mergeShapes.spec.ts`, which proves the volume of the merged solid (union, and with a cutting hole) through a real STL export.
+
 ## Squarer screens (4:3, tablets)
 - `homeViewFor(aspect)` (core/camera.ts) backs the home camera off by 1.6 / aspect on windows squarer than 1.6 so the whole workplane
   shows; `CameraRig` uses it for the opening view (until anyone moves the camera) and for `goHome()`. Don't use `HOME_VIEW` directly for
   a live camera.
 - The top bar wraps (`flex-wrap`) instead of overflowing; the side panel order is Shapes, Properties, Resin, Arrange, Colours, Objects so Properties
-  is on screen without scrolling at 1024x768. `e2e/web/fourThree.spec.ts` measures this at 1024x768 and 800x600.
+  is on screen without scrolling at 1024x768. `e2e/web/fourThree.spec.ts` measures this at 1024x768 and 800x600. **The desktop top bar has no room to spare at 1024 px**: it wraps to a second row when the save status grows ("Saved" to "Unsaved changes"), which makes the view shorter and moves the camera's Home distance (fourThree.spec.ts catches it). At 1100 px and below the logo's name and the server label are hidden to make room, so a new top bar button may need more of that.
 
 ## Touch
 - `Viewport` treats `pointerType === 'touch'` separately: one finger = the left-button behaviour, except
