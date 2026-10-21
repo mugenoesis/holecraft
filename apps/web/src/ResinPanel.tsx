@@ -10,6 +10,7 @@ import {
 } from '@holecraft/core';
 import { type Dispatch, useState } from 'react';
 import type { EditorAction } from './editorState.ts';
+import { PanelSection } from './PanelSection.tsx';
 import { SupportsGroup } from './SupportsGroup.tsx';
 import { type Accuracy, MAX_WALL, MIN_WALL, useHollow } from './useHollow.ts';
 import type { SupportsUi } from './useSupportsUi.ts';
@@ -99,8 +100,7 @@ export function ResinPanel({ design, selection, dispatch, meshes, onMeshAdded, s
 	const tilt = tiltWhy === null;
 
 	return (
-		<section aria-label="Resin">
-			<h2>Resin</h2>
+		<PanelSection title="Resin">
 			<HollowGroup design={design} selection={selection} dispatch={dispatch} meshes={meshes} onMeshAdded={onMeshAdded} />
 			<div className="resin-group" role="group" aria-label="Drain holes">
 				<h3>Drain holes</h3>
@@ -175,6 +175,6 @@ export function ResinPanel({ design, selection, dispatch, meshes, onMeshAdded, s
 				)}
 			</div>
 			<SupportsGroup design={design} meshes={meshes} dispatch={dispatch} ui={supportsUi} />
-		</section>
+		</PanelSection>
 	);
 }

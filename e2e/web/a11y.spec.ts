@@ -23,6 +23,15 @@ test.describe('accessibility (axe, WCAG A and AA)', () => {
 		expect(await problems(page)).toEqual([]);
 	});
 
+	test('the editor with the side panel made wider and a section folded', async ({ page }) => {
+		await newDesign(page);
+		await page.getByRole('separator', { name: 'Resize the side panel' }).focus();
+		await page.keyboard.press('Shift+ArrowLeft');
+		await page.getByRole('button', { name: 'Collapse Resin' }).click();
+		await expect(page.getByRole('button', { name: 'Expand Resin' })).toHaveAttribute('aria-expanded', 'false');
+		expect(await problems(page)).toEqual([]);
+	});
+
 	test('the editor with a shape selected, on each panel tab', async ({ page }) => {
 		await newDesign(page);
 		await page.getByRole('button', { name: /^Box/ }).first().press('Enter');

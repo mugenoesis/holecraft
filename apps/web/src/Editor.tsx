@@ -15,6 +15,7 @@ import { useEditorShortcuts } from './editorShortcuts.ts';
 import { createEditorState, editorReducer } from './editorState.ts';
 import { NotFound } from './NotFound.tsx';
 import { PalettePanel } from './PalettePanel.tsx';
+import { PanelEdge } from './PanelEdge.tsx';
 import { PanelTabs } from './PanelTabs.tsx';
 import { PropertiesPanel } from './PropertiesPanel.tsx';
 import { ResinPanel } from './ResinPanel.tsx';
@@ -25,6 +26,7 @@ import { TopBar } from './TopBar.tsx';
 import { useAutosave } from './useAutosave.ts';
 import { useLibrary } from './useLibrary.ts';
 import { useMeshes } from './useMeshes.ts';
+import { SectionFoldingContext, usePanelLayout } from './usePanelLayout.ts';
 import { usePlacing } from './usePlacing.ts';
 import { useSupportsUi } from './useSupportsUi.ts';
 import type { SupportsView } from './viewport/supportsView.ts';
@@ -142,6 +144,7 @@ function EditorView({ initial }: { initial: Design }) {
 	const [width, depth] = design.grid.size;
 	// Phones, folding phones and tablets: one panel tab at a time, and the selection's edits as buttons over the view.
 	const compact = useCompactLayout();
+	const panelLayout = usePanelLayout(compact);
 	const [tab, setTab] = usePanelTab(state.selection.length);
 	const shown = (t: PanelTab) => !compact || tab === t;
 
@@ -160,7 +163,7 @@ function EditorView({ initial }: { initial: Design }) {
 				}}
 			/>
 
-			<main className="workspace">
+			<main className="workspace" style={panelLayout.style}>
 				<ViewportCanvas
 					design={design}
 					meshes={meshes}
@@ -209,52 +212,55 @@ function EditorView({ initial }: { initial: Design }) {
 					compact={compact}
 					selectionBar={compact && <SelectionBar design={design} selection={state.selection} dispatch={dispatch} />}
 				/>
+				<PanelEdge compact={compact} width={panelLayout.width} onWidth={panelLayout.setWidth} onReset={panelLayout.resetWidth} />
 				<aside className="panel">
-					{compact && <PanelTabs tab={tab} onTab={setTab} selected={state.selection.length} />}
-					{/* hidden rather than left out, so a tab keeps what was typed in it (a search, a name) */}
-					<div className="panel-tab" hidden={!shown('shapes')}>
-						<ShapesPanel
-							onAddShape={(shape) => (plane ? addOnPlane(shape, plane, plane.origin) : addAt(shape, [0, 0]))}
-							onArm={arm}
-							onLift={lift}
-							onRelease={release}
-							placing={placing}
-							touch={compact}
-							saved={{
-								items: library.items,
-								onAdd: (id) => void addSaved(id, plane ? { plane, point: plane.origin } : { at: [0, 0] }),
-								onArm: (item) => void armSaved(item),
-								onLift: (item) => void liftSaved(item),
-								onRename: (id, name) => void library.rename(id, name),
-								onDelete: (id) => void library.remove(id),
-							}}
-						/>
-					</div>
-					<div className="panel-tab" hidden={!shown('edit')}>
-						<PropertiesPanel
-							design={design}
-							selection={state.selection}
-							dispatch={dispatch}
-							library={library}
-							onEditSketch={setSketchEdit}
-							unlockedStretch={state.unlockedStretch}
-						/>
-						<ResinPanel
-							design={design}
-							selection={state.selection}
-							dispatch={dispatch}
-							meshes={meshes}
-							onMeshAdded={addMesh}
-							supportsUi={supportsUi}
-						/>
-						<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
-					</div>
-					<div className="panel-tab" hidden={!shown('colours')}>
-						<PalettePanel design={design} selection={state.selection} dispatch={dispatch} />
-					</div>
-					<div className="panel-tab" hidden={!shown('objects')}>
-						<ObjectList design={design} selection={state.selection} onSelect={select} dispatch={dispatch} />
-					</div>
+					<SectionFoldingContext.Provider value={panelLayout.folding}>
+						{compact && <PanelTabs tab={tab} onTab={setTab} selected={state.selection.length} />}
+						{/* hidden rather than left out, so a tab keeps what was typed in it (a search, a name) */}
+						<div className="panel-tab" hidden={!shown('shapes')}>
+							<ShapesPanel
+								onAddShape={(shape) => (plane ? addOnPlane(shape, plane, plane.origin) : addAt(shape, [0, 0]))}
+								onArm={arm}
+								onLift={lift}
+								onRelease={release}
+								placing={placing}
+								touch={compact}
+								saved={{
+									items: library.items,
+									onAdd: (id) => void addSaved(id, plane ? { plane, point: plane.origin } : { at: [0, 0] }),
+									onArm: (item) => void armSaved(item),
+									onLift: (item) => void liftSaved(item),
+									onRename: (id, name) => void library.rename(id, name),
+									onDelete: (id) => void library.remove(id),
+								}}
+							/>
+						</div>
+						<div className="panel-tab" hidden={!shown('edit')}>
+							<PropertiesPanel
+								design={design}
+								selection={state.selection}
+								dispatch={dispatch}
+								library={library}
+								onEditSketch={setSketchEdit}
+								unlockedStretch={state.unlockedStretch}
+							/>
+							<ResinPanel
+								design={design}
+								selection={state.selection}
+								dispatch={dispatch}
+								meshes={meshes}
+								onMeshAdded={addMesh}
+								supportsUi={supportsUi}
+							/>
+							<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
+						</div>
+						<div className="panel-tab" hidden={!shown('colours')}>
+							<PalettePanel design={design} selection={state.selection} dispatch={dispatch} />
+						</div>
+						<div className="panel-tab" hidden={!shown('objects')}>
+							<ObjectList design={design} selection={state.selection} onSelect={select} dispatch={dispatch} />
+						</div>
+					</SectionFoldingContext.Provider>
 				</aside>
 			</main>
 

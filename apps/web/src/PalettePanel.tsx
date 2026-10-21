@@ -2,6 +2,7 @@ import { type Design, MAX_PALETTE_SIZE, type NodeId } from '@holecraft/core';
 import { type Dispatch, useState } from 'react';
 import { ColourField, useColourEdit } from './ColourField.tsx';
 import type { EditorAction } from './editorState.ts';
+import { PanelSection } from './PanelSection.tsx';
 
 interface Props {
 	design: Design;
@@ -25,8 +26,7 @@ export function PalettePanel({ design, selection, dispatch }: Props) {
 	);
 
 	return (
-		<section aria-label="Colours">
-			<h2>Colours</h2>
+		<PanelSection title="Colours">
 			<p className="muted hint">Each colour is a filament for multi-colour printing. Click one to paint the selected shapes.</p>
 
 			<div className="palette" role="group" aria-label="Palette">
@@ -70,6 +70,6 @@ export function PalettePanel({ design, selection, dispatch }: Props) {
 					</button>
 				</div>
 			</div>
-		</section>
+		</PanelSection>
 	);
 }

@@ -527,6 +527,11 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   `colourStart`, then `previewColor` / `previewPalette`, then `moveEnd` (one undo step) or `cancelDrag`; `useColourEdit` wires that.
   A preset or a typed colour is one ordinary edit.
 
+## Desktop side panel (width and folding)
+- `panelLayout.ts` is the pure part (width limits 220 to 560 and half a narrow window, `parsePanelWidth`, `nudgedWidth`, `parseCollapsed`, `toggleCollapsed`); `usePanelLayout(compact)` keeps the width and the folded section names in localStorage (`holecraft.panelWidth`, `holecraft.foldedSections`) and gives `--panel-width` to `.workspace` (a grid, `1fr var(--panel-width, 260px)`). On the compact layout it returns no style and no folding: the panel is tabs there.
+- Every section of the panel is a `PanelSection` (heading in `.section-head` plus its contents in a div that is `hidden` when folded, never unmounted, so typed text survives). The fold arrow is a separate button (`Collapse X` / `Expand X`, `aria-expanded`); **clicking the heading must not fold**, since tests click headings to take focus. A new panel section uses `PanelSection`, not its own `<section><h2>`.
+- `PanelEdge` is a `role="separator"` over the panel's left edge (pointer capture for the drag, arrow keys, Home, double click to reset). Tests: `panelLayout.test.ts`, `e2e/web/panelLayout.spec.ts` (measures the panel), and a scan in a11y.spec.ts.
+
 ## Squarer screens (4:3, tablets)
 - `homeViewFor(aspect)` (core/camera.ts) backs the home camera off by 1.6 / aspect on windows squarer than 1.6 so the whole workplane
   shows; `CameraRig` uses it for the opening view (until anyone moves the camera) and for `goHome()`. Don't use `HOME_VIEW` directly for
