@@ -939,6 +939,8 @@ button.primary:disabled {
 }
 
 .object-list {
+	/* below the floated Select all and Show all, not squeezed in beside them */
+	clear: both;
 	margin: 0;
 	padding: 0;
 	list-style: none;
