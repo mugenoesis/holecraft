@@ -227,3 +227,21 @@ export function sphereStl(sectors: number, stacks: number): Buffer {
 	}
 	return out;
 }
+
+/**
+ * A 3MF plate with three 10 mm cubes, named Left, Middle and Right, standing at x 0, 40 and 80 (the middle one 8 mm up): what a slicer saves when
+ * several objects are on the plate. Together they span x 0 to 90, so their middle is at x 45.
+ */
+export function plateOfThree3mf(): Buffer {
+	const c = CORNERS(10);
+	const mesh = `<mesh><vertices>${c.map((p) => `<vertex x="${p[0]}" y="${p[1]}" z="${p[2]}"/>`).join('')}</vertices><triangles>${FACES.map((f) => `<triangle v1="${f[0]}" v2="${f[1]}" v3="${f[2]}"/>`).join('')}</triangles></mesh>`;
+	const object = (id: number, name: string) => `<object id="${id}" type="model" name="${name}">${mesh}</object>`;
+	const item = (id: number, x: number, z: number) => `<item objectid="${id}" transform="1 0 0 0 1 0 0 0 1 ${x} 0 ${z}"/>`;
+	return deflatedZip({
+		'[Content_Types].xml':
+			'<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>',
+		'_rels/.rels':
+			'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>',
+		'3D/3dmodel.model': `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><resources>${object(1, 'Left')}${object(2, 'Middle')}${object(3, 'Right')}</resources><build>${item(1, 0, 0)}${item(2, 40, 8)}${item(3, 80, 0)}</build></model>`,
+	});
+}

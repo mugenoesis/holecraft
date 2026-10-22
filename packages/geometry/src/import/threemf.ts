@@ -12,6 +12,8 @@ const IDENTITY: Transform = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0];
 const MAX_NESTING = 8;
 
 interface ObjectData {
+	/** The object's own `name`, if it has one. */
+	name?: string;
 	vertices: number[];
 	triangles: number[];
 	/** `path` names another model file in the package; without it the object is in the same file. */
@@ -23,6 +25,10 @@ interface Model {
 	objects: Map<string, ObjectData>;
 	items: { objectId: string | undefined; transform: Transform }[];
 }
+
+/** Text from an XML attribute, with the five escapes undone. */
+const unescapeXml = (text: string): string =>
+	text.replace(/&(amp|lt|gt|quot|apos);/g, (_, e: string) => ({ amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" })[e]!);
 
 const attr = (tag: string, name: string): string | undefined => new RegExp(`(?:^|\\s)(?:\\w+:)?${name}\\s*=\\s*"([^"]*)"`).exec(tag)?.[1];
 
@@ -80,7 +86,9 @@ function parseModel(xml: string): Model {
 	for (const m of xml.matchAll(/<(?:\w+:)?object\b([^>]*)>([\s\S]*?)<\/(?:\w+:)?object>/g)) {
 		const id = attr(m[1]!, 'id');
 		if (id === undefined || attr(m[1]!, 'type') === 'support') continue;
-		objects.set(id, parseObjectBody(m[2]!));
+		const name = attr(m[1]!, 'name');
+		const body = parseObjectBody(m[2]!);
+		objects.set(id, name === undefined || name.trim() === '' ? body : { ...body, name: unescapeXml(name.trim()) });
 	}
 	const items = [...xml.matchAll(/<(?:\w+:)?item\b([^>]*?)\/?>/g)].map((m) => ({
 		objectId: attr(m[1]!, 'objectid'),
@@ -173,4 +181,69 @@ export async function parse3mf(bytes: Uint8Array): Promise<RawMesh> {
 
 	if (out.indices.length === 0) throw new Error('This 3MF has no shapes in it');
 	return weldMesh(new Float32Array(out.positions), new Uint32Array(out.indices));
+}
+
+/** More objects than this in one file and they are opened as one joined shape: a plate with hundreds of parts would bury the design. */
+const MAX_SEPARATE_OBJECTS = 200;
+
+/** One object of a 3MF as it stands in the file: its name if the file gives one, and its mesh in millimetres, in the file's own coordinates. */
+export interface ThreeMfObject {
+	name: string | null;
+	mesh: RawMesh;
+}
+
+/**
+ * The names slicers keep in their own settings files (Bambu Studio and OrcaSlicer in Metadata/model_settings.config, PrusaSlicer in
+ * Metadata/Slic3r_PE_model.config), by the id of the object they belong to. The first name inside an object is the object's own: its parts come after.
+ */
+function slicerNames(files: Map<string, Uint8Array>): Map<string, string> {
+	const names = new Map<string, string>();
+	for (const [file, data] of files) {
+		if (!/^metadata\/[^/]*\.config$/i.test(file)) continue;
+		for (const m of decoder.decode(data).matchAll(/<object\b([^>]*)>([\s\S]*?)<\/object>/g)) {
+			const id = attr(m[1]!, 'id');
+			const name = [...m[2]!.matchAll(/<metadata\b([^>]*?)\/?>/g)].map((t) => t[1]!).find((tag) => attr(tag, 'key') === 'name');
+			const value = name === undefined ? undefined : attr(name, 'value');
+			if (id !== undefined && value !== undefined && value.trim() !== '' && !names.has(id)) names.set(id, unescapeXml(value.trim()));
+		}
+	}
+	return names;
+}
+
+/**
+ * Reads a 3MF with each object of its build list as a mesh of its own (what a slicer shows as separate objects on the plate), in the file's own
+ * coordinates, so the layout can be kept. An object made of components is one object. A file with more than MAX_SEPARATE_OBJECTS objects gives one
+ * joined mesh, as parse3mf does.
+ */
+export async function parse3mfObjects(bytes: Uint8Array): Promise<ThreeMfObject[]> {
+	const { files, rootName, scale } = await readPackage(bytes);
+	const modelAt = modelLoader(files);
+	const root = modelAt(rootName);
+	const items = root.items.length > 0 ? root.items : [...root.objects.keys()].map((objectId) => ({ objectId, transform: IDENTITY }));
+	const known = items.filter((item) => item.objectId !== undefined && root.objects.has(item.objectId));
+	if (known.length > MAX_SEPARATE_OBJECTS) return [{ name: null, mesh: await parse3mf(bytes) }];
+
+	const fromSlicer = slicerNames(files);
+	const objects: ThreeMfObject[] = [];
+	let triangles = 0;
+	for (const item of known) {
+		const out = new MeshCollector(scale);
+		const place = (file: string, objectId: string | undefined, transform: Transform, depth: number): void => {
+			const object = objectId === undefined ? undefined : modelAt(file).objects.get(objectId);
+			if (!object) return;
+			if (depth > MAX_NESTING) throw new Error('This 3MF nests its parts too deeply');
+			out.add(object, transform);
+			for (const c of object.components) place(c.path ?? file, c.objectId, compose(c.transform, transform), depth + 1);
+		};
+		place(rootName, item.objectId, item.transform, 0);
+		if (out.indices.length === 0) continue;
+		triangles += out.indices.length / 3;
+		if (triangles > MAX_IMPORT_TRIANGLES) throw new Error('This 3MF is too large');
+		objects.push({
+			name: root.objects.get(item.objectId!)?.name ?? fromSlicer.get(item.objectId!) ?? null,
+			mesh: weldMesh(new Float32Array(out.positions), new Uint32Array(out.indices)),
+		});
+	}
+	if (objects.length === 0) throw new Error('This 3MF has no shapes in it');
+	return objects;
 }

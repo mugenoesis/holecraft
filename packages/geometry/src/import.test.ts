@@ -4,7 +4,9 @@ import type { ExportBody } from './export.ts';
 import {
 	crc32,
 	importMeshFile,
+	importMeshObjects,
 	MAX_IMPORT_TRIANGLES,
+	parse3mfObjects,
 	parseObj,
 	parseStl,
 	readZip,
@@ -489,4 +491,130 @@ describe('weldMesh on large and awkward meshes', () => {
 		new DataView(bytes.buffer).setUint32(80, count, true);
 		expect(() => parseStl(bytes)).toThrow(/too large \(3000001 triangles\)/);
 	}, 60_000);
+});
+
+describe('3MF files with several objects: each is opened apart', () => {
+	const TET =
+		'<vertices><vertex x="0" y="0" z="0"/><vertex x="10" y="0" z="0"/><vertex x="0" y="10" z="0"/><vertex x="0" y="0" z="10"/></vertices><triangles><triangle v1="0" v2="2" v3="1"/><triangle v1="0" v2="1" v3="3"/><triangle v1="1" v2="2" v3="3"/><triangle v1="0" v2="3" v3="2"/></triangles>';
+	const model = (resources: string, build: string, unit = 'millimeter') =>
+		`<?xml version="1.0"?><model unit="${unit}" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06"><resources>${resources}</resources><build>${build}</build></model>`;
+	const shape = (id: number, name?: string) =>
+		`<object id="${id}" type="model"${name ? ` name="${name}"` : ''}><mesh>${TET}</mesh></object>`;
+	const at = (id: number, x: number, y = 0, z = 0) => `<item objectid="${id}" transform="1 0 0 0 1 0 0 0 1 ${x} ${y} ${z}"/>`;
+	const zipOf = (rootXml: string, more: { name: string; data: Uint8Array }[] = []) =>
+		writeStoredZip([{ name: '3D/3dmodel.model', data: text(rootXml) }, ...more]);
+	const minX = (m: { positions: Float32Array }) => Math.min(...[...m.positions].filter((_, i) => i % 3 === 0));
+
+	it('gives one mesh for each build item, in the file’s own coordinates (not moved to the middle)', async () => {
+		const zip = zipOf(model(shape(1, 'Left') + shape(2, 'Middle') + shape(3, 'Right'), at(1, 0) + at(2, 50) + at(3, 100)));
+		const objects = await parse3mfObjects(zip);
+		expect(objects.map((o) => o.name)).toEqual(['Left', 'Middle', 'Right']);
+		expect(objects.map((o) => minX(o.mesh))).toEqual([0, 50, 100]);
+		for (const o of objects) expect(volume(o.mesh)).toBeCloseTo(volume(tetra), 3);
+	});
+
+	it('takes the unit and every transform into account for each', async () => {
+		const zip = zipOf(model(shape(1) + shape(2), at(1, 0) + at(2, 5, 0, 1), 'centimeter'));
+		const [a, b] = await parse3mfObjects(zip);
+		expect(Math.max(...a!.mesh.positions)).toBe(100);
+		expect(minX(b!.mesh)).toBe(50);
+		expect(Math.min(...[...b!.mesh.positions].filter((_, i) => i % 3 === 2))).toBe(10);
+	});
+
+	it('has no name for an object that has none', async () => {
+		expect((await parse3mfObjects(zipOf(model(shape(1), at(1, 0)))))[0]?.name).toBeNull();
+	});
+
+	it('reads the name a slicer keeps in its own settings file (Bambu Studio and OrcaSlicer, PrusaSlicer)', async () => {
+		const resources = `<object id="2" type="model"><components><component p:path="/3D/Objects/a.model" objectid="1"/></components></object><object id="4" type="model"><components><component p:path="/3D/Objects/a.model" objectid="1"/></components></object>`;
+		const part = model(shape(1), '');
+		const bambu =
+			'<?xml version="1.0"?><config><object id="2"><metadata key="name" value="Gear &amp; Axle"/><part id="1"><metadata key="name" value="part name"/></part></object><object id="4"><metadata key="name" value="Cover"/></object></config>';
+		const objects = await parse3mfObjects(
+			zipOf(model(resources, at(2, 0) + at(4, 40)), [
+				{ name: '3D/Objects/a.model', data: text(part) },
+				{ name: 'Metadata/model_settings.config', data: text(bambu) },
+			]),
+		);
+		expect(objects.map((o) => o.name)).toEqual(['Gear & Axle', 'Cover']);
+
+		const prusa =
+			'<?xml version="1.0"?><config><object id="1" instances_count="1"><metadata type="object" key="name" value="Bracket"/><volume firstid="0" lastid="3"><metadata type="volume" key="name" value="Bracket"/></volume></object></config>';
+		const one = await parse3mfObjects(zipOf(model(shape(1), at(1, 0)), [{ name: 'Metadata/Slic3r_PE_model.config', data: text(prusa) }]));
+		expect(one[0]?.name).toBe('Bracket');
+	});
+
+	it('prefers the name on the object itself', async () => {
+		const config = '<config><object id="1"><metadata key="name" value="From the settings"/></object></config>';
+		const zip = zipOf(model(shape(1, 'On the object'), at(1, 0)), [{ name: 'Metadata/model_settings.config', data: text(config) }]);
+		expect((await parse3mfObjects(zip))[0]?.name).toBe('On the object');
+	});
+
+	it('makes a separate object of each place an object is used', async () => {
+		const objects = await parse3mfObjects(zipOf(model(shape(1, 'Peg'), at(1, 0) + at(1, 30) + at(1, 60))));
+		expect(objects).toHaveLength(3);
+		expect(objects.map((o) => minX(o.mesh))).toEqual([0, 30, 60]);
+	});
+
+	it('keeps the parts of one object together: an object made of components is one object', async () => {
+		const resources = `${shape(1)}${shape(2)}<object id="3" type="model" name="Assembly"><components><component objectid="1"/><component objectid="2" transform="1 0 0 0 1 0 0 0 1 20 0 0"/></components></object>`;
+		const objects = await parse3mfObjects(zipOf(model(resources, at(3, 0))));
+		expect(objects).toHaveLength(1);
+		expect(objects[0]?.name).toBe('Assembly');
+		expect(objects[0]?.mesh.indices.length).toBe(24);
+	});
+
+	it('leaves out support objects, as the joined reader does', async () => {
+		const resources = `${shape(1, 'Real')}<object id="2" type="support"><mesh>${TET}</mesh></object>`;
+		const objects = await parse3mfObjects(zipOf(model(resources, at(1, 0) + at(2, 30))));
+		expect(objects.map((o) => o.name)).toEqual(['Real']);
+	});
+
+	it('opens a file with no build list as one object for each object in it', async () => {
+		const objects = await parse3mfObjects(zipOf(model(shape(1, 'A') + shape(2, 'B'), '')));
+		expect(objects.map((o) => o.name)).toEqual(['A', 'B']);
+	});
+
+	it('gives the one joined mesh instead when there are very many objects (more than 200)', async () => {
+		const items = Array.from({ length: 201 }, (_, i) => at(1, i * 20)).join('');
+		const objects = await parse3mfObjects(zipOf(model(shape(1), items)));
+		expect(objects).toHaveLength(1);
+		expect(objects[0]?.mesh.indices.length).toBe(201 * 12);
+	});
+
+	it('says so when there is nothing in the file', async () => {
+		await expect(parse3mfObjects(zipOf(model('', '')))).rejects.toThrow(/no shapes/i);
+	});
+});
+
+describe('importMeshObjects', () => {
+	const far = { positions: tetra.positions.map((v, i) => (i % 3 === 0 ? v + 100 : v)), indices: tetra.indices };
+
+	it('is one mesh named for the file for anything but a 3MF', async () => {
+		const out = await importMeshObjects('My Part.stl', writeStl([body()]));
+		expect(out.map((o) => o.name)).toEqual(['My Part']);
+	});
+
+	it('is one mesh named for the file for a 3MF with one object', async () => {
+		const out = await importMeshObjects('Plate.3mf', write3mf([body('Named inside')]));
+		expect(out.map((o) => o.name)).toEqual(['Plate']);
+	});
+
+	it('is a mesh for each object of a 3MF, named by the object, as written by write3mf', async () => {
+		const out = await importMeshObjects('Pair.3mf', write3mf([body('Front'), body('Back', far)]));
+		expect(out.map((o) => o.name)).toEqual(['Front', 'Back']);
+		expect(Math.min(...[...out[1]!.positions].filter((_, i) => i % 3 === 0))).toBe(100);
+	});
+
+	it('names objects that have no name for the file and their number', async () => {
+		const tet =
+			'<vertices><vertex x="0" y="0" z="0"/><vertex x="10" y="0" z="0"/><vertex x="0" y="10" z="0"/><vertex x="0" y="0" z="10"/></vertices><triangles><triangle v1="0" v2="2" v3="1"/><triangle v1="0" v2="1" v3="3"/><triangle v1="1" v2="2" v3="3"/><triangle v1="0" v2="3" v3="2"/></triangles>';
+		const xml = `<model unit="millimeter"><resources><object id="1"><mesh>${tet}</mesh></object><object id="2"><mesh>${tet}</mesh></object></resources><build><item objectid="1"/><item objectid="2" transform="1 0 0 0 1 0 0 0 1 30 0 0"/></build></model>`;
+		const out = await importMeshObjects('Plate.3mf', writeStoredZip([{ name: '3D/3dmodel.model', data: text(xml) }]));
+		expect(out.map((o) => o.name)).toEqual(['Plate 1', 'Plate 2']);
+	});
+
+	it('refuses what importMeshFile refuses', async () => {
+		await expect(importMeshObjects('x.txt', text('hello'))).rejects.toThrow(/STL, OBJ, 3MF/);
+	});
 });

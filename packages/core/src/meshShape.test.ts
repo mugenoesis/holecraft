@@ -3,6 +3,7 @@ import { createEmptyDesign } from './design.ts';
 import { duplicateNodes } from './edit.ts';
 import {
 	addMeshShape,
+	addMeshShapes,
 	decodeMesh,
 	encodeMesh,
 	isMeshRef,
@@ -254,5 +255,50 @@ describe('addMeshShape', () => {
 		expect(() => parseDesign(bad)).toThrow(/mesh/i);
 		delete bad.nodes.m1.params.mesh;
 		expect(() => parseDesign(bad)).toThrow(/mesh/i);
+	});
+});
+
+describe('addMeshShapes', () => {
+	const input = (name: string, size: [number, number, number] = [10, 20, 5]) => ({ name, ref: 'a'.repeat(64), size });
+	const base = () => createEmptyDesign('d');
+
+	it('adds each model as a shape of its own, at its own place and height, all at the top level', () => {
+		const out = addMeshShapes(base(), [
+			{ input: input('Left'), at: [-30, 0], lift: 0 },
+			{ input: input('Right'), at: [30, 5], lift: 12 },
+		]);
+		expect(out.ids).toHaveLength(2);
+		expect(out.design.roots).toEqual(out.ids);
+		const [left, right] = out.ids.map((id) => out.design.nodes[id]!);
+		expect([left?.name, right?.name]).toEqual(['Left', 'Right']);
+		expect([left?.transform[12], left?.transform[13], left?.transform[14]]).toEqual([-30, 0, 0]);
+		expect([right?.transform[12], right?.transform[13], right?.transform[14]]).toEqual([30, 5, 12]);
+	});
+
+	it('gives each its own id, keeps what was in the design, and stamps it once', () => {
+		const once = addMeshShape(base(), input('First'));
+		const out = addMeshShapes(
+			once.design,
+			[
+				{ input: input('A'), at: [0, 0], lift: 0 },
+				{ input: input('B'), at: [20, 0], lift: 0 },
+			],
+			{ now: new Date('2026-01-02T03:04:05Z') },
+		);
+		expect(new Set([once.id, ...out.ids]).size).toBe(3);
+		expect(out.design.roots).toEqual([once.id, ...out.ids]);
+		expect(out.design.updatedAt).toBe('2026-01-02T03:04:05.000Z');
+	});
+
+	it('is the same design with no ids for nothing', () => {
+		const d = base();
+		expect(addMeshShapes(d, [])).toEqual({ design: d, ids: [] });
+	});
+
+	it('addMeshShape stands a model on the floor unless it is given a height', () => {
+		const flat = addMeshShape(base(), input('Floor'), { at: [3, 4] });
+		expect(flat.design.nodes[flat.id]?.transform[14]).toBe(0);
+		const lifted = addMeshShape(base(), input('Up'), { at: [3, 4], lift: 7 });
+		expect(lifted.design.nodes[lifted.id]?.transform[14]).toBe(7);
 	});
 });
