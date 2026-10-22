@@ -25,12 +25,13 @@ jobs:
           name: coverage-report
           path: coverage/
           if-no-files-found: ignore
-      # the end-to-end tests build the Firefox add-on; this is the zip to upload to addons.mozilla.org to have it signed
+      # The gate builds the Firefox add-on. GitHub zips whatever is uploaded as an artifact, so upload the add-on's own files (manifest.json at the top):
+      # the artifact's zip is then the one to upload to addons.mozilla.org to have it signed, with nothing to unpack first.
       - name: Keep the Firefox add-on
         uses: actions/upload-artifact@v7
         with:
           name: holecraft-send
-          path: apps/addon/release/*.zip
+          path: apps/addon/dist/
           if-no-files-found: ignore
 
   audit:
