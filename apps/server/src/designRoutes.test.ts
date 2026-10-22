@@ -347,3 +347,49 @@ describe('folders', () => {
 		expect((await app.inject({ method: 'POST', url: '/api/design-folders/remove', ...json({}) })).statusCode).toBe(400);
 	});
 });
+
+describe('version history', () => {
+	const save = (d: Design) => app.inject({ method: 'PUT', url: `/api/designs/${d.id}`, ...json(d) });
+
+	it('starts empty, then lists how the design stood before it was first saved', async () => {
+		const d = await create('Bracket');
+		expect((await app.inject(`/api/designs/${d.id}/versions`)).json()).toEqual([]);
+		await save(addShape(d, 'box', [0, 0]).design);
+		const list = (await app.inject(`/api/designs/${d.id}/versions`)).json<
+			{ version: string; name: string; objectCount: number; savedAt: string }[]
+		>();
+		expect(list).toHaveLength(1);
+		expect(list[0]).toMatchObject({ name: 'Bracket', objectCount: 0, savedAt: d.updatedAt });
+		expect(list[0]?.version).toMatch(/^\d+$/);
+	});
+
+	it('restores a version as the design, which then has the earlier contents', async () => {
+		const d = await create('Bracket');
+		await save(addShape(d, 'box', [0, 0]).design);
+		const [first] = (await app.inject(`/api/designs/${d.id}/versions`)).json<{ version: string }[]>();
+		const res = await app.inject({ method: 'POST', url: `/api/designs/${d.id}/versions/${first?.version}/restore` });
+		expect(res.statusCode).toBe(200);
+		expect(res.json<Design>().roots).toHaveLength(0);
+		expect((await app.inject(`/api/designs/${d.id}`)).json<Design>().roots).toHaveLength(0);
+		// and the box that was just undone is one restore away
+		expect((await app.inject(`/api/designs/${d.id}/versions`)).json<{ objectCount: number }[]>().map((v) => v.objectCount)).toEqual([1, 0]);
+	});
+
+	it('answers 404 for a design or version that is not there, and 404 for a version that is not an address', async () => {
+		const d = await create('Bracket');
+		expect((await app.inject({ method: 'POST', url: `/api/designs/${d.id}/versions/1767261600000/restore` })).statusCode).toBe(404);
+		expect((await app.inject({ method: 'POST', url: `/api/designs/${d.id}/versions/..%2Fx/restore` })).statusCode).toBe(404);
+		expect(
+			(await app.inject({ method: 'POST', url: '/api/designs/0123456789abcdef0123456789abcdef/versions/1767261600000/restore' }))
+				.statusCode,
+		).toBe(404);
+		expect((await app.inject('/api/designs/0123456789abcdef0123456789abcdef/versions')).statusCode).toBe(404);
+	});
+
+	it('is gone when the design is deleted', async () => {
+		const d = await create('Bracket');
+		await save(addShape(d, 'box', [0, 0]).design);
+		await app.inject({ method: 'DELETE', url: `/api/designs/${d.id}` });
+		expect((await app.inject(`/api/designs/${d.id}/versions`)).statusCode).toBe(404);
+	});
+});

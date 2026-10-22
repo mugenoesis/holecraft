@@ -157,11 +157,11 @@ Holecraft opens on a list of your designs. **New design** makes one and opens it
 open it, or use **Rename**, **Duplicate** and **Delete** (which asks first). Everything you do is
 **saved automatically** a moment after you stop changing things, and the top bar shows
 *Saved*, *Unsaved changes*, *Saving…* or *Couldn't save* (it keeps your work on screen and retries
-until the server answers). If you have the same design open in two tabs, windows or devices, the one that saves second is told the design was **changed somewhere else** and has to choose: **Keep my version** saves what that tab shows over the other version, **Load the other version** drops that tab's unsaved changes and shows what was saved. Nothing is lost without asking, and a design renamed from the list counts as changed too. Moving a design to a folder does not. Change a design's name in the top bar. Each design on the list shows a small
+until the server answers). If you have the same design open in two tabs, windows or devices, the one that saves second is told the design was **changed somewhere else** and has to choose: **Keep my version** saves what that tab shows over the other version, **Load the other version** drops that tab's unsaved changes and shows what was saved. Nothing is lost without asking, and a design renamed from the list counts as changed too. Moving a design to a folder does not. Change a design's name in the top bar. **Version history** (the ↺ button in the top bar) lists earlier versions the server kept of the design: how it stood before each stretch of editing (one every five minutes at most, up to 50, thinned from the middle so the oldest and newest stay). **Restore** puts one back; what was there is kept first, so a restore can itself be taken back. Deleting a design deletes its history, and saved shapes in the library keep none. Each design on the list shows a small
 **picture** of itself (taken from the usual angle, without the grid, a couple of seconds after you stop
 editing; designs with nothing in them show a placeholder). Undo history is not kept between
 sessions. Designs are plain JSON files, one per design, in `<data folder>/designs/`, so they are
-easy to back up or copy.
+easy to back up or copy (the earlier versions are in `<data folder>/versions/`).
 
 **Folders, search and order.** Each design has a **Folder** list under its name: pick a folder, **No folder**, or **New folder…** and type a name. Designs in no folder come first, then each folder under its own heading, with how many designs it holds. The arrow beside a heading folds the folder away (kept in this browser), **Rename** renames the folder for everything in it (a name that is another folder's joins it), and **Remove folder** takes the folder apart and keeps its designs (it asks first). Folders are one level deep, and a folder exists while a design is in it. The **search** box keeps the designs whose name or folder holds every word you type, and shows a matching folder even if it is folded. **Sort by** changes the order inside each folder: last changed (the usual), name, or date made, which is also kept in this browser. A design's folder is saved in its own file (`"folder": "Name"`) and moving a design does not count as changing it; editing a design never moves it out of its folder, and a copy stays in the original's folder.
 
@@ -240,7 +240,7 @@ There is no authentication yet, so anyone who can reach the port can read, chang
 design. Only expose Holecraft on a trusted network.
 
 **Storage API** (used by the app; handy for backups and scripts): `GET /api/designs`,
-`POST /api/designs`, `GET|PUT|PATCH|DELETE /api/designs/:id` and `POST /api/designs/:id/duplicate`.
+`POST /api/designs`, `GET|PUT|PATCH|DELETE /api/designs/:id` `POST /api/designs/:id/duplicate`, `GET /api/designs/:id/versions` and `POST /api/designs/:id/versions/:version/restore`.
 Everything sent to it is validated, and a design larger than 8 MB or with a broken structure is
 refused.
 Serve it at the root of a host or subdomain (`holecraft.example.lan`). Path prefixes such as

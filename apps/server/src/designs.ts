@@ -12,8 +12,10 @@ import {
 	newId,
 	parseDesign,
 	renameDesign,
+	type VersionSummary,
 	withFolder,
 } from '@holecraft/core';
+import type { VersionStore } from './versions.ts';
 
 export type { DesignSummary };
 
@@ -58,8 +60,15 @@ export class DesignStore {
 	private readonly folder: string;
 	private readonly queues = new Map<string, Promise<unknown>>();
 
-	/** `folder` is the name of the folder under the data folder: the library of saved shapes is kept the same way as designs, in its own. */
-	constructor(dataDir: string, folder = 'designs') {
+	/**
+	 * `folder` is the name of the folder under the data folder: the library of saved shapes is kept the same way as designs, in its own.
+	 * With a `history`, each save first keeps the version it replaces (see VersionStore) and an earlier version can be restored.
+	 */
+	constructor(
+		dataDir: string,
+		folder = 'designs',
+		private readonly history?: VersionStore,
+	) {
 		this.folder = path.join(dataDir, folder);
 	}
 
@@ -150,6 +159,7 @@ export class DesignStore {
 
 			const parsed = parseDesign(input);
 			if (parsed.id !== id) throw new DesignValidationError('id', 'does not match the design being saved');
+			if (!damaged) await this.history?.keep(existing);
 			// the folder is the server's, set only by moving: what the editor held when it opened the design may be out of date
 			const saved: Design = {
 				...withFolder(parsed, existing.folder ?? null),
@@ -158,6 +168,37 @@ export class DesignStore {
 			};
 			await this.write(saved);
 			return saved;
+		});
+	}
+
+	/** The kept earlier versions of a design, newest first (none when this store keeps no history). */
+	async versions(id: string): Promise<VersionSummary[]> {
+		return isValidDesignId(id) && this.history ? this.history.list(id) : [];
+	}
+
+	/**
+	 * Puts an earlier version back as the design: a new save, so it is later than every other and the version it replaces is kept first, however
+	 * recent the last kept one was. The folder stays as it is. Null if the design or the version is not there.
+	 */
+	async restore(id: string, version: string): Promise<Design | null> {
+		if (!isValidDesignId(id) || !this.history) return null;
+		const history = this.history;
+		return this.serial(id, async () => {
+			const earlier = await history.get(id, version);
+			if (!earlier) return null;
+			const current = await this.get(id).catch((error: unknown) => {
+				if (error instanceof StoredDesignError) return null;
+				throw error;
+			});
+			if (!current && !(await this.exists(id))) return null;
+			if (current) await history.keep(current, { force: true });
+			const restored: Design = {
+				...withFolder(earlier, current?.folder ?? null),
+				createdAt: current?.createdAt ?? earlier.createdAt,
+				updatedAt: nextStamp(current?.updatedAt ?? earlier.updatedAt),
+			};
+			await this.write(restored);
+			return restored;
 		});
 	}
 
@@ -238,6 +279,7 @@ export class DesignStore {
 		return this.serial(id, async () => {
 			try {
 				await unlink(this.fileFor(id));
+				await this.history?.removeAll(id);
 				return true;
 			} catch (error) {
 				if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;

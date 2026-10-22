@@ -1,4 +1,4 @@
-import { type Design, type DesignSummary, DesignValidationError, parseDesign } from '@holecraft/core';
+import { type Design, type DesignSummary, DesignValidationError, parseDesign, type VersionSummary } from '@holecraft/core';
 
 /** A failed call to the server. `status` is 0 when the server could not be reached at all. */
 export class ApiError extends Error {
@@ -119,4 +119,14 @@ export async function renameFolderOnServer(from: string, to: string): Promise<vo
 /** Takes a folder apart: its designs are kept, in no folder. */
 export async function removeFolderOnServer(name: string): Promise<void> {
 	await request('/api/design-folders/remove', jsonInit('POST', { name }));
+}
+
+/** The earlier versions kept of a design, newest first. */
+export async function listVersions(id: string): Promise<VersionSummary[]> {
+	return (await (await request(`/api/designs/${id}/versions`)).json()) as VersionSummary[];
+}
+
+/** Puts an earlier version back as the design (the one it replaces is kept in the history). */
+export async function restoreVersion(id: string, version: string): Promise<Design> {
+	return readDesign(await request(`/api/designs/${id}/versions/${version}/restore`, { method: 'POST' }));
 }

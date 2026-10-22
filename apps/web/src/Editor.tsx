@@ -34,6 +34,8 @@ import { useModelCheck } from './useModelCheck.ts';
 import { SectionFoldingContext, usePanelLayout } from './usePanelLayout.ts';
 import { usePlacing } from './usePlacing.ts';
 import { useSupportsUi } from './useSupportsUi.ts';
+import { useVersionHistory } from './useVersionHistory.ts';
+import { VersionHistoryHost } from './VersionHistoryHost.tsx';
 import type { SupportsView } from './viewport/supportsView.ts';
 import { ViewportCanvas } from './viewport/ViewportCanvas.tsx';
 
@@ -95,6 +97,7 @@ function EditorView({ initial }: { initial: Design }) {
 	const engrave = useEngrave(design, meshes, addMesh, dispatch);
 	const modelCheck = useModelCheck(design, state.selection, meshes, addMesh, dispatch);
 	const save = useAutosave(design, initial);
+	const history = useVersionHistory(design.id, save);
 	useDocumentTitle(design.name);
 	const [help, setHelp] = useState(false);
 	const openHelp = useCallback(() => setHelp(true), []);
@@ -166,6 +169,7 @@ function EditorView({ initial }: { initial: Design }) {
 				save={save}
 				merge={merge}
 				onHelp={openHelp}
+				onHistory={history.show}
 				onImported={(input, mesh) => {
 					addMesh(input.ref, mesh);
 					dispatch({ type: 'addMesh', input });
@@ -287,6 +291,7 @@ function EditorView({ initial }: { initial: Design }) {
 			</footer>
 			{help && <ShortcutSheet onClose={closeHelp} />}
 			<ConflictHost conflict={save.conflict} />
+			<VersionHistoryHost history={history} />
 		</div>
 	);
 }

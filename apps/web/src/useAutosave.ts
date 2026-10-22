@@ -15,6 +15,10 @@ export interface AutosaveState {
 	status: SaveStatus;
 	problem: string | null;
 	lastError: string | undefined;
+	/** Saves whatever is still waiting now (resolves once it is saved, or has failed). */
+	flush: () => Promise<void>;
+	/** Lets go of anything unsaved and opens the design again from the server (after an earlier version was put back). */
+	reloadFresh: () => void;
 	/** While the design has been changed elsewhere: what to do about it. */
 	conflict: { keepMine: () => void; loadOther: () => void } | null;
 }
@@ -67,6 +71,12 @@ export function useAutosave(design: Design, initial: Design): AutosaveState {
 		if (design !== initial) controller.current?.schedule(design);
 	}, [design, initial]);
 
+	const flush = () => controller.current?.flush() ?? Promise.resolve();
+	const reloadFresh = () => {
+		controller.current?.discard();
+		window.location.reload();
+	};
+
 	const conflict =
 		status === 'conflict'
 			? {
@@ -77,10 +87,9 @@ export function useAutosave(design: Design, initial: Design): AutosaveState {
 					},
 					/** Load the other version: let go of this one and open the design again from the server. */
 					loadOther: () => {
-						controller.current?.discard();
-						window.location.reload();
+						reloadFresh();
 					},
 				}
 			: null;
-	return { status, problem, lastError: controller.current?.lastError?.message, conflict };
+	return { status, problem, lastError: controller.current?.lastError?.message, flush, reloadFresh, conflict };
 }
