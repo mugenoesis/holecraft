@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
+import { uniqueName } from './helpers.ts';
 import { cube3mf, cubeStl, deflatedZip } from './modelFiles.ts';
 
 /*
@@ -91,12 +92,14 @@ test.describe('files sent by the browser add-on', () => {
 	});
 
 	test('a model with nothing in it is named in the message, and no design is made', async ({ page }) => {
-		const before = ((await (await page.request.get('/api/designs')).json()) as unknown[]).length;
-		const { openUrl } = await send(page, 'Empty.stl', Buffer.alloc(84));
+		// a name of its own: the list is shared with every other test, so a count of designs would change under it
+		const name = uniqueName('Empty');
+		const { openUrl } = await send(page, `${name}.stl`, Buffer.alloc(84));
 		await page.goto(openUrl);
 		await expect(page.getByRole('heading', { name: 'This file could not be opened' })).toBeVisible();
-		await expect(page.getByText(/Empty\.stl/)).toBeVisible();
-		expect(((await (await page.request.get('/api/designs')).json()) as unknown[]).length).toBe(before);
+		await expect(page.getByText(`${name}.stl`)).toBeVisible();
+		const designs = (await (await page.request.get('/api/designs')).json()) as { name: string }[];
+		expect(designs.some((d) => d.name === name)).toBe(false);
 	});
 
 	test('an address with nothing waiting says so', async ({ page }) => {
