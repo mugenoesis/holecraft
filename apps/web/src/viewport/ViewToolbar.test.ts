@@ -38,6 +38,7 @@ describe('ViewToolbar', () => {
 			'Edges',
 			'Paint',
 			'Sketch',
+			'Engrave',
 			'X-ray',
 		]);
 	});

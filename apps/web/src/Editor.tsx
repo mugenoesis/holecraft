@@ -25,6 +25,7 @@ import { ObjectList, ShapesPanel } from './ShapesPanel.tsx';
 import { ShortcutSheet } from './ShortcutSheet.tsx';
 import { TopBar } from './TopBar.tsx';
 import { useAutosave } from './useAutosave.ts';
+import { useEngrave } from './useEngrave.ts';
 import { useLibrary } from './useLibrary.ts';
 import { useMerge } from './useMerge.ts';
 import { useMeshes } from './useMeshes.ts';
@@ -90,6 +91,7 @@ function EditorView({ initial }: { initial: Design }) {
 	const { meshes, add: addMesh } = useMeshes(design);
 	const supportsUi = useSupportsUi(design);
 	const merge = useMerge(design, state.selection, meshes, addMesh, dispatch);
+	const engrave = useEngrave(design, meshes, addMesh, dispatch);
 	const modelCheck = useModelCheck(design, state.selection, meshes, addMesh, dispatch);
 	const save = useAutosave(design, initial);
 	useDocumentTitle(design.name);
@@ -207,6 +209,7 @@ function EditorView({ initial }: { initial: Design }) {
 					onPaintGapFill={(ids, fill) => dispatch({ type: 'addPaintAll', ids, fill })}
 					sketchEdit={sketchEdit}
 					onSketchEditChange={setSketchEdit}
+					onEngrave={engrave}
 					onFinishSketch={({ outlines, height, frame, editId }) =>
 						dispatch(
 							editId

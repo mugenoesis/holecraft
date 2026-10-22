@@ -48,6 +48,7 @@ export function viewKeyCommand(
 		e: () => onToggleTool('edges'),
 		n: () => onToggleTool('paint'),
 		k: () => onToggleTool('sketch'),
+		t: () => onToggleTool('engrave'),
 	};
 	return Object.hasOwn(commands, key.toLowerCase()) ? commands[key.toLowerCase()] : undefined;
 }

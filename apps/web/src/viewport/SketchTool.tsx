@@ -20,12 +20,13 @@ import {
 	toFrame,
 	type WorkPlane,
 } from '@holecraft/core';
-import { useEffect, useReducer, useRef, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import { isTypingTarget } from '../keyboard.ts';
 import type { Projection } from './CameraRig.ts';
 import { SketchBar } from './SketchBar.tsx';
 import { SketchOverlay } from './SketchOverlay.tsx';
 import { sketchHint } from './sketchHint.ts';
+import { usePlaneView } from './usePlaneView.ts';
 import type { Viewport } from './Viewport.ts';
 
 interface Props {
@@ -65,24 +66,6 @@ function startOf(design: Design, plane: WorkPlane | null, editId: NodeId | null)
 		height: String(DEFAULT_HEIGHT),
 		size: plane ? 120 : Math.max(...design.grid.size),
 	};
-}
-
-/** Makes the view look straight at the sketch plane, faded and still, while drawing, and puts it back as it was afterwards. */
-function useSketchView(getViewport: () => Viewport | null, frame: SketchFrame, size: number, camera: Props['camera']) {
-	const before = useRef(camera);
-	useEffect(() => {
-		const viewport = getViewport();
-		if (!viewport) return;
-		const was = before.current;
-		viewport.setSurfaceTool(true, true);
-		viewport.setDimmed(true);
-		viewport.lookAtPlane({ origin: frame.origin, normal: frame.normal }, size);
-		return () => {
-			viewport.setSurfaceTool(false);
-			viewport.setDimmed(false);
-			viewport.goToView(was.state, was.projection);
-		};
-	}, [getViewport, frame, size]);
 }
 
 /** The pointer and keys of drawing: presses on the view become plane points for the editor, and the keys it understands go to it first. */
@@ -145,7 +128,7 @@ export function SketchTool({ getViewport, design, plane, editId, camera, onFinis
 	const [problem, setProblem] = useState<string | null>(null);
 	const { frame } = start;
 
-	useSketchView(getViewport, frame, start.size, camera);
+	usePlaneView(getViewport, frame, start.size, camera);
 	useSketchInput(getViewport, frame, dispatch);
 
 	const viewport = getViewport();

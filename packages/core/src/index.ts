@@ -9,6 +9,7 @@ export * from './edgeEdits.ts';
 export * from './edges.ts';
 export * from './edgeTool.ts';
 export * from './edit.ts';
+export * from './engrave.ts';
 export * from './grid.ts';
 export * from './groupFrame.ts';
 export * from './groups.ts';

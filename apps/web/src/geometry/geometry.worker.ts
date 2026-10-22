@@ -1,11 +1,14 @@
 // Runs in a Web Worker: loads manifold's WebAssembly once, then does the heavy geometry work off the
 // main thread: turning a group into a single mesh, finding the edges the Edge tool offers, or working out everything to export.
 
-import type { Design, MeshData, MeshEdge } from '@holecraft/core';
+import type { Design, MeshData, MeshEdge, NodeId } from '@holecraft/core';
 import {
+	type ConformFrame,
 	collectBodies,
+	conformToSurface,
 	type ExportBody,
 	evaluateGroup,
+	evaluateNode,
 	type GroupMesh,
 	loadManifold,
 	type RawMesh,
@@ -20,12 +23,25 @@ export type WorkerRequest =
 	| { kind: 'group'; id: number; subtree: Subtree; meshes: ReadonlyMap<string, MeshData> }
 	| { kind: 'edges'; id: number; subtree: Subtree; meshes: ReadonlyMap<string, MeshData>; treated?: boolean }
 	| { kind: 'svg'; id: number; text: string; depth: number }
-	| { kind: 'export'; id: number; design: Pick<Design, 'nodes' | 'roots'>; meshes: ReadonlyMap<string, MeshData>; cutBelowPlane?: boolean };
+	| { kind: 'export'; id: number; design: Pick<Design, 'nodes' | 'roots'>; meshes: ReadonlyMap<string, MeshData>; cutBelowPlane?: boolean }
+	| {
+			kind: 'engrave';
+			id: number;
+			design: Pick<Design, 'nodes' | 'roots'>;
+			meshes: ReadonlyMap<string, MeshData>;
+			targetId: NodeId;
+			frame: ConformFrame;
+			polygons: [number, number][][];
+			depth: number;
+			mode: 'engrave' | 'raised';
+			resolution: number;
+	  };
 
 export type WorkerResponse =
 	| { id: number; mesh: GroupMesh | null }
 	| { id: number; edges: MeshEdge[] }
 	| { id: number; bodies: ExportBody[] }
+	| { id: number; engraving: GroupMesh }
 	| { id: number; svg: RawMesh }
 	| { id: number; error: string };
 
@@ -48,6 +64,19 @@ scope.onmessage = async ({ data }) => {
 				{ id: data.id, bodies },
 				bodies.flatMap((b) => [b.mesh.positions.buffer, b.mesh.indices.buffer]),
 			);
+			return;
+		}
+
+		if (data.kind === 'engrave') {
+			const target = evaluateNode(manifold, data.design, data.targetId, data.meshes);
+			if (!target) throw new Error('That shape has nothing to engrave');
+			const engraving = conformToSurface(manifold, target, data.frame, {
+				polygons: data.polygons,
+				depth: data.depth,
+				mode: data.mode,
+				resolution: data.resolution,
+			});
+			scope.postMessage({ id: data.id, engraving }, [engraving.positions.buffer, engraving.indices.buffer]);
 			return;
 		}
 

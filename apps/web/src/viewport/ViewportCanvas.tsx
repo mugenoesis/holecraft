@@ -17,12 +17,14 @@ import {
 } from '@holecraft/core';
 import { meshRefsIn, type Subtree } from '@holecraft/geometry';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { EngraveRequest } from '../engraveJob.ts';
 import { GeometryService } from '../geometry/GeometryService.ts';
 import { createWorkerEvaluator, type WorkerEvaluator } from '../geometry/workerEvaluator.ts';
 import type { Placing } from '../placing.ts';
 import { ThumbnailScheduler } from '../thumbnailScheduler.ts';
 import type { Projection } from './CameraRig.ts';
 import { EdgeTool } from './EdgeTool.tsx';
+import { EngraveHost } from './EngraveTool.tsx';
 import { HandlesOverlay } from './HandlesOverlay.tsx';
 import { PaintTool } from './PaintTool.tsx';
 import { PlaceLayer, useToolState } from './PlaceTool.tsx';
@@ -107,6 +109,8 @@ interface Props {
 	onSketchEditChange: (id: NodeId | null) => void;
 	/** A drawing is finished: make a new Sketch shape on the frame's plane, or redraw `editId`. */
 	onFinishSketch: (done: { outlines: SketchOutline[]; height: number; frame: SketchFrame; editId: NodeId | null }) => void;
+	/** Lettering is placed on a surface and Done was pressed: fit it to the shape and put it in the design; null when that worked, else the problem. */
+	onEngrave: (request: EngraveRequest) => Promise<string | null>;
 }
 
 /** React host for the imperative three.js viewport, plus its overlay controls. */
@@ -411,6 +415,14 @@ export function ViewportCanvas(props: Props) {
 							onCancel={() => setTool(null)}
 						/>
 					)}
+					<EngraveHost
+						active={tool === 'engrave'}
+						getViewport={getViewport}
+						design={design}
+						camera={camera}
+						onEngrave={(request) => latest.current.onEngrave(request)}
+						onClose={() => setTool(null)}
+					/>
 					{tool === 'paint' && (
 						<PaintTool
 							getViewport={getViewport}
