@@ -1,6 +1,6 @@
 {
 	"name": "@holecraft/addon",
-	"version": "0.5.0",
+	"version": "0.5.1",
 	"private": true,
 	"description": "Holecraft browser add-on for Firefox: send a model from MakerWorld, Printables or Thingiverse to Holecraft or Trident",
 	"license": "AGPL-3.0-only",
