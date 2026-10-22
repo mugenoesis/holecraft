@@ -8,6 +8,7 @@ import { LibraryStore, registerLibraryRoutes } from './library.ts';
 import { MeshStore, registerMeshRoutes } from './meshes.ts';
 import { ThumbnailStore } from './thumbnails.ts';
 import { registerTridentRoutes, TridentStore } from './trident.ts';
+import { VersionStore } from './versions.ts';
 
 export interface ServerOptions {
 	/** Where designs, thumbnails and imported meshes are stored. Created if missing. */
@@ -31,7 +32,7 @@ export async function createServer(opts: ServerOptions): Promise<FastifyInstance
 	app.get('/api/health', async () => ({ status: 'ok', name: 'holecraft', version }));
 	const thumbnails = new ThumbnailStore(opts.dataDir);
 	await thumbnails.init();
-	registerDesignRoutes(app, new DesignStore(opts.dataDir), thumbnails);
+	registerDesignRoutes(app, new DesignStore(opts.dataDir, 'designs', new VersionStore(opts.dataDir)), thumbnails);
 	registerLibraryRoutes(app, new LibraryStore(opts.dataDir));
 	const meshes = new MeshStore(opts.dataDir);
 	await meshes.init();

@@ -7,7 +7,9 @@ import {
 	duplicateDesign,
 	getDesign,
 	listDesigns,
+	listVersions,
 	renameDesignOnServer,
+	restoreVersion,
 	saveDesign,
 } from './designsApi.ts';
 
@@ -147,5 +149,26 @@ describe('saving from a version, and being refused for a newer one', () => {
 		const error = (await saveDesign(createEmptyDesign(id)).catch((e: unknown) => e)) as ApiError;
 		expect(error.conflict).toBe(false);
 		expect(error.updatedAt).toBeUndefined();
+	});
+});
+
+describe('version history', () => {
+	it('lists the kept versions of a design', async () => {
+		const versions = [{ version: '1767261600000', savedAt: '2026-01-01T10:00:00.000Z', name: 'A', objectCount: 3 }];
+		fetchMock.mockReturnValue(reply(200, versions));
+		expect(await listVersions(id)).toEqual(versions);
+		expect(lastCall()).toMatchObject({ url: `/api/designs/${id}/versions`, method: 'GET' });
+	});
+
+	it('restores one, and gives back the design that results', async () => {
+		const design = createEmptyDesign(id, 'Back again');
+		fetchMock.mockReturnValue(reply(200, design));
+		expect((await restoreVersion(id, '1767261600000')).name).toBe('Back again');
+		expect(lastCall()).toMatchObject({ url: `/api/designs/${id}/versions/1767261600000/restore`, method: 'POST' });
+	});
+
+	it('says so when the version is gone', async () => {
+		fetchMock.mockReturnValue(reply(404, { error: 'Design or version not found' }));
+		await expect(restoreVersion(id, '1')).rejects.toMatchObject({ status: 404, message: 'Design or version not found' });
 	});
 });

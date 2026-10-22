@@ -24,7 +24,7 @@ function readChange(body: unknown): DesignChange | string {
 	return { ...(name === undefined ? {} : { name }), ...(folder === undefined ? {} : { folder }) };
 }
 
-/** The design storage API: list, create, open, save, rename, duplicate and delete. */
+/** The design storage API: list, create, open, save, rename, duplicate, delete, and the history of earlier versions. */
 export function registerDesignRoutes(app: FastifyInstance, store: DesignStore, thumbnails: ThumbnailStore): void {
 	app.setErrorHandler((error, request, reply) => {
 		if (error instanceof DesignValidationError) return reply.code(400).send({ error: error.message, path: error.path });
@@ -66,6 +66,17 @@ export function registerDesignRoutes(app: FastifyInstance, store: DesignStore, t
 		}
 		const saved = await store.save(request.params.id, request.body, base === undefined ? {} : { base });
 		return saved ?? reply.code(404).send(NOT_FOUND);
+	});
+
+	// The earlier versions kept of a design (newest first), and putting one back.
+	app.get<{ Params: { id: string } }>('/api/designs/:id/versions', async (request, reply) => {
+		if (!(await store.exists(request.params.id))) return reply.code(404).send(NOT_FOUND);
+		return store.versions(request.params.id);
+	});
+
+	app.post<{ Params: { id: string; version: string } }>('/api/designs/:id/versions/:version/restore', async (request, reply) => {
+		const design = await store.restore(request.params.id, request.params.version);
+		return design ?? reply.code(404).send({ error: 'Design or version not found' });
 	});
 
 	// Renames a design and/or moves it to a folder (a folder name, or null for none).

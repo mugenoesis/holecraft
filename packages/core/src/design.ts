@@ -22,6 +22,14 @@ export interface DesignSummary {
 	thumbnailAt?: number;
 }
 
+/** One kept earlier version of a design, as its history lists it. `version` is its address; `savedAt` is when it was last saved. */
+export interface VersionSummary {
+	version: string;
+	savedAt: string;
+	name: string;
+	objectCount: number;
+}
+
 /** Longest name the editor will give a design or a shape. */
 export const MAX_NAME_LENGTH = 120;
 

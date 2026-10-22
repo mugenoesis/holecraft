@@ -4,6 +4,7 @@ import path from 'node:path';
 import { addShape, createEmptyDesign, type Design, parseDesign } from '@holecraft/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DesignConflictError, DesignStore, isValidDesignId, StoredDesignError } from './designs.ts';
+import { VersionStore } from './versions.ts';
 
 let dir: string;
 let store: DesignStore;
@@ -365,5 +366,100 @@ describe('folders', () => {
 		expect(list.find((s) => s.name === 'A')?.folder).toBeUndefined();
 		expect(list.find((s) => s.name === 'B')?.folder).toBe('Stays');
 		expect(await store.removeFolder('gone')).toBe(0);
+	});
+});
+
+describe('version history', () => {
+	let clock: number;
+	let history: DesignStore;
+	const MINUTE = 60_000;
+
+	beforeEach(() => {
+		clock = Date.parse('2026-01-01T10:00:00Z');
+		history = new DesignStore(dir, 'designs', new VersionStore(dir, { now: () => clock, every: 5 * MINUTE, max: 10 }));
+	});
+
+	const later = (minutes: number) => {
+		clock += minutes * MINUTE;
+	};
+
+	it('keeps how a design stood before its first save, but not every save after it', async () => {
+		const created = await history.create('Bracket');
+		await history.save(created.id, withBox(created));
+		later(1);
+		await history.save(created.id, withBox(withBox(created)));
+		later(1);
+		await history.save(created.id, withBox(withBox(withBox(created))));
+		const versions = await history.versions(created.id);
+		expect(versions).toHaveLength(1);
+		expect(versions[0]?.objectCount).toBe(0);
+	});
+
+	it('keeps another once the editing has paused', async () => {
+		const created = await history.create('Bracket');
+		await history.save(created.id, withBox(created));
+		later(10);
+		await history.save(created.id, withBox(withBox(created)));
+		expect((await history.versions(created.id)).map((v) => v.objectCount)).toEqual([1, 0]);
+	});
+
+	it('keeps nothing when the design is not stored with a history (the library)', async () => {
+		const plain = new DesignStore(dir, 'library');
+		const created = await plain.create('Washer');
+		await plain.save(created.id, withBox(created));
+		expect(await plain.versions(created.id)).toEqual([]);
+		expect(await plain.restore(created.id, '1767261600000')).toBeNull();
+	});
+
+	it('restores an earlier version as a new save, keeping the one it replaces', async () => {
+		const created = await history.create('Bracket');
+		await history.save(created.id, withBox(created));
+		later(10);
+		const current = (await history.save(created.id, withBox(withBox(created))))!;
+		const [, first] = await history.versions(created.id);
+
+		later(1);
+		const restored = (await history.restore(created.id, first!.version))!;
+		expect(restored.roots).toHaveLength(0);
+		expect(restored.id).toBe(created.id);
+		expect(restored.createdAt).toBe(created.createdAt);
+		expect(restored.updatedAt > current.updatedAt).toBe(true);
+		expect((await history.get(created.id))?.roots).toHaveLength(0);
+		// the two boxes the design had a moment ago are one step back, though only a minute had passed
+		expect((await history.versions(created.id))[0]?.objectCount).toBe(2);
+	});
+
+	it('keeps the folder a design is in, whatever the restored version says', async () => {
+		const created = await history.create('Bracket');
+		await history.save(created.id, withBox(created));
+		await history.setFolder(created.id, 'Brackets');
+		later(10);
+		await history.save(created.id, withBox(withBox(created)));
+		const oldest = (await history.versions(created.id)).at(-1)!;
+		expect((await history.restore(created.id, oldest.version))?.folder).toBe('Brackets');
+	});
+
+	it('answers null for a design or version that is not there', async () => {
+		const created = await history.create('Bracket');
+		expect(await history.restore(created.id, '1767261600000')).toBeNull();
+		expect(await history.restore('0123456789abcdef0123456789abcdef', '1767261600000')).toBeNull();
+		expect(await history.restore('../x', '1767261600000')).toBeNull();
+		expect(await history.versions('../x')).toEqual([]);
+	});
+
+	it('forgets the history of a design that is deleted', async () => {
+		const created = await history.create('Bracket');
+		await history.save(created.id, withBox(created));
+		expect(await history.versions(created.id)).toHaveLength(1);
+		await history.delete(created.id);
+		expect(await history.versions(created.id)).toEqual([]);
+	});
+
+	it('can restore over a damaged file, since that is a way back to a good one', async () => {
+		const created = await history.create('Bracket');
+		await history.save(created.id, withBox(created));
+		await writeFile(path.join(dir, 'designs', `${created.id}.json`), '{ broken');
+		const [only] = await history.versions(created.id);
+		expect((await history.restore(created.id, only!.version))?.roots).toHaveLength(0);
 	});
 });

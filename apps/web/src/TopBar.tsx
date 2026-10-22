@@ -29,10 +29,12 @@ interface Props {
 	compact: boolean;
 	/** Opens the keyboard shortcut sheet. */
 	onHelp: () => void;
+	/** Opens the list of earlier versions of the design. */
+	onHistory: () => void;
 }
 
 /** The bar across the top of the editor: back link, undo/redo, group, name, import/export and save status. */
-export function TopBar({ state, dispatch, meshes, merge, onImported, save, compact, onHelp }: Props) {
+export function TopBar({ state, dispatch, meshes, merge, onImported, save, compact, onHelp, onHistory }: Props) {
 	const design = state.history.present;
 	const selection: readonly NodeId[] = state.selection;
 
@@ -106,6 +108,16 @@ export function TopBar({ state, dispatch, meshes, merge, onImported, save, compa
 				{STATUS_LABEL[save.status]}
 				{save.status === 'error' && save.problem ? `: ${save.problem}` : ''}
 			</span>
+			<button
+				type="button"
+				className="history-button"
+				aria-label="Version history"
+				title="Version history: earlier versions of this design"
+				onClick={onHistory}
+			>
+				<span aria-hidden="true">↺</span>
+				<span className="history-label">History</span>
+			</button>
 			<button type="button" className="help-button" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" onClick={onHelp}>
 				?
 			</button>
