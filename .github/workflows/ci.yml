@@ -25,6 +25,13 @@ jobs:
           name: coverage-report
           path: coverage/
           if-no-files-found: ignore
+      # the end-to-end tests build the Firefox add-on; this is the zip to upload to addons.mozilla.org to have it signed
+      - name: Keep the Firefox add-on
+        uses: actions/upload-artifact@v7
+        with:
+          name: holecraft-send
+          path: apps/addon/release/*.zip
+          if-no-files-found: ignore
 
   audit:
     runs-on: ubuntu-latest

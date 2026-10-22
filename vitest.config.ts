@@ -6,7 +6,7 @@ export default defineConfig({
 		include: ['packages/*/src/**/*.test.ts', 'apps/*/src/**/*.test.ts'],
 		coverage: {
 			provider: 'v8',
-			include: ['packages/*/src/**/*.{ts,tsx}', 'apps/server/src/**/*.ts', 'apps/web/src/**/*.{ts,tsx}'],
+			include: ['packages/*/src/**/*.{ts,tsx}', 'apps/server/src/**/*.ts', 'apps/web/src/**/*.{ts,tsx}', 'apps/addon/src/**/*.ts'],
 			exclude: [
 				'**/*.test.ts',
 				'**/*.d.ts',
@@ -14,6 +14,7 @@ export default defineConfig({
 				'apps/server/src/main.ts', // the process entry point, exercised by the Docker smoke test
 				'apps/web/src/main.tsx',
 				'vitest.setup.ts',
+				'apps/addon/src/{background,popup,options,ui}.ts', // glue to the browser's own API, exercised by the browser tests in e2e/
 			],
 			reporter: ['text-summary', 'html', 'lcov'],
 			// Floors, set just under what each package has today, so coverage can only go up. The web app's
@@ -23,6 +24,7 @@ export default defineConfig({
 				'packages/core/src/**': { statements: 97, branches: 94, functions: 98, lines: 98 },
 				'packages/geometry/src/**': { statements: 95, branches: 82, functions: 97, lines: 98 },
 				'apps/server/src/**': { statements: 90, branches: 86, functions: 90, lines: 93 },
+				'apps/addon/src/**': { statements: 96, branches: 91, functions: 98, lines: 98 },
 				'apps/web/src/**': { statements: 43, branches: 43, functions: 34, lines: 43 },
 			},
 		},

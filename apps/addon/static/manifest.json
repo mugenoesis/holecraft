@@ -1,0 +1,24 @@
+{
+	"manifest_version": 2,
+	"name": "Holecraft Send",
+	"version": "0.0.0",
+	"description": "Send a model from MakerWorld, Printables or Thingiverse to Holecraft or Trident Studio with one tap.",
+	"homepage_url": "https://github.com/mugenoesis/holecraft",
+	"browser_specific_settings": {
+		"gecko": {
+			"id": "holecraft-send@holecraft.invalid",
+			"strict_min_version": "128.0",
+			"data_collection_permissions": { "required": ["none"] }
+		},
+		"gecko_android": { "strict_min_version": "128.0" }
+	},
+	"icons": { "48": "icon.png", "96": "icon.png" },
+	"permissions": ["webRequest", "webRequestBlocking", "tabs", "storage", "<all_urls>"],
+	"background": { "scripts": ["background.js"], "persistent": true },
+	"browser_action": {
+		"default_title": "Holecraft Send",
+		"default_popup": "popup.html",
+		"default_icon": { "48": "icon.png", "96": "icon.png" }
+	},
+	"options_ui": { "page": "options.html", "open_in_tab": true }
+}

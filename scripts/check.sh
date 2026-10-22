@@ -17,6 +17,7 @@ step "unused code and dependencies (knip)"; npm run knip
 step "typecheck";          npm run typecheck
 step "unit tests + coverage floors"; npm run coverage
 step "build";              npm run build
+step "build the Firefox add-on"; scripts/package-addon.sh
 
 if [[ "${FULL:-0}" == "1" ]]; then
   step "docker smoke";     scripts/docker-smoke.sh
