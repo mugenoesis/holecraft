@@ -1,7 +1,8 @@
 import type { Bounds } from './camera.ts';
-import type { Design, NodeId, ShapeNode } from './design.ts';
+import type { Design, GroupNode, NodeId, ShapeNode } from './design.ts';
+import { type EngraveRecord, engraveParams, engraveRecordOf } from './engraveRecord.ts';
 import { groupNodes } from './groups.ts';
-import { addMeshShape, type MeshShapeInput } from './meshShape.ts';
+import { addMeshShape, MESH_SHAPE_TYPE, type MeshShapeInput } from './meshShape.ts';
 import { translation } from './ops.ts';
 import { textOutlines } from './text.ts';
 
@@ -58,7 +59,7 @@ export function whyNotEngrave(design: Design, id: NodeId): string | null {
 /**
  * Puts the fitted lettering (`input`, whose size is the box `bounds` it fills in the world) in the design, grouped with `targetId`: an engraving is
  * a hole, so the group has the words cut out of it; raised lettering is a solid in the target's colour, joined to it. The group is returned (it
- * becomes the selection). The same design and a null id come back when the target cannot be engraved or the bounds are not numbers.
+ * becomes the selection). With a `record` (the choices and the plane), the engraving keeps it so it can be edited later (`reengrave`). The same design and a null id come back when the target cannot be engraved or the bounds are not numbers.
  */
 export function engraveInto(
 	design: Design,
@@ -66,7 +67,7 @@ export function engraveInto(
 	input: MeshShapeInput,
 	bounds: Bounds,
 	mode: EngraveSettings['mode'],
-	opts: { id?: NodeId; groupId?: NodeId; now?: Date } = {},
+	opts: { id?: NodeId; groupId?: NodeId; now?: Date; record?: EngraveRecord } = {},
 ): { design: Design; id: NodeId | null } {
 	if (whyNotEngrave(design, targetId) !== null || ![...bounds.min, ...bounds.max].every(Number.isFinite)) return { design, id: null };
 	const target = design.nodes[targetId]!;
@@ -81,6 +82,7 @@ export function engraveInto(
 		mode: mode === 'engrave' ? 'hole' : 'solid',
 		color: mode === 'engrave' ? shape.color : target.color,
 		transform: translation(shape.transform[12]!, shape.transform[13]!, bounds.min[2]),
+		...(opts.record ? { params: { ...shape.params, ...engraveParams(opts.record) } } : {}),
 	};
 	const withNew: Design = { ...added.design, nodes: { ...added.design.nodes, [added.id]: placed } };
 	const grouped = groupNodes(withNew, [targetId, added.id], {
@@ -88,4 +90,45 @@ export function engraveInto(
 		...(opts.now ? { now: opts.now } : {}),
 	});
 	return grouped.id === null ? { design, id: null } : grouped;
+}
+
+/** The group a node is directly inside, or null. */
+function parentOf(design: Design, id: NodeId): GroupNode | null {
+	for (const node of Object.values(design.nodes)) if (node.kind === 'group' && node.children.includes(id)) return node;
+	return null;
+}
+
+/**
+ * Swaps an engraving for lettering fitted again with new choices (`record`): the shape keeps its place in its group and takes the new mesh,
+ * name, mode (a hole, or a solid in the colour of the group's other contents) and what it remembers. `bounds` is the new lettering's box in the
+ * frame of the group the engraving is in, since that is the frame the shape is placed in. The same design comes back when the node is not an
+ * engraving, its group is locked or hidden, or the bounds are not numbers.
+ */
+export function reengrave(design: Design, id: NodeId, input: MeshShapeInput, bounds: Bounds, record: EngraveRecord): Design {
+	const node = design.nodes[id];
+	const group = parentOf(design, id);
+	if (node?.kind !== 'shape' || node.shapeType !== MESH_SHAPE_TYPE || !engraveRecordOf(node) || !group) return design;
+	if (group.locked || group.hidden || ![...bounds.min, ...bounds.max].every(Number.isFinite)) return design;
+	const [width, depth, height] = input.size;
+	const engrave = record.settings.mode === 'engrave';
+	const sibling = group.children.map((c) => design.nodes[c]).find((n) => n && n.id !== id && engraveRecordOf(n) === null);
+	const replaced: ShapeNode = {
+		...node,
+		name: input.name,
+		mode: engrave ? 'hole' : 'solid',
+		color: engrave ? node.color : (sibling?.color ?? node.color),
+		transform: translation((bounds.min[0] + bounds.max[0]) / 2, (bounds.min[1] + bounds.max[1]) / 2, bounds.min[2]),
+		params: {
+			...node.params,
+			width,
+			depth,
+			height,
+			originalWidth: width,
+			originalDepth: depth,
+			originalHeight: height,
+			mesh: input.ref,
+			...engraveParams(record),
+		},
+	};
+	return { ...design, nodes: { ...design.nodes, [id]: replaced } };
 }

@@ -1,11 +1,12 @@
-import { type Design, type EngraveSettings, engravePolygons, fromFrame, type OrbitState, toFrame } from '@holecraft/core';
+import { type Design, type EngraveSettings, engravePolygons, fromFrame, type NodeId, type OrbitState, toFrame } from '@holecraft/core';
 import { useEffect, useState } from 'react';
 import type { EngraveRequest } from '../engraveJob.ts';
 import { isTypingTarget } from '../keyboard.ts';
+import type { EngraveEditJob } from '../useEngrave.ts';
 import type { Projection } from './CameraRig.ts';
 import { EngraveBar } from './EngraveBar.tsx';
 import { EngraveOverlay } from './EngraveOverlay.tsx';
-import { DEFAULT_ENGRAVE, type EngraveStart, engraveRequest, engraveStart, overhangs } from './engraveTool.ts';
+import { DEFAULT_ENGRAVE, type EngraveStart, engraveEdit, engraveRequest, engraveStart, overhangs } from './engraveTool.ts';
 import { usePlaneView } from './usePlaneView.ts';
 import { useSurfaceTool } from './useSurfaceTool.ts';
 import type { Viewport } from './Viewport.ts';
@@ -16,7 +17,9 @@ interface Props {
 	/** The camera now: it redraws the overlay when it moves, and is what the view goes back to afterwards. */
 	camera: { state: OrbitState; projection: Projection };
 	/** Fits the lettering to the shape and puts it in the design: null when that worked, else the problem in words. */
-	onEngrave: (request: EngraveRequest) => Promise<string | null>;
+	onEngrave: (request: EngraveRequest, edit?: EngraveEditJob) => Promise<string | null>;
+	/** An engraving to edit (the group it is in, and the shape), or none: the tool then starts by picking a face. */
+	edit?: { group: NodeId; node: NodeId } | null | undefined;
 	onClose: () => void;
 }
 
@@ -56,16 +59,22 @@ function PlaceLettering({
 	getViewport,
 	start,
 	camera,
+	initial,
 	onEngrave,
 	onClose,
-}: Pick<Props, 'getViewport' | 'camera' | 'onEngrave' | 'onClose'> & { start: EngraveStart }) {
-	const [text, setText] = useState(DEFAULT_ENGRAVE.text);
-	const [font, setFont] = useState(DEFAULT_ENGRAVE.font);
-	const [em, setEm] = useState(String(start.em));
-	const [depth, setDepth] = useState(String(DEFAULT_ENGRAVE.depth));
-	const [angle, setAngle] = useState('0');
-	const [mode, setMode] = useState<EngraveSettings['mode']>('engrave');
-	const [at, setAt] = useState<[number, number]>([0, 0]);
+}: Pick<Props, 'getViewport' | 'camera' | 'onClose'> & {
+	start: EngraveStart;
+	/** The choices to start with (an engraving being edited has its own); the usual ones when there are none. */
+	initial?: EngraveSettings | undefined;
+	onEngrave: (request: EngraveRequest) => Promise<string | null>;
+}) {
+	const [text, setText] = useState(initial?.text ?? DEFAULT_ENGRAVE.text);
+	const [font, setFont] = useState(initial?.font ?? DEFAULT_ENGRAVE.font);
+	const [em, setEm] = useState(String(initial?.em ?? start.em));
+	const [depth, setDepth] = useState(String(initial?.depth ?? DEFAULT_ENGRAVE.depth));
+	const [angle, setAngle] = useState(String(initial?.angle ?? 0));
+	const [mode, setMode] = useState<EngraveSettings['mode']>(initial?.mode ?? 'engrave');
+	const [at, setAt] = useState<[number, number]>(initial?.at ?? [0, 0]);
 	const [problem, setProblem] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	const { frame } = start;
@@ -158,12 +167,56 @@ function PlaceLettering({
 	);
 }
 
+/** Editing an engraving: the view looks at the plane it was placed on, with its own choices, and Done fits it again in place of the old one. */
+function EditLettering({
+	getViewport,
+	design,
+	camera,
+	onEngrave,
+	edit,
+	onClose,
+}: Pick<Props, 'getViewport' | 'design' | 'camera' | 'onEngrave' | 'onClose'> & { edit: { group: NodeId; node: NodeId } }) {
+	// worked out once, as the tool opens: the design does not change while it is open
+	const [begin] = useState(() => engraveEdit(design, edit.group, edit.node));
+	useEffect(() => {
+		if (!('problem' in begin)) return;
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key !== 'Escape' || isTypingTarget(e.target)) return;
+			e.stopImmediatePropagation();
+			onClose();
+		};
+		window.addEventListener('keydown', onKey, true);
+		return () => window.removeEventListener('keydown', onKey, true);
+	}, [begin, onClose]);
+	if ('problem' in begin) {
+		return (
+			<div className="ruler-readout" data-testid="engrave-hint" role="status">
+				<span>{begin.problem}</span>
+			</div>
+		);
+	}
+	return (
+		<PlaceLettering
+			getViewport={getViewport}
+			start={begin.start}
+			initial={begin.settings}
+			camera={camera}
+			onEngrave={(request) =>
+				onEngrave({ ...request, into: begin.into }, { nodeId: edit.node, record: begin.record, fitDesign: begin.fitDesign })
+			}
+			onClose={onClose}
+		/>
+	);
+}
+
 /**
  * The Engrave tool: click a face of any shape, then the view looks straight at it (as the Sketch tool does) while the words are typed, placed,
  * sized and given a depth; Done fits them to the surface under them and engraves them (or raises them) in the right orientation.
  */
-function EngraveTool({ getViewport, design, camera, onEngrave, onClose }: Props) {
+function EngraveTool({ getViewport, design, camera, onEngrave, edit, onClose }: Props) {
 	const [start, setStart] = useState<EngraveStart | null>(null);
+	if (edit)
+		return <EditLettering getViewport={getViewport} design={design} camera={camera} onEngrave={onEngrave} edit={edit} onClose={onClose} />;
 	return start ? (
 		<PlaceLettering getViewport={getViewport} start={start} camera={camera} onEngrave={onEngrave} onClose={onClose} />
 	) : (

@@ -1,6 +1,20 @@
-import { addShape, createEmptyDesign, type Design, engravePolygons, setNodeMode, setShapeSize } from '@holecraft/core';
+import {
+	addShape,
+	createEmptyDesign,
+	type Design,
+	engraveInto,
+	engravePolygons,
+	frameOfPlane,
+	type GroupNode,
+	groupNodes,
+	type ShapeNode,
+	setNodeMode,
+	setShapeSize,
+	transformPoint,
+	translation,
+} from '@holecraft/core';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ENGRAVE, engraveRequest, engraveStart, overhangs } from './engraveTool.ts';
+import { DEFAULT_ENGRAVE, engraveEdit, engraveRequest, engraveStart, overhangs } from './engraveTool.ts';
 
 function scene(): Design {
 	const d = addShape(createEmptyDesign('d'), 'box', [0, 0], { id: 'a' }).design;
@@ -159,5 +173,72 @@ describe('overhang', () => {
 
 	it('is false for no words at all', () => {
 		expect(overhangs(null, reach)).toBe(false);
+	});
+});
+
+describe('engraveRequest remembers the choices', () => {
+	it('carries the settings it was made from, so the engraving can be edited later', () => {
+		const s = engraveStart(scene(), { id: 'a', point: [0, 0, 20], normal: [0, 0, 1] });
+		if ('problem' in s) throw new Error(s.problem);
+		const settings = { ...DEFAULT_ENGRAVE, text: 'Hi', em: 6 };
+		const r = engraveRequest(s, settings);
+		if ('problem' in r) throw new Error(r.problem);
+		expect(r.settings).toEqual(settings);
+	});
+});
+
+describe('engraveEdit', () => {
+	const record = {
+		settings: { text: 'Hi', font: 2, em: 6, angle: 15, at: [3, -2] as [number, number], depth: 0.8, mode: 'engrave' as const },
+		frame: frameOfPlane({ origin: [0, 0, 20], normal: [0, 0, 1] }),
+	};
+	const input = { name: 'Engraving "Hi"', ref: 'c'.repeat(64), size: [10, 4, 2] as [number, number, number] };
+	const bounds = { min: [-5, -2, 19] as [number, number, number], max: [5, 2, 20.5] as [number, number, number] };
+	const engraved = () => engraveInto(scene(), 'a', input, bounds, 'engrave', { id: 'e', groupId: 'g', record }).design;
+	const moved = (d: Design, dx: number) => {
+		const g = d.nodes.g as GroupNode;
+		return { ...d, nodes: { ...d.nodes, g: { ...g, transform: translation(dx, 0, 0) } } } as Design;
+	};
+
+	it('opens an engraving with its own choices, on the plane it was placed on, aimed at the group it sits in', () => {
+		const out = engraveEdit(engraved(), 'g', 'e');
+		if ('problem' in out) throw new Error(out.problem);
+		expect(out.settings).toEqual(record.settings);
+		expect(out.start.id).toBe('g');
+		expect(out.start.frame).toEqual(record.frame);
+		expect(out.start.em).toBe(6);
+		expect(out.record.frame).toEqual(record.frame);
+	});
+
+	it('measures the room the words have from the group without the engraving in it', () => {
+		const out = engraveEdit(engraved(), 'g', 'e');
+		if ('problem' in out) throw new Error(out.problem);
+		expect(out.start.reach.minX).toBeCloseTo(-20, 6);
+		expect(out.start.reach.maxX).toBeCloseTo(20, 6);
+		expect((out.fitDesign.nodes.e as ShapeNode).hidden).toBe(true);
+		expect((engraved().nodes.e as ShapeNode).hidden).toBe(false);
+	});
+
+	it('follows a group that has been moved: the plane is where the group is now, and the fitted lettering is brought back into the group’s frame', () => {
+		const out = engraveEdit(moved(engraved(), 100), 'g', 'e');
+		if ('problem' in out) throw new Error(out.problem);
+		expect(out.start.frame.origin).toEqual([100, 0, 20]);
+		expect(out.record.frame.origin).toEqual([0, 0, 20]);
+		expect(transformPoint(out.into, [100, 0, 20])[0]).toBeCloseTo(0, 9);
+	});
+
+	it('says why not for an engraving that is not there, a shape that is not an engraving, or a group that is locked, hidden or inside another', () => {
+		const d = engraved();
+		expect(engraveEdit(d, 'g', 'nope')).toEqual({ problem: expect.stringMatching(/no longer|not/i) });
+		expect(engraveEdit(d, 'g', 'a')).toEqual({ problem: expect.stringMatching(/not an engraving|no engraving/i) });
+		const g = d.nodes.g as GroupNode;
+		expect(engraveEdit({ ...d, nodes: { ...d.nodes, g: { ...g, locked: true } } }, 'g', 'e')).toEqual({
+			problem: expect.stringMatching(/locked/i),
+		});
+		expect(engraveEdit({ ...d, nodes: { ...d.nodes, g: { ...g, hidden: true } } }, 'g', 'e')).toEqual({
+			problem: expect.stringMatching(/hidden/i),
+		});
+		const nested = groupNodes(addShape(d, 'sphere', [80, 0], { id: 's' }).design, ['g', 's'], { id: 'outer' }).design;
+		expect(engraveEdit(nested, 'g', 'e')).toEqual({ problem: expect.stringMatching(/inside|ungroup/i) });
 	});
 });

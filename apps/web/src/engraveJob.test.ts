@@ -14,6 +14,7 @@ const request: EngraveRequest = {
 			[-5, 2],
 		],
 	],
+	settings: { text: 'Hi', font: 1, em: 10, angle: 0, at: [0, 0], depth: 3, mode: 'engrave' },
 	depth: 3,
 	mode: 'engrave',
 	resolution: 0.5,
@@ -58,5 +59,18 @@ describe('runEngrave', () => {
 		expect(unread.error).toBe('not a model');
 		const odd = await runEngrave(request, { fit: async () => Promise.reject('boom'), read: vi.fn() });
 		expect(odd.error).toMatch(/could not be engraved/i);
+	});
+});
+
+describe('runEngrave into a group', () => {
+	it('brings the fitted lettering into the group’s own frame, and gives its box there', async () => {
+		const read = vi.fn().mockResolvedValue({ input, mesh });
+		// a group standing 100 mm along x: the way back into it is a move of -100
+		const into = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -100, 0, 0, 1];
+		const out = await runEngrave(
+			{ ...request, into },
+			{ fit: async () => ({ ...mesh, positions: mesh.positions.map((v, i) => (i % 3 === 0 ? v + 100 : v)) }), read },
+		);
+		expect(out.bounds).toEqual({ min: [-5, -2, 17], max: [5, 2, 20.5] });
 	});
 });

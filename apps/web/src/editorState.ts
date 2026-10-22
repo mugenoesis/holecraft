@@ -24,6 +24,7 @@ import {
 	dropToWorkplane,
 	duplicateNodes,
 	type EdgeTreatment,
+	type EngraveRecord,
 	engraveInto,
 	flipNodes,
 	groupNodes,
@@ -39,6 +40,7 @@ import {
 	pushHistory,
 	type ResinHoleKind,
 	redo,
+	reengrave,
 	removeEdgeTreatments,
 	removePaletteColor,
 	removeSupportPoint,
@@ -140,7 +142,9 @@ export type EditorAction =
 	| { type: 'mergeToMesh'; ids: NodeId[]; input: MeshShapeInput }
 	// Lettering fitted to the surface of `target` (a top-level shape or group): `input` is the fitted mesh and `bounds` the box it fills in the world;
 	// an engraving is a hole grouped with the target, raised lettering a solid.
-	| { type: 'engrave'; target: NodeId; input: MeshShapeInput; bounds: Bounds; mode: 'engrave' | 'raised' }
+	| { type: 'engrave'; target: NodeId; input: MeshShapeInput; bounds: Bounds; mode: 'engrave' | 'raised'; record?: EngraveRecord }
+	// An engraving fitted again with new choices: `bounds` is the new lettering's box in the frame of the group it sits in.
+	| { type: 'reengrave'; id: NodeId; input: MeshShapeInput; bounds: Bounds; record: EngraveRecord }
 	// Support points for resin printing: the ones the slicer made, one added or taken away, and a point dragged (supportDragStart, then
 	// supportMove as it goes, then moveEnd to keep it or cancelDrag to take it back).
 	| { type: 'supportsMade'; doc: SupportPointsDocument }
@@ -228,7 +232,7 @@ type HistoryAction = ActionOf<'undo' | 'redo'>;
 type StretchLockAction = ActionOf<'setStretchUnlocked'>;
 /** Everything else: edits to the document itself, each one an undoable step. */
 /** The resin printing tools (drain holes, tilting) and the two edits that swap shapes for a mesh from the engine: Hollow and Merge. */
-type ResinAction = ActionOf<'resinHole' | 'tilt' | 'replaceWithMesh' | 'mergeToMesh' | 'engrave'>;
+type ResinAction = ActionOf<'resinHole' | 'tilt' | 'replaceWithMesh' | 'mergeToMesh' | 'engrave' | 'reengrave'>;
 /** Support points: the slicer's, and the user's own. */
 type SupportAction = ActionOf<
 	'supportsMade' | 'supportAdd' | 'supportRemove' | 'supportRadius' | 'supportsClear' | 'supportDragStart' | 'supportMove'
@@ -415,6 +419,28 @@ function reduceSupports(state: EditorState, action: SupportAction): EditorState 
 	}
 }
 
+/** Lettering fitted to a surface: a new engraving grouped with its target, or an engraving swapped for one fitted again. */
+function reduceEngrave(state: EditorState, action: ActionOf<'engrave' | 'reengrave'>): EditorState {
+	const design = state.history.present;
+	if (action.type === 'engrave') {
+		const engraved = engraveInto(
+			design,
+			action.target,
+			action.input,
+			action.bounds,
+			action.mode,
+			action.record ? { record: action.record } : {},
+		);
+		return engraved.id === null ? state : commit(state, engraved.design, [engraved.id]);
+	}
+	if (action.type === 'reengrave') {
+		const swapped = reengrave(design, action.id, action.input, action.bounds, action.record);
+		const group = Object.values(design.nodes).find((n) => n.kind === 'group' && n.children.includes(action.id));
+		return swapped === design || !group ? state : commit(state, swapped, [group.id]);
+	}
+	return state;
+}
+
 function reduceResin(state: EditorState, action: ResinAction): EditorState {
 	const design = state.history.present;
 	if (action.type === 'tilt') {
@@ -425,10 +451,7 @@ function reduceResin(state: EditorState, action: ResinAction): EditorState {
 		const swapped = replaceWithMesh(design, action.id, action.input);
 		return swapped.design === design ? state : commit(state, swapped.design, [swapped.id]);
 	}
-	if (action.type === 'engrave') {
-		const engraved = engraveInto(design, action.target, action.input, action.bounds, action.mode);
-		return engraved.id === null ? state : commit(state, engraved.design, [engraved.id]);
-	}
+	if (action.type === 'engrave' || action.type === 'reengrave') return reduceEngrave(state, action);
 	if (action.type === 'mergeToMesh') {
 		const merged = mergeShapes(design, action.ids, action.input);
 		return merged.id === null ? state : commit(state, merged.design, [merged.id]);
@@ -621,6 +644,7 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
 		case 'replaceWithMesh':
 		case 'mergeToMesh':
 		case 'engrave':
+		case 'reengrave':
 			return reduceResin(state, action);
 
 		case 'supportsMade':
