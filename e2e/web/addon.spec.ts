@@ -19,6 +19,11 @@ const DIST = path.resolve(import.meta.dirname, '../../apps/addon/dist');
 const ORIGIN = 'http://addon.test';
 const TYPES: Record<string, string> = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png' };
 
+// the pages are served from the built add-on: a clean checkout has none until scripts/package-addon.sh has run (scripts/check.sh and scripts/e2e.sh do it)
+test.beforeAll(async () => {
+	await expect(readFile(path.join(DIST, 'manifest.json')), 'Build the add-on first: scripts/package-addon.sh').resolves.toBeDefined();
+});
+
 interface Harness {
 	files: CaughtFiles;
 	log: RecentLog;
