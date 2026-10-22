@@ -134,6 +134,34 @@ test.describe('the Engrave tool', () => {
 		expect(8000 - info.volume).toBeGreaterThan(1);
 	});
 
+	test('the starting words are sized to fit a small face: on a 20 mm cylinder they are engraved as they are', async ({ page }) => {
+		await dropShape(page, 'Cylinder');
+		await selectView(page, 'Front');
+		await cameraSettled(page);
+		await tool(page).click();
+		await clickAt(page, 0, -27); // the middle of the front wall, 10 mm up
+		await expect(bar(page)).toBeVisible();
+		await expect(bar(page).getByLabel('Letter size', { exact: true })).not.toHaveValue('10');
+		await expect(bar(page)).not.toContainText('past the edge');
+		await bar(page).getByRole('button', { name: 'Done' }).click();
+		await expect(bar(page)).toBeHidden({ timeout: 20_000 });
+		const { info } = await exportStl(page);
+		const cylinder = Math.PI * 10 ** 2 * 20;
+		expect(cylinder - info.volume).toBeGreaterThan(2);
+		expect(cylinder - info.volume).toBeLessThan(150);
+	});
+
+	test('warns while the words are being placed, before Done, when they hang over the edge, and stops when they fit', async ({ page }) => {
+		await boxFromAbove(page);
+		await tool(page).click();
+		await clickAt(page, 0);
+		await expect(bar(page)).toBeVisible();
+		await fill(page, 'Letter size', '40');
+		await expect(bar(page)).toContainText('past the edge of the shape here');
+		await fill(page, 'Letter size', '4');
+		await expect(bar(page)).not.toContainText('past the edge');
+	});
+
 	test('says what is wrong with the depth without leaving the tool', async ({ page }) => {
 		await boxFromAbove(page);
 		await startOnTop(page, 'I', '10', '0');

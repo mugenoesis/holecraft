@@ -5,7 +5,7 @@ import { isTypingTarget } from '../keyboard.ts';
 import type { Projection } from './CameraRig.ts';
 import { EngraveBar } from './EngraveBar.tsx';
 import { EngraveOverlay } from './EngraveOverlay.tsx';
-import { DEFAULT_ENGRAVE, type EngraveStart, engraveRequest, engraveStart } from './engraveTool.ts';
+import { DEFAULT_ENGRAVE, type EngraveStart, engraveRequest, engraveStart, overhangs } from './engraveTool.ts';
 import { usePlaneView } from './usePlaneView.ts';
 import { useSurfaceTool } from './useSurfaceTool.ts';
 import type { Viewport } from './Viewport.ts';
@@ -43,6 +43,12 @@ function PickSurface({
 	);
 }
 
+/** What the bar says while the words are placed: how, or that some of them are past the edge of the shape (which Done would refuse). */
+const placingHint = (overhang: boolean) =>
+	overhang
+		? 'Some of the words are past the edge of the shape here: make the letters smaller, or move them onto it'
+		: 'Click or drag on the surface to place the words, then press Done';
+
 const num = (text: string, empty = Number.NaN) => (text.trim() === '' ? empty : Number(text));
 
 /** The second step: the view looks straight at the face, and the words are placed on it, sized, turned and given a depth. Done fits them to the surface. */
@@ -55,7 +61,7 @@ function PlaceLettering({
 }: Pick<Props, 'getViewport' | 'camera' | 'onEngrave' | 'onClose'> & { start: EngraveStart }) {
 	const [text, setText] = useState(DEFAULT_ENGRAVE.text);
 	const [font, setFont] = useState(DEFAULT_ENGRAVE.font);
-	const [em, setEm] = useState(String(DEFAULT_ENGRAVE.em));
+	const [em, setEm] = useState(String(start.em));
 	const [depth, setDepth] = useState(String(DEFAULT_ENGRAVE.depth));
 	const [angle, setAngle] = useState('0');
 	const [mode, setMode] = useState<EngraveSettings['mode']>('engrave');
@@ -137,9 +143,7 @@ function PlaceLettering({
 				depth={depth}
 				angle={angle}
 				mode={mode}
-				hint={
-					problem ?? (busy ? 'Fitting the lettering to the surface…' : 'Click or drag on the surface to place the words, then press Done')
-				}
+				hint={problem ?? (busy ? 'Fitting the lettering to the surface…' : placingHint(overhangs(polygons, start.reach)))}
 				busy={busy}
 				onText={edited(setText)}
 				onFont={edited(setFont)}
