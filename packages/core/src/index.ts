@@ -56,3 +56,4 @@ export * from './threadStandards.ts';
 export * from './units.ts';
 export * from './validate.ts';
 export * from './visibility.ts';
+export * from './workplaneSize.ts';

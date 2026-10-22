@@ -160,6 +160,8 @@ export function ViewportCanvas(props: Props) {
 
 	const [width, depth] = design.grid.size;
 
+	// The workplane's size changes in the open view (the next effect), so the size here is only the one the view starts with.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: a change of size must not start the view afresh
 	useEffect(() => {
 		const host = hostRef.current;
 		if (!host) return;
@@ -191,6 +193,10 @@ export function ViewportCanvas(props: Props) {
 			viewportRef.current = null;
 			viewport.dispose();
 		};
+	}, []);
+
+	useEffect(() => {
+		viewportRef.current?.setWorkplaneSize(width, depth);
 	}, [width, depth]);
 
 	// Groups are drawn as the single mesh the holes leave behind, worked out off the main thread.
@@ -288,6 +294,7 @@ export function ViewportCanvas(props: Props) {
 			data-target={JSON.stringify(state.target)}
 			data-projection={projection}
 			data-ghost={ghost}
+			data-workplane={`${width}x${depth}`}
 			onDragOver={onDragOver}
 			onDrop={onDrop}
 		>

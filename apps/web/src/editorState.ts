@@ -76,6 +76,7 @@ import {
 	setSupportPoints,
 	setSupportRadius,
 	setTextWrap,
+	setWorkplaneSize,
 	showAll,
 	standOnPlane,
 	suggestPaletteColor,
@@ -157,6 +158,8 @@ export type EditorAction =
 	| { type: 'group' }
 	| { type: 'ungroup' }
 	| { type: 'renameDesign'; name: string }
+	// The size of the workplane (the build plate) in mm, each side limited to 10 mm up to 100 cm.
+	| { type: 'setWorkplane'; width: number; depth: number }
 	// Solid or hole, for everything selected.
 	| { type: 'setMode'; mode: SolidMode }
 	// An imported model is pointed at another stored mesh (its repaired copy).
@@ -524,6 +527,9 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 
 		case 'renameDesign':
 			return commit(state, renameDesign(design, action.name));
+
+		case 'setWorkplane':
+			return commit(state, setWorkplaneSize(design, action.width, action.depth));
 
 		case 'delete':
 			return commit(state, deleteNodes(design, state.selection), []);

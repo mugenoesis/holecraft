@@ -38,6 +38,7 @@ import { useVersionHistory } from './useVersionHistory.ts';
 import { VersionHistoryHost } from './VersionHistoryHost.tsx';
 import type { SupportsView } from './viewport/supportsView.ts';
 import { ViewportCanvas } from './viewport/ViewportCanvas.tsx';
+import { WorkplanePanel } from './WorkplanePanel.tsx';
 
 type Load = { kind: 'loading' } | { kind: 'ready'; design: Design } | { kind: 'missing' } | { kind: 'failed'; message: string };
 
@@ -272,6 +273,7 @@ function EditorView({ initial }: { initial: Design }) {
 								supportsUi={supportsUi}
 							/>
 							<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
+							<WorkplanePanel design={design} dispatch={dispatch} />
 						</div>
 						<div className="panel-tab" hidden={!shown('colours')}>
 							<PalettePanel design={design} selection={state.selection} dispatch={dispatch} />
