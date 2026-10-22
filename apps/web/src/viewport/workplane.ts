@@ -1,3 +1,4 @@
+import { workplaneSpacing } from '@holecraft/core';
 import * as THREE from 'three';
 
 const PLANE_COLOR = 0xfafcfd;
@@ -5,8 +6,12 @@ const MINOR_COLOR = 0xdde5ec;
 const MAJOR_COLOR = 0xa9bccb;
 const EDGE_COLOR = 0x0f766e;
 
-/** Workplane on the XY plane at Z=0: 1 mm minor lines, 10 mm major lines, centered on the origin. */
-export function createWorkplane(width: number, depth: number, minor = 1, major = 10): THREE.Group {
+/**
+ * Workplane on the XY plane at Z=0, centered on the origin: minor and major lines 1 and 10 mm apart, or 10 and 100 mm on a plate bigger than 400 mm
+ * (see workplaneSpacing), unless the spacing is given.
+ */
+export function createWorkplane(width: number, depth: number, spacing = workplaneSpacing([width, depth])): THREE.Group {
+	const { minor, major } = spacing;
 	const group = new THREE.Group();
 	group.name = 'workplane';
 

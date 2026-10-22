@@ -34,17 +34,24 @@ export const HOME_VIEW: Readonly<OrbitState> = Object.freeze({
 	distance: 330,
 });
 
+/** The workplane HOME_VIEW was tuned for (mm), and the least of it the camera comes in for. */
+const USUAL_WORKPLANE: readonly [number, number] = [200, 200];
+const MIN_WORKPLANE_SHARE = 0.35;
+
 /** The window shape HOME_VIEW was tuned for (width / height); anything squarer needs to back away. */
 const HOME_ASPECT = 1.6;
 
 /**
  * The home view for a window of the given width / height. The workplane is wider than the screen is
  * tall on a squarer window (4:3, a tablet, a narrow browser), so the camera backs off in proportion
- * and the whole workplane stays in view. Wide windows get HOME_VIEW itself.
+ * and the whole workplane stays in view. Wide windows get HOME_VIEW itself. HOME_VIEW is for the usual 200 mm workplane: a bigger one makes the
+ * camera back off in proportion, and a smaller one come in (but never to less than 0.35 of that, which is a 70 mm plate).
  */
-export function homeViewFor(aspect: number): OrbitState {
+export function homeViewFor(aspect: number, workplane: readonly [number, number] = USUAL_WORKPLANE): OrbitState {
 	const factor = Number.isFinite(aspect) && aspect > 0 ? Math.max(1, HOME_ASPECT / aspect) : 1;
-	return { ...HOME_VIEW, target: [...HOME_VIEW.target], distance: Math.min(HOME_VIEW.distance * factor, MAX_DISTANCE) };
+	const side = Math.max(workplane[0], workplane[1]);
+	const size = Number.isFinite(side) && side > 0 ? Math.max(MIN_WORKPLANE_SHARE, side / USUAL_WORKPLANE[0]) : 1;
+	return { ...HOME_VIEW, target: [...HOME_VIEW.target], distance: Math.min(HOME_VIEW.distance * factor * size, MAX_DISTANCE) };
 }
 
 export type ViewPresetName = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom' | 'iso';

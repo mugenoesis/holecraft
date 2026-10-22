@@ -177,3 +177,41 @@ describe('CameraRig on squarer windows', () => {
 		expect(r.state.distance).toBeCloseTo(homeViewFor(1).distance);
 	});
 });
+
+describe('CameraRig and the size of the workplane', () => {
+	it('backs away at once, before anyone has moved the camera, when the workplane is bigger', () => {
+		rig.setWorkplane([1000, 1000]);
+		expect(rig.state.distance).toBeCloseTo(homeViewFor(1.6, [1000, 1000]).distance, 6);
+		expect(rig.state.distance).toBeGreaterThan(HOME_VIEW.distance * 4);
+		expectCameraAt(rig.state);
+		expect(onChange).toHaveBeenCalled();
+	});
+
+	it('comes in for a smaller one', () => {
+		rig.setWorkplane([100, 100]);
+		expect(rig.state.distance).toBeLessThan(HOME_VIEW.distance);
+	});
+
+	it('leaves a view the user has chosen alone', () => {
+		rig.zoomBy(0.5);
+		const chosen = rig.state.distance;
+		rig.setWorkplane([1000, 1000]);
+		expect(rig.state.distance).toBe(chosen);
+	});
+
+	it('goes home to a view that suits the workplane, and keeps doing so after a resize', () => {
+		rig.setWorkplane([600, 600]);
+		rig.zoomBy(0.3);
+		rig.goHome({ animate: false });
+		expect(rig.state.distance).toBeCloseTo(homeViewFor(1.6, [600, 600]).distance, 6);
+		rig.resize(1000, 1000);
+		rig.goHome({ animate: false });
+		expect(rig.state.distance).toBeCloseTo(homeViewFor(1, [600, 600]).distance, 6);
+	});
+
+	it('does nothing for the size it already has', () => {
+		onChange.mockClear();
+		rig.setWorkplane([200, 200]);
+		expect(onChange).not.toHaveBeenCalled();
+	});
+});

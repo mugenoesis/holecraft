@@ -229,3 +229,33 @@ describe('lookAlongNormal', () => {
 		close(rows(lookAlongNormal(base, [0, 0, 3], [0, 0, 0])).back, [0, 0, 1]);
 	});
 });
+
+describe('the home view for a workplane of another size', () => {
+	it('is the usual view for the usual 200 mm plate, so nothing changes for it', () => {
+		expect(homeViewFor(1.6, [200, 200]).distance).toBe(HOME_VIEW.distance);
+		expect(homeViewFor(1.6).distance).toBe(HOME_VIEW.distance);
+	});
+
+	it('backs away in proportion for a bigger plate, so all of it is in view', () => {
+		expect(homeViewFor(1.6, [400, 300]).distance).toBeCloseTo(HOME_VIEW.distance * 2, 6);
+		expect(homeViewFor(1.6, [1000, 1000]).distance).toBeCloseTo(HOME_VIEW.distance * 5, 6);
+	});
+
+	it('comes in for a smaller plate, but not so far in that the plate is lost', () => {
+		expect(homeViewFor(1.6, [100, 100]).distance).toBeCloseTo(HOME_VIEW.distance * 0.5, 6);
+		expect(homeViewFor(1.6, [10, 10]).distance).toBeCloseTo(HOME_VIEW.distance * 0.35, 6);
+	});
+
+	it('follows the larger side, and still backs away more for a squarer window', () => {
+		expect(homeViewFor(1.6, [50, 600]).distance).toBeCloseTo(HOME_VIEW.distance * 3, 6);
+		expect(homeViewFor(0.8, [400, 400]).distance).toBeCloseTo(HOME_VIEW.distance * 2 * 2, 6);
+	});
+
+	it('never goes past the farthest the camera may be', () => {
+		expect(homeViewFor(0.1, [1000, 1000]).distance).toBe(MAX_DISTANCE);
+	});
+
+	it('uses the usual view for a size that is not a size', () => {
+		expect(homeViewFor(1.6, [Number.NaN, 0]).distance).toBe(HOME_VIEW.distance);
+	});
+});

@@ -36,6 +36,8 @@ export class CameraRig {
 	private animation: Animation | null = null;
 	/** True until the camera is moved by anyone: then the opening view still follows the window shape. */
 	private untouched = true;
+	/** The workplane's width and depth (mm): the home view backs off for a bigger one. */
+	private workplane: readonly [number, number] = [200, 200];
 
 	constructor(private readonly onChange: (state: OrbitState, projection: Projection) => void) {
 		this.perspective.up.set(0, 0, 1);
@@ -64,11 +66,22 @@ export class CameraRig {
 		this.onChange(this._state, this._projection);
 	}
 
+	/** Tells the camera how big the workplane is. Until the camera has been moved, the opening view follows it at once. */
+	setWorkplane(size: readonly [number, number]): void {
+		if (size[0] === this.workplane[0] && size[1] === this.workplane[1]) return;
+		this.workplane = size;
+		if (this.untouched) {
+			this._state = homeViewFor(this.width / this.height, size);
+			this.updateCameras();
+			this.notify();
+		}
+	}
+
 	resize(width: number, height: number): void {
 		this.width = Math.max(1, width);
 		this.height = Math.max(1, height);
 		this.perspective.aspect = this.width / this.height;
-		if (this.untouched) this._state = homeViewFor(this.width / this.height);
+		if (this.untouched) this._state = homeViewFor(this.width / this.height, this.workplane);
 		this.updateCameras();
 		this.notify();
 	}
@@ -93,7 +106,7 @@ export class CameraRig {
 
 	/** Back to the home view for the current window shape. */
 	goHome(opts?: { animate?: boolean }): void {
-		this.goTo(homeViewFor(this.width / this.height), opts);
+		this.goTo(homeViewFor(this.width / this.height, this.workplane), opts);
 	}
 
 	/** Moves to `state`, easing there unless told otherwise. */

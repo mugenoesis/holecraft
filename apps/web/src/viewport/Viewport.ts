@@ -97,6 +97,8 @@ export class Viewport {
 	private readonly canvas: HTMLCanvasElement;
 	private design: Design | null = null;
 	private workplane: THREE.Object3D | null = null;
+	/** The workplane's width and depth now (mm): it can be changed while the view is open. */
+	private workplaneSize: [number, number];
 	private frame = 0;
 	private cameraDrag: CameraDrag | null = null;
 	private left: LeftPress | null = null;
@@ -119,6 +121,7 @@ export class Viewport {
 		private readonly host: HTMLElement,
 		private readonly opts: ViewportOptions,
 	) {
+		this.workplaneSize = [opts.workplaneWidth, opts.workplaneDepth];
 		this.renderer = new THREE.WebGLRenderer({ antialias: true });
 		this.renderer.localClippingEnabled = true; // the X-ray cut clips each shape's own material, not the workplane or the handles
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -138,6 +141,8 @@ export class Viewport {
 			opts.onCameraChange(state, projection);
 			this.requestRender();
 		});
+
+		this.rig.setWorkplane(this.workplaneSize);
 
 		this.canvas.addEventListener('pointerdown', this.onPointerDown);
 		this.canvas.addEventListener('pointermove', this.onPointerMove);
@@ -435,8 +440,32 @@ export class Viewport {
 		if (hit) return { point: hit.point, normal: hit.normal, id: hit.id };
 		const { origin, direction } = this.raycaster.ray;
 		const ground = rayPlaneIntersection([origin.x, origin.y, origin.z], [direction.x, direction.y, direction.z], 0);
-		const [w, d] = [this.opts.workplaneWidth / 2, this.opts.workplaneDepth / 2];
+		const [w, d] = [this.workplaneSize[0] / 2, this.workplaneSize[1] / 2];
 		return ground && Math.abs(ground[0]) <= w && Math.abs(ground[1]) <= d ? { point: [ground[0], ground[1], 0], normal: [0, 0, 1] } : null;
+	}
+
+	/**
+	 * Changes the size of the workplane in the open view: the plate is drawn again at the new size (the camera, the selection and everything else
+	 * stay as they are, except that a camera nobody has moved backs off or comes in to suit the plate).
+	 */
+	setWorkplaneSize(width: number, depth: number): void {
+		if (width === this.workplaneSize[0] && depth === this.workplaneSize[1]) return;
+		this.workplaneSize = [width, depth];
+		const visible = this.workplane?.visible ?? true;
+		if (this.workplane) {
+			this.scene.remove(this.workplane);
+			this.workplane.traverse((o) => {
+				if (o instanceof THREE.Mesh || o instanceof THREE.LineSegments) {
+					o.geometry.dispose();
+					(o.material as THREE.Material).dispose();
+				}
+			});
+		}
+		this.workplane = createWorkplane(width, depth);
+		this.workplane.visible = visible;
+		this.scene.add(this.workplane);
+		this.rig.setWorkplane(this.workplaneSize);
+		this.requestRender();
 	}
 
 	/** The shape under a screen position, or null. */
