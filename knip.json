@@ -18,10 +18,25 @@
 			"entry": ["e2e/**/*.spec.ts", "e2e/playwright.config.ts", "scripts/lib/*.ts", "scripts/lib/make-fonts.mjs"],
 			"project": ["e2e/**/*.ts", "scripts/lib/*.ts"]
 		},
-		"packages/core": { "project": ["src/**/*.ts"] },
-		"packages/geometry": { "project": ["src/**/*.ts"] },
-		"apps/server": { "project": ["src/**/*.ts"] },
-		"apps/web": { "entry": ["src/geometry/geometry.worker.ts"], "project": ["src/**/*.{ts,tsx}"] },
-		"apps/desktop": { "project": ["src/**/*.ts"] }
+		"packages/core": {
+			"project": ["src/**/*.ts"]
+		},
+		"packages/geometry": {
+			"project": ["src/**/*.ts"]
+		},
+		"apps/server": {
+			"project": ["src/**/*.ts"]
+		},
+		"apps/web": {
+			"entry": ["src/geometry/geometry.worker.ts"],
+			"project": ["src/**/*.{ts,tsx}"]
+		},
+		"apps/desktop": {
+			"project": ["src/**/*.ts"]
+		},
+		"apps/addon": {
+			"entry": ["src/background.ts", "src/popup.ts", "src/options.ts"],
+			"project": ["src/**/*.ts"]
+		}
 	}
 }

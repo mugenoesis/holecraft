@@ -15,6 +15,7 @@ cd "$ROOT"
 
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   npm run build
+  npm run build --workspace @holecraft/addon
 fi
 
 PW_VERSION="$(node -p "require('./node_modules/@playwright/test/package.json').version")"
