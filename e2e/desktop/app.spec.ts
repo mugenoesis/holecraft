@@ -67,7 +67,7 @@ test.describe('desktop app', () => {
 			await expect(win.getByTestId('viewport').locator('canvas')).toBeVisible();
 			await win.getByRole('textbox', { name: 'Design name' }).fill('Survives restarts');
 			await win.getByRole('textbox', { name: 'Design name' }).press('Enter');
-			await win.getByRole('button', { name: 'Sphere', exact: true }).click();
+			await win.getByRole('button', { name: 'Sphere', exact: true }).press('Enter');
 			await expect(win.getByTestId('save-status')).toHaveText('Saved', { timeout: 10_000 });
 		} finally {
 			await first.close();
@@ -97,7 +97,7 @@ test.describe('desktop app', () => {
 			await win.waitForLoadState('load');
 			await win.getByRole('button', { name: 'New design' }).click();
 			await expect(win.getByTestId('viewport').locator('canvas')).toBeVisible();
-			await win.getByRole('button', { name: 'Box', exact: true }).click();
+			await win.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 
 			await win.getByRole('button', { name: 'Export', exact: true }).click();
 			await win.getByRole('menuitem', { name: /as STL/ }).click();
@@ -167,8 +167,8 @@ test.describe('desktop app', () => {
 			await expect(win.getByTestId('viewport').locator('canvas')).toBeVisible();
 
 			// A box and a cylinder, both added at the centre; make the cylinder a thin hole that passes through the box.
-			await win.getByRole('button', { name: 'Box', exact: true }).click();
-			await win.getByRole('button', { name: 'Cylinder', exact: true }).click();
+			await win.getByRole('button', { name: 'Box', exact: true }).press('Enter');
+			await win.getByRole('button', { name: 'Cylinder', exact: true }).press('Enter');
 			await win
 				.getByTestId('object-list')
 				.getByRole('button', { name: /Cylinder 1/ })
