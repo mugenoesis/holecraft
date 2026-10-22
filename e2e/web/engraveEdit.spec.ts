@@ -53,6 +53,8 @@ async function reengrave(page: Page, patch: Record<string, string>) {
 }
 
 test.beforeEach(async ({ page }) => {
+	// fitting lettering takes the geometry engine a few seconds on a slow runner, and most of these do it twice (and one reloads the page)
+	test.setTimeout(60_000);
 	await newDesign(page);
 });
 
