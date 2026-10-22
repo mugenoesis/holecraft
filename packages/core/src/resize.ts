@@ -101,7 +101,7 @@ export function dragHandle(start: ShapeGeometry, id: HandleId, target: Vec3, opt
 	const { x, y, z, width: w, depth: d, height: h } = start;
 
 	if (id === 'lift') {
-		const lifted = Math.min(MAX_SHAPE_SIZE, Math.max(0, snap(target[2] - h)));
+		const lifted = Math.min(MAX_SHAPE_SIZE, Math.max(-MAX_SHAPE_SIZE, snap(target[2] - h)));
 		return { ...start, z: tidy(lifted) };
 	}
 

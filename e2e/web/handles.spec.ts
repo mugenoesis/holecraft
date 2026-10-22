@@ -205,8 +205,10 @@ test.describe('lifting and dropping', () => {
 		await expect.poll(() => num(page, 'Z')).toBe(0);
 	});
 
-	test('a lifted shape cannot be pushed below the workplane', async ({ page }) => {
+	test('a shape can be pushed through the workplane, and the D key brings it back onto it', async ({ page }) => {
 		await dragBy(page, 'lift', 0, 200);
+		await expect.poll(() => num(page, 'Z')).toBeLessThan(0);
+		await page.keyboard.press('d');
 		await expect.poll(() => num(page, 'Z')).toBe(0);
 	});
 
@@ -223,7 +225,7 @@ test.describe('lifting and dropping', () => {
 		await expect.poll(() => num(page, 'Z')).toBe(0);
 	});
 
-	test('Z can be typed, and a negative value is rejected', async ({ page }) => {
+	test('Z can be typed, and a negative value puts the shape partly underground', async ({ page }) => {
 		const before = await centerOf(handle(page, 'height'));
 		await field(page, 'Z').fill('15');
 		await field(page, 'Z').press('Enter');
@@ -232,7 +234,7 @@ test.describe('lifting and dropping', () => {
 
 		await field(page, 'Z').fill('-3');
 		await field(page, 'Z').press('Enter');
-		await expect(field(page, 'Z')).toHaveValue('15');
+		await expect(field(page, 'Z')).toHaveValue('-3');
 	});
 
 	test('a lifted shape moves along the plane it is floating at', async ({ page }) => {

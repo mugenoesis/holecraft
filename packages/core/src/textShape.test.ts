@@ -97,6 +97,6 @@ describe('changing the font', () => {
 
 	it('takes only the fonts there are', () => {
 		const d = made();
-		expect(setShapeParam(d, 't', 'font', 9)).toBe(d);
+		expect(setShapeParam(d, 't', 'font', 99)).toBe(d);
 	});
 });

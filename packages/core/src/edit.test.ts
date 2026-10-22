@@ -3,6 +3,7 @@ import { createEmptyDesign, type Design } from './design.ts';
 import {
 	deleteNodes,
 	duplicateNodes,
+	MAX_SHAPE_SIZE,
 	moveNodes,
 	moveSelection,
 	nudgeDirections,
@@ -84,6 +85,13 @@ describe('moveSelection (drag with snapping)', () => {
 });
 
 describe('setNodePosition', () => {
+	it('takes a height below the workplane (the shape is then partly underground), within the size limit', () => {
+		const d = setNodePosition(scene(), 'a', [1, 2, -3]);
+		expect(d.nodes.a!.transform.slice(12, 15)).toEqual([1, 2, -3]);
+		const far = scene();
+		expect(setNodePosition(far, 'a', [0, 0, -MAX_SHAPE_SIZE - 1])).toBe(far);
+	});
+
 	it('sets X and Y, keeping the height above the plane', () => {
 		const d = setNodePosition(scene(), 'a', [12.5, -3]);
 		expect(pos(d, 'a')).toEqual([12.5, -3, 0]);

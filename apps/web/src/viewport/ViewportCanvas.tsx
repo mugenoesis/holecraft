@@ -37,11 +37,13 @@ import { shapeDropHandlers } from './shapeDrop.ts';
 import { skippedEdgeNotices } from './skippedEdges.ts';
 import type { SupportsView } from './supportsView.ts';
 import { useSimpleThreads } from './useSimpleThreads.ts';
+import { useXray } from './useXray.ts';
 import { ViewCube } from './ViewCube.tsx';
 import { type PixelRect, Viewport } from './Viewport.ts';
 import { ViewToolbar } from './ViewToolbar.tsx';
 import { useViewKeys } from './viewKeys.ts';
 import { WorkplaneTool } from './WorkplaneTool.tsx';
+import { XrayBar } from './XrayBar.tsx';
 
 interface Props {
 	design: Design;
@@ -143,6 +145,7 @@ export function ViewportCanvas(props: Props) {
 
 	// While editing, threads can be drawn as plain cylinders: only the view and its geometry work use this; selection, saving and export use `design`
 	const [simpleThreads, toggleSimpleThreads] = useSimpleThreads();
+	const x = useXray(design);
 	// the sketch shape being redrawn is left out of the view: its drawing is on screen instead
 	const sketching = tool === 'sketch' ? props.sketchEdit : null;
 	const drawn = useMemo(() => {
@@ -210,6 +213,11 @@ export function ViewportCanvas(props: Props) {
 		service?.update(drawn, meshes);
 		viewportRef.current?.setDesign(drawn, service?.results(), service?.failed(), meshes);
 	}, [drawn, meshes, resultVersion]);
+
+	// X-ray changes only how the view is drawn
+	useEffect(() => {
+		viewportRef.current?.setXray(x.xray);
+	}, [x.xray]);
 
 	// A picture of the design for the designs list, taken once it is saved and its shapes are worked out.
 	const schedulerRef = useRef<ThumbnailScheduler | null>(null);
@@ -310,8 +318,21 @@ export function ViewportCanvas(props: Props) {
 						hasThreads={hasThreads(design)}
 						simpleThreads={simpleThreads}
 						onToggleSimpleThreads={toggleSimpleThreads}
+						xrayOn={x.on}
+						onToggleXray={x.toggle}
 						compact={props.compact}
 					/>
+					{x.on && (
+						<XrayBar
+							seeThrough={x.seeThrough}
+							axis={x.axis}
+							at={x.at}
+							range={x.range}
+							onSeeThrough={x.setSeeThrough}
+							onAxis={x.setAxis}
+							onAt={x.setAt}
+						/>
+					)}
 					{!tool && props.selectionBar}
 					<ViewCube camera={state} onSelect={(view) => viewportRef.current?.setView(view)} />
 					<SupportsLayer supports={props.supports} active={!tool} getViewport={getViewport} camera={camera} />

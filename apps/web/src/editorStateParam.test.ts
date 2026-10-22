@@ -40,3 +40,23 @@ describe('setShapeText', () => {
 		expect(editorReducer(start(), { type: 'setShapeText', id: 'a', text: 'Hi' }).history.past).toHaveLength(0);
 	});
 });
+
+describe('setTextWrap', () => {
+	const text = () => createEditorState(addShape(createEmptyDesign('d'), 'text', [0, 0], { id: 'a' }).design);
+	const wrap = (s: ReturnType<typeof text>) => (s.history.present.nodes.a as ShapeNode).params.wrap;
+
+	it('wraps the text round a cylinder as one undo step, and undo makes it flat again', () => {
+		let s = editorReducer(text(), { type: 'setTextWrap', id: 'a', radius: 30 });
+		expect(wrap(s)).toBe(30);
+		expect(canUndo(s.history)).toBe(true);
+		s = editorReducer(s, { type: 'undo' });
+		expect(wrap(s)).toBeUndefined();
+	});
+
+	it('records nothing for the same radius, one that is not a number, or a shape that is not text', () => {
+		const s = editorReducer(text(), { type: 'setTextWrap', id: 'a', radius: 30 });
+		expect(editorReducer(s, { type: 'setTextWrap', id: 'a', radius: 30 }).history.past).toHaveLength(1);
+		expect(editorReducer(text(), { type: 'setTextWrap', id: 'a', radius: Number.NaN }).history.past).toHaveLength(0);
+		expect(editorReducer(start(), { type: 'setTextWrap', id: 'a', radius: 30 }).history.past).toHaveLength(0);
+	});
+});

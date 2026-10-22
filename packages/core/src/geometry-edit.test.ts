@@ -27,9 +27,9 @@ describe('setNodePosition with a height', () => {
 		expect(pos(setNodePosition(lifted, 'a', [5, 5]), 'a')).toEqual([5, 5, 12]);
 	});
 
-	it('rejects a negative or non-finite height', () => {
+	it('rejects a non-finite height, or one past the size limit below the plane', () => {
 		const d = scene();
-		expect(setNodePosition(d, 'a', [0, 0, -1])).toBe(d);
+		expect(setNodePosition(d, 'a', [0, 0, -MAX_SHAPE_SIZE - 1])).toBe(d);
 		expect(setNodePosition(d, 'a', [0, 0, Number.NaN])).toBe(d);
 		expect(setNodePosition(d, 'a', [0, 0, Infinity])).toBe(d);
 	});
@@ -53,19 +53,19 @@ describe('setShapeGeometry', () => {
 		expect(setShapeGeometry(d, 'a', { ...ok, width: 0 })).toBe(d);
 		expect(setShapeGeometry(d, 'a', { ...ok, depth: -1 })).toBe(d);
 		expect(setShapeGeometry(d, 'a', { ...ok, height: MAX_SHAPE_SIZE + 1 })).toBe(d);
-		expect(setShapeGeometry(d, 'a', { ...ok, z: -2 })).toBe(d);
+		expect(setShapeGeometry(d, 'a', { ...ok, z: -MAX_SHAPE_SIZE - 1 })).toBe(d);
 		expect(setShapeGeometry(d, 'a', { ...ok, x: Number.NaN })).toBe(d);
 	});
 
-	it('lets a tilted shape\u2019s base centre dip below the workplane (its own resizing can take it there), but not an upright one', () => {
+	it('lets a shape\u2019s base centre dip below the workplane, tilted or upright', () => {
 		const tilted = setNodeEuler(scene(), 'a', [90, 0, 0]);
 		const g = { x: 0, y: 0, z: -5, width: 20, depth: 40, height: 20 };
 		const resized = setShapeGeometry(tilted, 'a', g);
 		expect(pos(resized, 'a')).toEqual([0, 0, -5]);
 		expect(params(resized, 'a')).toEqual({ width: 20, depth: 40, height: 20 });
 		expect(resized.nodes.a!.transform.slice(0, 3)).toEqual(tilted.nodes.a!.transform.slice(0, 3)); // still turned the same way
-		const upright = scene();
-		expect(setShapeGeometry(upright, 'a', g)).toBe(upright);
+		const upright = setShapeGeometry(scene(), 'a', g);
+		expect(pos(upright, 'a')).toEqual([0, 0, -5]);
 	});
 
 	it('ignores locked and unknown shapes', () => {

@@ -7,5 +7,4 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 node scripts/lib/make-fonts.mjs
-npx biome format --write packages/core/src/fonts/fontData.generated.ts >/dev/null
 echo "Wrote packages/core/src/fonts/fontData.generated.ts"

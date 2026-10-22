@@ -211,7 +211,7 @@ const BASE_DEFS: readonly BaseDef[] = [
 		defaultSize: defaultTextSize(),
 		color: '#2a9d8f',
 		initial: { text: DEFAULT_TEXT },
-		params: [{ key: 'font', label: 'Font', choices: FONT_CHOICES, default: DEFAULT_FONT, min: 1, max: 4, mmPerUnit: () => 1 }],
+		params: [{ key: 'font', label: 'Font', choices: FONT_CHOICES, default: DEFAULT_FONT, min: 1, max: FONTS.length, mmPerUnit: () => 1 }],
 	},
 	{
 		// made by the Sketch tool, which gives it its drawing and size; this is only what a damaged or empty one falls back to

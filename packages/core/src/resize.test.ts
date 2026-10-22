@@ -146,8 +146,12 @@ describe('dragHandle: height and lift', () => {
 		expect(dragHandle(unit, 'lift', [0, 0, 47], { ...off, snap: 5 }).z).toBe(25);
 	});
 
-	it('cannot sink below the workplane', () => {
-		expect(dragHandle(unit, 'lift', [0, 0, -100], off).z).toBe(0);
+	it('can sink through the workplane (the part below it is cut off or kept when exporting)', () => {
+		expect(dragHandle(unit, 'lift', [0, 0, -100], off).z).toBe(-120);
+	});
+
+	it('stops at the size limit below the workplane', () => {
+		expect(dragHandle(unit, 'lift', [0, 0, -1e9], off).z).toBe(-MAX_SHAPE_SIZE);
 	});
 
 	it('only changes z, never size or position', () => {

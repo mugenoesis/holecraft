@@ -8,7 +8,7 @@ import { rigidInverse, transformPoint } from './mat4.ts';
 import { nodeBoundsIn } from './ops.ts';
 import { stretchPaint } from './paintEdits.ts';
 import type { ShapeGeometry } from './resize.ts';
-import { isUpright, type Mat3, multiplyMat3, rotationOfTransform } from './rotation.ts';
+import { type Mat3, multiplyMat3, rotationOfTransform } from './rotation.ts';
 import { isThreadedType } from './threadStandards.ts';
 
 /** Turning and sizing whole groups. A group has a position and orientation of its own and no scale of its own. */
@@ -250,7 +250,7 @@ function stretched(
  * Resizes and/or lifts a group to the box `g` (as groupGeometry describes it). While everything inside is in quarter turns the contents
  * are rewritten to fill the new box exactly (shapes get their new sizes); otherwise the group is given a stretch of its own, along its
  * own axes, and what is inside is left alone. Refused (same design back) for a locked group, one that holds a thread, bad numbers, a
- * level group's base below the workplane (a tipped one's base centre may dip, as a tipped shape's can), or sizes the group cannot take.
+ * a base further below the workplane than the size limit, or sizes the group cannot take. A group may go through the workplane.
  */
 export function setGroupGeometry(design: Design, id: NodeId, g: ShapeGeometry, now?: Date, options?: GroupResizeOptions): Design {
 	const node = design.nodes[id];
@@ -258,8 +258,7 @@ export function setGroupGeometry(design: Design, id: NodeId, g: ShapeGeometry, n
 	const mode = groupResizeMode(design, id, options);
 	const sizes = [g.width, g.depth, g.height];
 	if (node?.kind !== 'group' || node.locked || !from || !mode) return design;
-	const belowFloor = g.z < 0 && isUpright(rotationOfTransform(node.transform));
-	if (![g.x, g.y, g.z, ...sizes].every(Number.isFinite) || belowFloor || sizes.some((v) => v <= 0)) return design;
+	if (![g.x, g.y, g.z, ...sizes].every(Number.isFinite) || g.z < -MAX_SHAPE_SIZE || sizes.some((v) => v <= 0)) return design;
 	return mode === 'rewrite' ? rewriteGroup(design, node, from, g, now) : stretchGroup(design, node, from, g, now);
 }
 

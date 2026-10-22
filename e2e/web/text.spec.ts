@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { field, newDesign, properties } from './helpers.ts';
 import { parseStl } from './meshFiles.ts';
@@ -72,6 +73,22 @@ test.describe('a Text shape', () => {
 		expect(Math.abs(mono.volume - sans.volume)).toBeGreaterThan(1);
 	});
 
+	test('the added fonts each give their own letters, and are kept when the page is reloaded', async ({ page }) => {
+		const volumes = new Set<number>();
+		for (const label of ['Rounded', 'Condensed', 'Caps', 'Display', 'Handwriting', 'Brush']) {
+			await field(page, 'Font').selectOption({ label });
+			await expect(field(page, 'Text')).toHaveValue('Text');
+			const stl = await exportStl(page);
+			expect(stl.volume, label).toBeGreaterThan(1);
+			volumes.add(Math.round(stl.volume));
+		}
+		expect(volumes.size).toBe(6);
+		await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+		await page.reload();
+		await names(page).click();
+		await expect(field(page, 'Font').locator('option:checked')).toHaveText('Brush');
+	});
+
 	test('keeps its words when the page is reloaded', async ({ page }) => {
 		await setText(page, 'Hello');
 		await expect(page.getByText('Saved', { exact: true })).toBeVisible();
@@ -84,5 +101,64 @@ test.describe('a Text shape', () => {
 		await field(page, 'Text').fill('   ');
 		await field(page, 'Text').press('Enter');
 		await expect(field(page, 'Text')).toHaveValue('Text');
+	});
+});
+
+test.describe('text wrapped round a cylinder', () => {
+	async function setWrap(page: Page, radius: string) {
+		await field(page, 'Wrap radius').fill(radius);
+		await field(page, 'Wrap radius').press('Enter');
+		await expect(field(page, 'Wrap radius')).toHaveValue(radius);
+	}
+
+	test('bends the letters round the cylinder: its width is the chord of the outer surface, and it still rests on the workplane', async ({
+		page,
+	}) => {
+		const flat = await exportStl(page);
+		await setWrap(page, '20');
+		// the ends of an outside curve dip, so the text is lifted to keep resting: nothing is below the workplane, so nothing is asked
+		const bent = await exportStl(page);
+		// the line is as long as it was (W), laid along a cylinder of radius 20: the top of the letters (3 mm out) spans 2 (20 + 3) sin(W / 40)
+		const line = flat.max[0]! - flat.min[0]!;
+		expect(bent.max[0]! - bent.min[0]!).toBeCloseTo(2 * 23 * Math.sin(line / 40), 1);
+		expect(bent.min[2]!).toBeGreaterThan(-0.01);
+		expect(bent.min[2]!).toBeLessThan(0.01);
+		expect(bent.max[2]! - bent.min[2]!).toBeGreaterThan(flat.max[2]! - flat.min[2]! + 1); // taller by how far the ends curl away
+		expect(bent.volume).toBeGreaterThan(flat.volume); // the outside of the curve is a longer surface
+		expect(bent.volume).toBeLessThan(flat.volume * 1.15);
+	});
+
+	test('a negative radius bends it the other way (inside a cylinder: the volume is a little less)', async ({ page }) => {
+		const flat = await exportStl(page);
+		await setWrap(page, '-20');
+		const inside = await exportStl(page);
+		expect(inside.volume).toBeLessThan(flat.volume);
+		expect(inside.max[2]!).toBeGreaterThan(flat.max[2]! + 1);
+	});
+
+	test('has no resize handles while it is bent, gets them back flat, and Undo takes the wrap off', async ({ page }) => {
+		await expect(page.getByTestId('handle-corner-pp')).toBeVisible();
+		await setWrap(page, '20');
+		await expect(page.getByTestId('handle-corner-pp')).toHaveCount(0);
+		await setWrap(page, '0');
+		await expect(page.getByTestId('handle-corner-pp')).toBeVisible();
+		await page.getByRole('button', { name: 'Undo' }).click();
+		await expect(field(page, 'Wrap radius')).toHaveValue('20');
+	});
+
+	test('the Text panel, with the wrap and its notes showing, passes the accessibility scan', async ({ page }) => {
+		await setWrap(page, '1');
+		await expect(page.getByTestId('param-limited').filter({ hasText: 'Raised to' })).toBeVisible();
+		const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).exclude('canvas').analyze();
+		expect(result.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
+	});
+
+	test('says when the words are too long for the radius, and keeps the wrap when the page is reloaded', async ({ page }) => {
+		await setWrap(page, '1');
+		await expect(page.getByTestId('param-limited').filter({ hasText: 'Raised to' })).toBeVisible();
+		await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+		await page.reload();
+		await names(page).click();
+		await expect(field(page, 'Wrap radius')).toHaveValue('1');
 	});
 });

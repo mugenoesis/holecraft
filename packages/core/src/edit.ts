@@ -10,7 +10,7 @@ import { MESH_SHAPE_TYPE } from './meshShape.ts';
 import { nodeBoundsIn, shapeBounds, translationOf } from './ops.ts';
 import { stretchPaint } from './paintEdits.ts';
 import type { ShapeGeometry } from './resize.ts';
-import { composeTransform, eulerToMatrix, isUpright, rotationOfTransform, shapeCenter } from './rotation.ts';
+import { composeTransform, eulerToMatrix, shapeCenter } from './rotation.ts';
 import { getShapeDef, type ShapeType } from './shapes.ts';
 import { isThreadedType, minThreadHeight, threadFootprint } from './threadStandards.ts';
 
@@ -70,11 +70,12 @@ export function moveSelection(base: Design, ids: readonly NodeId[], delta: [numb
 	return moveNodes(base, ids, [tx - sx, ty - sy, 0]);
 }
 
-/** Sets X and Y, and optionally the height above the workplane (never below it). */
+/** Sets X and Y, and optionally the height above the workplane (it may be negative: the shape is then partly under it, within the size limit). */
 export function setNodePosition(design: Design, id: NodeId, at: [number, number, number?], now?: Date): Design {
 	const node = design.nodes[id];
 	const z = at[2];
-	if (!isEditable(node) || !at.every((v) => v === undefined || Number.isFinite(v)) || (z !== undefined && z < 0)) return design;
+	if (!isEditable(node) || !at.every((v) => v === undefined || Number.isFinite(v)) || (z !== undefined && z < -MAX_SHAPE_SIZE))
+		return design;
 	const [x, y, currentZ] = translationOf(node.transform);
 	return moveNodes(design, [id], [at[0] - x, at[1] - y, (z ?? currentZ) - currentZ], now);
 }
@@ -148,9 +149,9 @@ export function setShapeGeometry(design: Design, id: NodeId, g: ShapeGeometry, n
 	if (node?.kind === 'group') return setGroupGeometry(design, id, g, now, options);
 	if (!isEditable(node) || node.kind !== 'shape') return design;
 	const sizes = [g.width, g.depth, g.height];
-	// an upright shape's base is its lowest point, so it stays on or above the workplane; a tilted one reaches below its base centre
-	const belowFloor = g.z < 0 && isUpright(rotationOfTransform(node.transform));
-	if (![g.x, g.y, g.z, ...sizes].every(Number.isFinite) || belowFloor || sizes.some((v) => v <= 0 || v > MAX_SHAPE_SIZE)) return design;
+	// a shape may go through the workplane, down to the size limit
+	if (![g.x, g.y, g.z, ...sizes].every(Number.isFinite) || g.z < -MAX_SHAPE_SIZE || sizes.some((v) => v <= 0 || v > MAX_SHAPE_SIZE))
+		return design;
 
 	const [x, y, z] = translationOf(node.transform);
 	const params = lockFootprint(node, { ...node.params, width: g.width, depth: g.depth, height: g.height });

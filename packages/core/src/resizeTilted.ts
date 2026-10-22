@@ -68,11 +68,10 @@ export function dragHandleTilted(
 	return { ...own, x: tidy(start.x + wx), y: tidy(start.y + wy), z: tidy(start.z + wz) };
 }
 
-/** Raises or lowers the whole shape so its top-end handle is under `targetZ`, never so low that it dips below the floor. */
+/** Raises or lowers the whole shape so its top-end handle is under `targetZ`; it may go through the workplane (down to the size limit). */
 function liftTilted(start: ShapeGeometry, rotation: readonly number[], targetZ: number, snap: number): ShapeGeometry {
 	const topAbove = rotation[8]! * start.height; // how far the top end is above the base centre
-	const floor = -lowestPointOffset(start, rotation);
-	const z = Math.min(MAX_SHAPE_SIZE, Math.max(floor, snapToGrid(targetZ - topAbove, snap)));
+	const z = Math.min(MAX_SHAPE_SIZE, Math.max(-MAX_SHAPE_SIZE, snapToGrid(targetZ - topAbove, snap)));
 	return { ...start, z: tidy(z) };
 }
 

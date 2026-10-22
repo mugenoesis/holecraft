@@ -1,6 +1,6 @@
 import type { Design, MeshData } from '@holecraft/core';
 import { useState } from 'react';
-import { EXPORT_FORMATS, type ExportFormat } from './exportDesign.ts';
+import { type BelowPlaneChoice, EXPORT_FORMATS, type ExportFormat } from './exportDesign.ts';
 import { defaultTridentAddress, hostLabel, type TridentStatus } from './tridentApi.ts';
 import { useTrident } from './useTrident.ts';
 
@@ -13,13 +13,16 @@ export function ExportMenuItems({
 	meshes,
 	onFormat,
 	onSent,
+	askBelowPlane,
 }: {
 	source: Design;
 	meshes: ReadonlyMap<string, MeshData>;
 	onFormat: (format: ExportFormat) => void;
 	onSent: () => void;
+	/** Asked when part of what is sent is below the workplane. */
+	askBelowPlane: () => Promise<BelowPlaneChoice>;
 }) {
-	const t = useTrident(source, meshes, onSent);
+	const t = useTrident(source, meshes, onSent, askBelowPlane);
 	const configured = t.status?.url ?? null;
 
 	return (

@@ -71,6 +71,7 @@ import {
 	setShapeText,
 	setSupportPoints,
 	setSupportRadius,
+	setTextWrap,
 	showAll,
 	standOnPlane,
 	suggestPaletteColor,
@@ -184,6 +185,8 @@ export type EditorAction =
 	// One of a shape's own settings in mm (a tube's wall, a ring's thickness).
 	| { type: 'setShapeParam'; id: NodeId; key: string; value: number }
 	| { type: 'setShapeText'; id: NodeId; text: string }
+	// A text shape wrapped round a cylinder of this radius in mm (negative: inside it; 0: flat).
+	| { type: 'setTextWrap'; id: NodeId; radius: number }
 	| { type: 'addPaint'; id: NodeId; fill: PaintFill }
 	// one fill (a gap fill) on several shapes, as one undo step
 	| { type: 'addPaintAll'; ids: NodeId[]; fill: PaintFill }
@@ -543,6 +546,9 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 
 		case 'setShapeText':
 			return commit(state, setShapeText(design, action.id, action.text));
+
+		case 'setTextWrap':
+			return commit(state, setTextWrap(design, action.id, action.radius));
 
 		case 'setCountersink':
 			return commit(
