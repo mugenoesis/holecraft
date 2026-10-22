@@ -72,6 +72,22 @@ test.describe('a Text shape', () => {
 		expect(Math.abs(mono.volume - sans.volume)).toBeGreaterThan(1);
 	});
 
+	test('the added fonts each give their own letters, and are kept when the page is reloaded', async ({ page }) => {
+		const volumes = new Set<number>();
+		for (const label of ['Rounded', 'Condensed', 'Caps', 'Display', 'Handwriting', 'Brush']) {
+			await field(page, 'Font').selectOption({ label });
+			await expect(field(page, 'Text')).toHaveValue('Text');
+			const stl = await exportStl(page);
+			expect(stl.volume, label).toBeGreaterThan(1);
+			volumes.add(Math.round(stl.volume));
+		}
+		expect(volumes.size).toBe(6);
+		await expect(page.getByText('Saved', { exact: true })).toBeVisible();
+		await page.reload();
+		await names(page).click();
+		await expect(field(page, 'Font').locator('option:checked')).toHaveText('Brush');
+	});
+
 	test('keeps its words when the page is reloaded', async ({ page }) => {
 		await setText(page, 'Hello');
 		await expect(page.getByText('Saved', { exact: true })).toBeVisible();

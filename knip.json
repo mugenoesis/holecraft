@@ -1,7 +1,18 @@
 {
 	"$schema": "https://unpkg.com/knip@6/schema.json",
 	"ignoreBinaries": ["wait"],
-	"ignoreDependencies": ["@fontsource/inter", "@fontsource/lobster", "@fontsource/noto-serif", "@fontsource/roboto-mono"],
+	"ignoreDependencies": [
+		"@fontsource/bebas-neue",
+		"@fontsource/caveat",
+		"@fontsource/inter",
+		"@fontsource/lobster",
+		"@fontsource/noto-serif",
+		"@fontsource/nunito",
+		"@fontsource/oswald",
+		"@fontsource/pacifico",
+		"@fontsource/playfair-display",
+		"@fontsource/roboto-mono"
+	],
 	"workspaces": {
 		".": {
 			"entry": ["e2e/**/*.spec.ts", "e2e/playwright.config.ts", "scripts/lib/*.ts", "scripts/lib/make-fonts.mjs"],

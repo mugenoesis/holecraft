@@ -2,7 +2,14 @@
 	"$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
 	"vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
 	"files": {
-		"includes": ["**", "!**/dist", "!**/release", "!**/test-results", "!packages/geometry/src/formats/orcaFilamentDefaults.ts"]
+		"includes": [
+			"**",
+			"!**/dist",
+			"!**/release",
+			"!**/test-results",
+			"!packages/geometry/src/formats/orcaFilamentDefaults.ts",
+			"!packages/core/src/fonts/fontData.generated.ts"
+		]
 	},
 	"formatter": {
 		"enabled": true,

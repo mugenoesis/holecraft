@@ -2,18 +2,15 @@ import { FONT_DATA } from './fonts/fontData.generated.ts';
 import type { FontData } from './fonts/fontTypes.ts';
 
 /**
- * Text as a shape: the letters of four bundled open fonts (their outlines are built into the app, so there is nothing to download and it works
+ * Text as a shape: the letters of ten bundled open fonts (their outlines are built into the app, so there is nothing to download and it works
  * offline), laid out in a line and handed on as flat outlines for the geometry engine to extrude. Everything here is plain maths on numbers, in
  * ems (1 = the font's size), so it can be tested without a browser and runs on both the page and the worker.
  */
 
 /** The fonts, in the order the Font choice lists them. `id` is what a design stores, so it never changes. */
-export const FONTS: readonly { id: number; label: string }[] = [
-	{ id: 1, label: FONT_DATA.sans.label },
-	{ id: 2, label: FONT_DATA.serif.label },
-	{ id: 3, label: FONT_DATA.mono.label },
-	{ id: 4, label: FONT_DATA.script.label },
-];
+export const FONTS: readonly { id: number; label: string }[] = Object.values(FONT_DATA)
+	.map((f) => ({ id: f.id, label: f.label }))
+	.sort((a, b) => a.id - b.id);
 
 const BY_ID = new Map<number, FontData>(Object.values(FONT_DATA).map((f) => [f.id, f]));
 

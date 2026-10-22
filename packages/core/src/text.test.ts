@@ -6,12 +6,18 @@ const area = (poly: readonly (readonly [number, number])[]) =>
 	poly.reduce((sum, [x, y], i) => sum + (x * poly[(i + 1) % poly.length]![1] - poly[(i + 1) % poly.length]![0] * y), 0) / 2;
 
 describe('the fonts', () => {
-	it('are four open fonts, Sans, Serif, Mono and Script, each with the letters of Basic Latin and Latin-1', () => {
+	it('are ten open fonts, each with the letters of Basic Latin and Latin-1; the first four keep the ids saved designs use', () => {
 		expect(FONTS.map((f) => [f.id, f.label])).toEqual([
 			[1, 'Sans'],
 			[2, 'Serif'],
 			[3, 'Mono'],
 			[4, 'Script'],
+			[5, 'Rounded'],
+			[6, 'Condensed'],
+			[7, 'Caps'],
+			[8, 'Display'],
+			[9, 'Handwriting'],
+			[10, 'Brush'],
 		]);
 		for (const f of FONTS) {
 			const data = fontById(f.id)!;
@@ -108,5 +114,34 @@ describe('textOutlines', () => {
 		expect(textOutlines('H H', 1)!.polygons).toHaveLength(2);
 		expect(textOutlines('', 1)).toBeNull();
 		expect(textOutlines('H', 99)).toBeNull();
+	});
+});
+
+describe('the added fonts', () => {
+	it('each make ink for ordinary words, sized in ems, with every letter of Hello, 123 in them', () => {
+		for (const f of FONTS) {
+			const m = textMetrics('Hello, 123', f.id);
+			expect(m, f.label).not.toBeNull();
+			expect(m!.unsupported, f.label).toBe(0);
+			expect(m!.width, f.label).toBeGreaterThan(2);
+			expect(textOutlines('Hello, 123', f.id)!.polygons.length, f.label).toBeGreaterThan(8);
+		}
+	});
+
+	it('are different from each other: the same words are a different width in every font', () => {
+		const widths = FONTS.map((f) => textMetrics('Holecraft', f.id)!.width.toFixed(3));
+		expect(new Set(widths).size).toBe(FONTS.length);
+	});
+
+	it('keep the outlines of the first four unchanged (a saved design must look as it did): the capital H is as it was', () => {
+		const h = (k: 'sans' | 'serif' | 'mono' | 'script') => {
+			const g = FONT_DATA[k].glyphs[0x48]!;
+			return [FONT_DATA[k].unitsPerEm, g.advance, ...g.box, g.path.length, Object.keys(FONT_DATA[k].glyphs).length];
+		};
+		expect(h('sans')).toEqual([2048, 1530, 135, 0, 1395, 1490, 105, 190]);
+		expect(h('serif')).toEqual([1000, 819, 28, 0, 792, 714, 658, 191]);
+		expect(h('mono')).toEqual([2048, 1229, 123, 0, 1092, 1456, 101, 191]);
+		expect(h('script')).toEqual([1000, 665, 12, 0, 694, 750, 294, 191]);
+		expect(Object.keys(FONT_DATA).slice(0, 4)).toEqual(['sans', 'serif', 'mono', 'script']);
 	});
 });
