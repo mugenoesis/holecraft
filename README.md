@@ -19,12 +19,15 @@ independent project with its own code and design, and it runs entirely on your o
 - **Docker**: self-host it and open it from any browser on your network.
 - **Linux desktop app**: AppImage or .deb that works fully offline.
 
-> **Status: version 0.1, the first release.** A library of designs that save automatically; shapes (basic,
-> parametric, threads and fasteners, text, SVG and sketches) with move, resize, rotate, holes and groups that
-> cut real geometry; chamfers and rounds on any edge; align, flip, ruler and Workplane tools; colour
-> painting and a filament palette; **import** (STL, OBJ, 3MF, SVG) and **export** (STL, OBJ, 3MF, and 3MF for
-> OrcaSlicer). Still to come: more Sketch tools (revolve, fillets, dimensions), packaging (Flatpak, multi-arch
-> Docker, login) and version history. There is no authentication, so keep it on a trusted network.
+> **Status: version 0.5.** A library of designs that save automatically, with folders, search and sorting; shapes
+> (basic, parametric, threads and fasteners, text in ten fonts, SVG and sketches) with move, resize, rotate, holes and
+> groups that cut real geometry, and a shape may go through the workplane; chamfers and rounds on any edge; align,
+> flip, ruler and Workplane tools; **Engrave** (lettering fitted to the surface of any shape), text wrapped round a
+> cylinder, **Merge**, **Model check and repair** for imported models, an **X-ray** view; colour painting and a filament
+> palette; **import** (STL, OBJ, 3MF, SVG) and **export** (STL, OBJ, 3MF, and 3MF for OrcaSlicer); **Send to Trident**
+> and resin tools (hollowing, drain holes, tilt, support points) with a [Trident Studio](https://github.com/mugenoesis/Trident)
+> slicer. Still to come: more Sketch tools (revolve, fillets, dimensions), packaging (Flatpak, multi-arch Docker, login)
+> and version history. There is no authentication, so keep it on a trusted network.
 
 ## Colours and multi-colour printing
 
@@ -154,7 +157,7 @@ Holecraft opens on a list of your designs. **New design** makes one and opens it
 open it, or use **Rename**, **Duplicate** and **Delete** (which asks first). Everything you do is
 **saved automatically** a moment after you stop changing things, and the top bar shows
 *Saved*, *Unsaved changes*, *Saving…* or *Couldn't save* (it keeps your work on screen and retries
-until the server answers). Change a design's name in the top bar. Each design on the list shows a small
+until the server answers). If you have the same design open in two tabs, windows or devices, the one that saves second is told the design was **changed somewhere else** and has to choose: **Keep my version** saves what that tab shows over the other version, **Load the other version** drops that tab's unsaved changes and shows what was saved. Nothing is lost without asking, and a design renamed from the list counts as changed too. Moving a design to a folder does not. Change a design's name in the top bar. Each design on the list shows a small
 **picture** of itself (taken from the usual angle, without the grid, a couple of seconds after you stop
 editing; designs with nothing in them show a placeholder). Undo history is not kept between
 sessions. Designs are plain JSON files, one per design, in `<data folder>/designs/`, so they are

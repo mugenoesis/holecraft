@@ -1,6 +1,6 @@
 import { DesignValidationError } from '@holecraft/core';
 import type { FastifyInstance } from 'fastify';
-import { type DesignStore, StoredDesignError } from './designs.ts';
+import { DesignConflictError, type DesignStore, StoredDesignError } from './designs.ts';
 import { MAX_THUMBNAIL_BYTES, type ThumbnailStore } from './thumbnails.ts';
 
 const NOT_FOUND = { error: 'Design not found' };
@@ -30,6 +30,8 @@ export function registerDesignRoutes(app: FastifyInstance, store: DesignStore, t
 		if (error instanceof DesignValidationError) return reply.code(400).send({ error: error.message, path: error.path });
 		// The message names the design but never a file path on the server.
 		if (error instanceof StoredDesignError) return reply.code(500).send({ error: error.message });
+		// saved from a version that is no longer the stored one: the page offers to keep its own or load the other
+		if (error instanceof DesignConflictError) return reply.code(409).send({ error: error.message, updatedAt: error.updatedAt });
 
 		const status = (error as { statusCode?: number }).statusCode ?? 500;
 		if (status === 413) return reply.code(413).send({ error: 'That is too large to save' });
@@ -57,7 +59,12 @@ export function registerDesignRoutes(app: FastifyInstance, store: DesignStore, t
 	});
 
 	app.put<{ Params: { id: string } }>('/api/designs/:id', async (request, reply) => {
-		const saved = await store.save(request.params.id, request.body);
+		// the page says which version it started from, so a save over a newer one from another tab is refused rather than lost
+		const base = request.headers['x-base-updated-at'];
+		if (base !== undefined && (typeof base !== 'string' || Number.isNaN(Date.parse(base)))) {
+			return reply.code(400).send({ error: 'x-base-updated-at must be the time a design was last saved' });
+		}
+		const saved = await store.save(request.params.id, request.body, base === undefined ? {} : { base });
 		return saved ?? reply.code(404).send(NOT_FOUND);
 	});
 

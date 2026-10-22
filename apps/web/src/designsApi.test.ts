@@ -115,3 +115,37 @@ describe('designsApi', () => {
 		expect(new ApiError(413, 'x').retryable).toBe(false);
 	});
 });
+
+describe('saving from a version, and being refused for a newer one', () => {
+	const sentHeaders = () => (lastCall().init?.headers ?? {}) as Record<string, string>;
+
+	it('says which version the save is based on, in a header', async () => {
+		fetchMock.mockReturnValue(reply(200, createEmptyDesign(id)));
+		await saveDesign(createEmptyDesign(id), { base: '2026-01-01T10:00:00.000Z' });
+		expect(sentHeaders()['x-base-updated-at']).toBe('2026-01-01T10:00:00.000Z');
+	});
+
+	it('says nothing about a base when there is none', async () => {
+		fetchMock.mockReturnValue(reply(200, createEmptyDesign(id)));
+		await saveDesign(createEmptyDesign(id));
+		expect(sentHeaders()['x-base-updated-at']).toBeUndefined();
+	});
+
+	it('turns a 409 into an error that says it is a conflict, with when the other version was saved, and is not worth retrying', async () => {
+		fetchMock.mockReturnValue(reply(409, { error: 'This design was changed somewhere else', updatedAt: '2026-01-01T10:05:00.000Z' }));
+		const error = (await saveDesign(createEmptyDesign(id), { base: 'x' }).catch((e: unknown) => e)) as ApiError;
+		expect(error).toBeInstanceOf(ApiError);
+		expect(error.status).toBe(409);
+		expect(error.conflict).toBe(true);
+		expect(error.updatedAt).toBe('2026-01-01T10:05:00.000Z');
+		expect(error.retryable).toBe(false);
+		expect(error.message).toMatch(/changed somewhere else/);
+	});
+
+	it('does not call other errors conflicts', async () => {
+		fetchMock.mockReturnValue(reply(404, { error: 'Design not found' }));
+		const error = (await saveDesign(createEmptyDesign(id)).catch((e: unknown) => e)) as ApiError;
+		expect(error.conflict).toBe(false);
+		expect(error.updatedAt).toBeUndefined();
+	});
+});

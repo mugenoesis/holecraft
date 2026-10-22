@@ -9,6 +9,7 @@ import {
 } from '@holecraft/core';
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { ArrangePanel } from './ArrangePanel.tsx';
+import { ConflictHost } from './ConflictDialog.tsx';
 import { type PanelTab, useCompactLayout, usePanelTab } from './compactLayout.ts';
 import { ApiError, getDesign, uploadThumbnail } from './designsApi.ts';
 import { useEditorShortcuts } from './editorShortcuts.ts';
@@ -285,6 +286,7 @@ function EditorView({ initial }: { initial: Design }) {
 				{state.selection.length > 0 && <span>Selected: {state.selection.length}</span>}
 			</footer>
 			{help && <ShortcutSheet onClose={closeHelp} />}
+			<ConflictHost conflict={save.conflict} />
 		</div>
 	);
 }

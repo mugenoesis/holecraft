@@ -11,34 +11,47 @@ function problemWords(error: unknown): string {
 	return 'retrying…';
 }
 
+export interface AutosaveState {
+	status: SaveStatus;
+	problem: string | null;
+	lastError: string | undefined;
+	/** While the design has been changed elsewhere: what to do about it. */
+	conflict: { keepMine: () => void; loadOther: () => void } | null;
+}
+
 /**
  * Autosaves the design shortly after changes stop, retrying on failure. `initial` is the design as it
  * was loaded (never saved back unchanged). Pending changes are sent when the tab is hidden, and saved
  * when leaving for the designs list.
  */
-export function useAutosave(
-	design: Design,
-	initial: Design,
-): { status: SaveStatus; problem: string | null; lastError: string | undefined } {
+export function useAutosave(design: Design, initial: Design): AutosaveState {
 	const [status, setStatus] = useState<SaveStatus>('saved');
 	const [problem, setProblem] = useState<string | null>(null);
 	const controller = useRef<SaveController | null>(null);
+	/** The modification time of the stored version this one was made from: every save says so, and the server refuses one over a newer version. */
+	const base = useRef(initial.updatedAt);
+	const [other, setOther] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
 		const c = new SaveController(
-			(d) => saveDesign(d).then(() => undefined),
+			async (d) => {
+				const saved = await saveDesign(d, { base: base.current });
+				base.current = saved.updatedAt;
+			},
 			(next) => {
 				setStatus(next);
 				setProblem(next === 'error' ? problemWords(c.lastError) : null);
+				const error = c.lastError;
+				setOther(next === 'conflict' && error instanceof ApiError ? error.updatedAt : undefined);
 			},
-			{ shouldRetry: (e) => !(e instanceof ApiError) || e.retryable },
+			{ shouldRetry: (e) => !(e instanceof ApiError) || e.retryable, isConflict: (e) => e instanceof ApiError && e.conflict },
 		);
 		controller.current = c;
 
 		// If the tab is closed or hidden with changes still waiting, send them now.
 		const onPageHide = () => {
 			const pending = c.pendingDesign();
-			if (pending) void saveDesign(pending, { keepalive: true }).catch(() => undefined);
+			if (pending) void saveDesign(pending, { keepalive: true, base: base.current }).catch(() => undefined);
 		};
 		window.addEventListener('pagehide', onPageHide);
 
@@ -54,5 +67,20 @@ export function useAutosave(
 		if (design !== initial) controller.current?.schedule(design);
 	}, [design, initial]);
 
-	return { status, problem, lastError: controller.current?.lastError?.message };
+	const conflict =
+		status === 'conflict'
+			? {
+					/** Keep this version: save it over the other (it is now based on what is stored). */
+					keepMine: () => {
+						if (other !== undefined) base.current = other;
+						controller.current?.resume();
+					},
+					/** Load the other version: let go of this one and open the design again from the server. */
+					loadOther: () => {
+						controller.current?.discard();
+						window.location.reload();
+					},
+				}
+			: null;
+	return { status, problem, lastError: controller.current?.lastError?.message, conflict };
 }

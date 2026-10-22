@@ -25,6 +25,20 @@ export class StoredDesignError extends Error {
 	}
 }
 
+/** The design was changed (saved or renamed, in another tab or window) since the version a save was based on. */
+export class DesignConflictError extends Error {
+	constructor(readonly updatedAt: string) {
+		super('This design was changed somewhere else (another tab or window) since you opened it');
+		this.name = 'DesignConflictError';
+	}
+}
+
+/** A modification time now, and always later than `previous`, so two writes in the same millisecond are still told apart. */
+function nextStamp(previous: string): string {
+	const before = Date.parse(previous);
+	return new Date(Number.isFinite(before) ? Math.max(Date.now(), before + 1) : Date.now()).toISOString();
+}
+
 const ID_PATTERN = /^[0-9a-f]{32}$/;
 const FILE_PATTERN = /^[0-9a-f]{32}\.json$/;
 const DEFAULT_NAME = 'Untitled design';
@@ -116,16 +130,23 @@ export class DesignStore {
 	 * stays the server's, and the modification time is stamped here, not taken from the client.
 	 * Returns null if the design does not exist (saving never creates one).
 	 * Throws DesignValidationError if the data is not a good design for this id.
+	 * `base` is the modification time of the version the save was made from: if the stored design has been changed since, nothing is written and
+	 * DesignConflictError says when it was. Without a base, nothing is checked.
 	 */
-	async save(id: string, input: unknown): Promise<Design | null> {
+	async save(id: string, input: unknown, opts: { base?: string } = {}): Promise<Design | null> {
 		if (!isValidDesignId(id)) return null;
 		return this.serial(id, async () => {
+			let damaged = false;
 			const existing = await this.get(id).catch((error: unknown) => {
 				// Saving a good design over a damaged file is how it gets repaired.
-				if (error instanceof StoredDesignError) return createEmptyDesign(id);
+				if (error instanceof StoredDesignError) {
+					damaged = true;
+					return createEmptyDesign(id);
+				}
 				throw error;
 			});
 			if (!existing) return null;
+			if (opts.base !== undefined && !damaged && existing.updatedAt !== opts.base) throw new DesignConflictError(existing.updatedAt);
 
 			const parsed = parseDesign(input);
 			if (parsed.id !== id) throw new DesignValidationError('id', 'does not match the design being saved');
@@ -133,7 +154,7 @@ export class DesignStore {
 			const saved: Design = {
 				...withFolder(parsed, existing.folder ?? null),
 				createdAt: existing.createdAt,
-				updatedAt: new Date().toISOString(),
+				updatedAt: nextStamp(existing.updatedAt),
 			};
 			await this.write(saved);
 			return saved;
@@ -147,8 +168,10 @@ export class DesignStore {
 			const design = await this.get(id);
 			if (!design) return null;
 			const renamed = renameDesign(design, cleaned);
-			if (renamed !== design) await this.write(renamed);
-			return renamed;
+			if (renamed === design) return design;
+			const stamped = { ...renamed, updatedAt: nextStamp(design.updatedAt) };
+			await this.write(stamped);
+			return stamped;
 		});
 	}
 
