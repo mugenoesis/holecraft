@@ -1,7 +1,7 @@
 // Runs in a Web Worker: loads manifold's WebAssembly once, then does the heavy geometry work off the
 // main thread: turning a group into a single mesh, finding the edges the Edge tool offers, or working out everything to export.
 
-import type { Design, MeshData, MeshEdge, NodeId } from '@holecraft/core';
+import { type Design, loadFonts, type MeshData, type MeshEdge, type NodeId } from '@holecraft/core';
 import {
 	type ConformFrame,
 	collectBodies,
@@ -18,6 +18,7 @@ import {
 } from '@holecraft/geometry';
 import type { ManifoldToplevel } from 'manifold-3d';
 import wasmUrl from 'manifold-3d/manifold.wasm?url';
+import { fontsNeededBy } from './workerFonts.ts';
 
 export type WorkerRequest =
 	| { kind: 'group'; id: number; subtree: Subtree; meshes: ReadonlyMap<string, MeshData> }
@@ -56,6 +57,8 @@ scope.onmessage = async ({ data }) => {
 	try {
 		ready ??= loadManifold(() => wasmUrl);
 		const manifold = await ready;
+		// the letters of any font the shapes use (the first time one is needed it is loaded from its own file)
+		await loadFonts(fontsNeededBy(data));
 
 		if (data.kind === 'export') {
 			const bodies = collectBodies(manifold, data.design, data.meshes, { cutBelowPlane: !!data.cutBelowPlane });

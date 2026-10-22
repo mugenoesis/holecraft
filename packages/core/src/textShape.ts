@@ -1,6 +1,6 @@
 import type { Design, NodeId, ShapeNode } from './design.ts';
 import { MAX_SHAPE_SIZE } from './limits.ts';
-import { TEXT_MAX_LENGTH, textMetrics } from './text.ts';
+import { isFontId, TEXT_MAX_LENGTH, textMetrics } from './text.ts';
 
 /**
  * The Text shape's own rules: it keeps its words in `params.text` and its font in `params.font` (an id from `FONTS`), and is as big as its box says
@@ -30,7 +30,7 @@ export function textOf(node: Pick<ShapeNode, 'params'>): string {
 /** A text shape's font id (Sans if it is missing or unknown). */
 export function fontOf(node: Pick<ShapeNode, 'params'>): number {
 	const font = Number(node.params.font);
-	return textMetrics('H', font) ? font : DEFAULT_FONT;
+	return isFontId(font) ? font : DEFAULT_FONT;
 }
 
 /** How many mm to the em the shape's letters are now: its depth over the depth of its words in ems. */

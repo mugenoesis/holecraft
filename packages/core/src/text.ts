@@ -1,21 +1,54 @@
-import { FONT_DATA } from './fonts/fontData.generated.ts';
+import { FONT_LIST, FONT_LOADERS } from './fonts/fontIndex.generated.ts';
 import type { FontData } from './fonts/fontTypes.ts';
+import { FONT as DEFAULT_FONT_DATA } from './fonts/outlines/sans.generated.ts';
 
 /**
- * Text as a shape: the letters of ten bundled open fonts (their outlines are built into the app, so there is nothing to download and it works
- * offline), laid out in a line and handed on as flat outlines for the geometry engine to extrude. Everything here is plain maths on numbers, in
- * ems (1 = the font's size), so it can be tested without a browser and runs on both the page and the worker.
+ * Text as a shape: the letters of ten bundled open fonts (their outlines are built into the app, so there is nothing to fetch from anywhere else
+ * and it works offline), laid out in a line and handed on as flat outlines for the geometry engine to extrude. Everything here is plain maths on
+ * numbers, in ems (1 = the font's size), so it can be tested without a browser and runs on both the page and the worker.
+ *
+ * Each font's outlines are their own file, loaded the first time a design needs them (`loadFont`): the default, Sans, is part of the code, so a
+ * design with no text, or only Sans, loads nothing more. A font that has not loaded gives no letters (`textMetrics` and `textOutlines` are null),
+ * so whatever is about to use one first awaits `loadFonts(fontsUsedBy(...))`.
  */
 
-/** The fonts, in the order the Font choice lists them. `id` is what a design stores, so it never changes. */
-export const FONTS: readonly { id: number; label: string }[] = Object.values(FONT_DATA)
-	.map((f) => ({ id: f.id, label: f.label }))
-	.sort((a, b) => a.id - b.id);
+/** The fonts, in the order the Font choice lists them (names only: no outlines are loaded to show the list). `id` is what a design stores, so it never changes. */
+export const FONTS: readonly { id: number; label: string }[] = [...FONT_LIST].sort((a, b) => a.id - b.id);
 
-const BY_ID = new Map<number, FontData>(Object.values(FONT_DATA).map((f) => [f.id, f]));
+const LOADED = new Map<number, FontData>([[DEFAULT_FONT_DATA.id, DEFAULT_FONT_DATA]]);
+const LOADING = new Map<number, Promise<boolean>>();
 
-/** A font's data by its id, or undefined if there is no such font. */
-export const fontById = (id: number): FontData | undefined => BY_ID.get(id);
+/** True if this is the id of a font (loaded or not). */
+export const isFontId = (id: number): boolean => Number.isInteger(id) && id in FONT_LOADERS;
+
+/** A font's data by its id, or undefined if there is no such font or it has not been loaded. */
+export const fontById = (id: number): FontData | undefined => LOADED.get(id);
+
+/** True once a font's outlines are loaded. */
+export const fontLoaded = (id: number): boolean => LOADED.has(id);
+
+/** Loads a font's outlines (once, however many ask). True when the font is ready, false for an id that is not a font or a file that would not load. */
+export function loadFont(id: number): Promise<boolean> {
+	if (LOADED.has(id)) return Promise.resolve(true);
+	if (!isFontId(id)) return Promise.resolve(false);
+	let loading = LOADING.get(id);
+	if (!loading) {
+		loading = FONT_LOADERS[id]!()
+			.then((font) => {
+				LOADED.set(id, font);
+				return true;
+			})
+			.catch(() => false)
+			.finally(() => LOADING.delete(id));
+		LOADING.set(id, loading);
+	}
+	return loading;
+}
+
+/** Loads several fonts at once (ids that are not fonts are ignored). */
+export async function loadFonts(ids: Iterable<number>): Promise<void> {
+	await Promise.all([...new Set(ids)].map(loadFont));
+}
 
 /** The most letters a text shape has: more is cut off. */
 export const TEXT_MAX_LENGTH = 100;

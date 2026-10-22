@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	test: {
+		setupFiles: ['./vitest.setup.ts'],
 		include: ['packages/*/src/**/*.test.ts', 'apps/*/src/**/*.test.ts'],
 		coverage: {
 			provider: 'v8',
@@ -12,6 +13,7 @@ export default defineConfig({
 				'packages/geometry/src/formats/orcaFilamentDefaults.ts', // generated data
 				'apps/server/src/main.ts', // the process entry point, exercised by the Docker smoke test
 				'apps/web/src/main.tsx',
+				'vitest.setup.ts',
 			],
 			reporter: ['text-summary', 'html', 'lcov'],
 			// Floors, set just under what each package has today, so coverage can only go up. The web app's

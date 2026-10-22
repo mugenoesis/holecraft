@@ -1,6 +1,7 @@
 import { type Design, type EngraveSettings, engravePolygons, fromFrame, type NodeId, type OrbitState, toFrame } from '@holecraft/core';
 import { useEffect, useState } from 'react';
 import type { EngraveRequest } from '../engraveJob.ts';
+import { chooseFont } from '../fontChoice.ts';
 import { isTypingTarget } from '../keyboard.ts';
 import type { EngraveEditJob } from '../useEngrave.ts';
 import type { Projection } from './CameraRig.ts';
@@ -155,7 +156,7 @@ function PlaceLettering({
 				hint={problem ?? (busy ? 'Fitting the lettering to the surface…' : placingHint(overhangs(polygons, start.reach)))}
 				busy={busy}
 				onText={edited(setText)}
-				onFont={edited(setFont)}
+				onFont={(id) => void chooseFont(id, () => edited(setFont)(id))}
 				onEm={edited(setEm)}
 				onDepth={edited(setDepth)}
 				onAngle={edited(setAngle)}

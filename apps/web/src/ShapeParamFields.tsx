@@ -9,8 +9,10 @@ import {
 	typedParamMm,
 	wrapOf,
 } from '@holecraft/core';
+
 import type { Dispatch } from 'react';
 import type { EditorAction } from './editorState.ts';
+import { chooseFont } from './fontChoice.ts';
 import { NumberField, TextField } from './PropertiesPanel.tsx';
 
 const fmt = (n: number) => String(Number(n.toFixed(2)));
@@ -96,7 +98,13 @@ function ChoiceField({ node, setting, dispatch }: { node: ShapeNode; setting: Pa
 			<select
 				aria-label={setting.label}
 				value={shapeParam(node, setting.key)}
-				onChange={(e) => dispatch({ type: 'setShapeParam', id: node.id, key: setting.key, value: Number(e.target.value) })}
+				onChange={(e) => {
+					const value = Number(e.target.value);
+					const apply = () => dispatch({ type: 'setShapeParam', id: node.id, key: setting.key, value });
+					// a font has to be loaded before the words can be measured in it
+					if (setting.key === 'font') void chooseFont(value, apply);
+					else apply();
+				}}
 			>
 				{choiceGroups(setting).map(([group, choices]) =>
 					group ? (

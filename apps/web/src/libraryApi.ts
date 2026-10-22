@@ -1,4 +1,4 @@
-import { type Design, DesignValidationError, type LibrarySummary, parseDesign } from '@holecraft/core';
+import { type Design, DesignValidationError, fontsUsedBy, type LibrarySummary, loadFonts, parseDesign } from '@holecraft/core';
 import { ApiError, request } from './designsApi.ts';
 
 const jsonInit = (method: string, body: unknown): RequestInit => ({
@@ -17,15 +17,18 @@ export async function saveToLibrary(name: string, design: Design): Promise<Libra
 	return (await (await request('/api/library', jsonInit('POST', { name, design }))).json()) as LibrarySummary;
 }
 
-/** A saved shape, checked like any design on the way in. */
+/** A saved shape, checked like any design on the way in, with the fonts its text uses loaded (so it can be added at once). */
 export async function getLibraryShape(id: string): Promise<Design> {
 	const response = await request(`/api/library/${id}`);
+	let shape: Design;
 	try {
-		return parseDesign(await response.json());
+		shape = parseDesign(await response.json());
 	} catch (error) {
 		const detail = error instanceof DesignValidationError ? error.message : 'it is not a design';
 		throw new ApiError(500, `This saved shape could not be read: ${detail}`);
 	}
+	await loadFonts(fontsUsedBy(shape.nodes));
+	return shape;
 }
 
 export async function renameLibraryShape(id: string, name: string): Promise<LibrarySummary> {

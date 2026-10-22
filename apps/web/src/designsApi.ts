@@ -1,4 +1,12 @@
-import { type Design, type DesignSummary, DesignValidationError, parseDesign, type VersionSummary } from '@holecraft/core';
+import {
+	type Design,
+	type DesignSummary,
+	DesignValidationError,
+	fontsUsedBy,
+	loadFonts,
+	parseDesign,
+	type VersionSummary,
+} from '@holecraft/core';
 
 /** A failed call to the server. `status` is 0 when the server could not be reached at all. */
 export class ApiError extends Error {
@@ -69,8 +77,11 @@ export async function createDesign(name?: string): Promise<Design> {
 	return readDesign(await request('/api/designs', jsonInit('POST', name === undefined ? {} : { name })));
 }
 
+/** A design to open: its text's fonts are loaded first (each is its own file, fetched the first time), so nothing measures the words before they can be. */
 export async function getDesign(id: string): Promise<Design> {
-	return readDesign(await request(`/api/designs/${id}`));
+	const design = await readDesign(await request(`/api/designs/${id}`));
+	await loadFonts(fontsUsedBy(design.nodes));
+	return design;
 }
 
 /**
