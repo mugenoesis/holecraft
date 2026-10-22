@@ -14,6 +14,7 @@ const STATUS_LABEL: Record<SaveStatus, string> = {
 	dirty: 'Unsaved changes',
 	saving: 'Saving…',
 	error: 'Couldn’t save',
+	conflict: 'Changed elsewhere',
 };
 
 interface Props {

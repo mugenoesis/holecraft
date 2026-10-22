@@ -298,7 +298,8 @@ body {
 	color: var(--ok-text);
 }
 
-.save-status.error {
+.save-status.error,
+.save-status.conflict {
 	color: var(--bad);
 	font-weight: 600;
 }

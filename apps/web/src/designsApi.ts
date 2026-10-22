@@ -5,9 +5,16 @@ export class ApiError extends Error {
 	constructor(
 		readonly status: number,
 		message: string,
+		/** For a conflict: when the version that is stored now was saved. */
+		readonly updatedAt?: string | undefined,
 	) {
 		super(message);
 		this.name = 'ApiError';
+	}
+
+	/** The design was saved from somewhere else since this version was opened (HTTP 409). */
+	get conflict(): boolean {
+		return this.status === 409;
 	}
 
 	/** Worth trying again: the server was unreachable or had a problem, as opposed to refusing the request. */
@@ -26,13 +33,15 @@ export async function request(url: string, init: RequestInit = {}): Promise<Resp
 	if (response.ok) return response;
 
 	let message = `The server returned an error (${response.status})`;
+	let updatedAt: string | undefined;
 	try {
-		const body = (await response.json()) as { error?: unknown };
+		const body = (await response.json()) as { error?: unknown; updatedAt?: unknown };
 		if (typeof body.error === 'string') message = body.error;
+		if (typeof body.updatedAt === 'string') updatedAt = body.updatedAt;
 	} catch {
 		// Not JSON (a proxy's error page, say): keep the generic message.
 	}
-	throw new ApiError(response.status, message);
+	throw new ApiError(response.status, message, updatedAt);
 }
 
 const jsonInit = (method: string, body: unknown, extra: RequestInit = {}): RequestInit => ({
@@ -64,9 +73,15 @@ export async function getDesign(id: string): Promise<Design> {
 	return readDesign(await request(`/api/designs/${id}`));
 }
 
-/** `keepalive` lets the request finish even as the page is being closed. */
-export async function saveDesign(design: Design, opts: { keepalive?: boolean } = {}): Promise<Design> {
-	return readDesign(await request(`/api/designs/${design.id}`, jsonInit('PUT', design, opts.keepalive ? { keepalive: true } : {})));
+/**
+ * `keepalive` lets the request finish even as the page is being closed. `base` is the modification time of the version this one was made from:
+ * the server refuses the save (a conflict, HTTP 409) if the design has been saved from somewhere else since.
+ */
+export async function saveDesign(design: Design, opts: { keepalive?: boolean; base?: string } = {}): Promise<Design> {
+	const headers: Record<string, string> = { 'content-type': 'application/json' };
+	if (opts.base !== undefined) headers['x-base-updated-at'] = opts.base;
+	const init: RequestInit = { method: 'PUT', headers, body: JSON.stringify(design), ...(opts.keepalive ? { keepalive: true } : {}) };
+	return readDesign(await request(`/api/designs/${design.id}`, init));
 }
 
 export async function renameDesignOnServer(id: string, name: string): Promise<Design> {

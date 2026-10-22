@@ -1,6 +1,7 @@
 import type { Design } from '@holecraft/core';
 
-export type SaveStatus = 'saved' | 'dirty' | 'saving' | 'error';
+/** `conflict`: the design was saved from somewhere else since this one was opened; nothing is saved until it is said what to do. */
+export type SaveStatus = 'saved' | 'dirty' | 'saving' | 'error' | 'conflict';
 
 export interface SaveOptions {
 	/** How long to wait after the last change before saving. */
@@ -9,6 +10,8 @@ export interface SaveOptions {
 	retryDelaysMs?: readonly number[];
 	/** False for failures that retrying cannot fix (the design was deleted, the server rejected it). */
 	shouldRetry?: (error: unknown) => boolean;
+	/** True for a failure that is the design having been changed elsewhere: saving stops (it would only overwrite it) until `resume` or `discard`. */
+	isConflict?: (error: unknown) => boolean;
 }
 
 const DEFAULT_DELAY_MS = 800;
@@ -25,6 +28,7 @@ export class SaveController {
 	private readonly delayMs: number;
 	private readonly retryDelays: readonly number[];
 	private readonly shouldRetry: (error: unknown) => boolean;
+	private readonly isConflict: (error: unknown) => boolean;
 
 	private current: SaveStatus = 'saved';
 	private error: Error | null = null;
@@ -34,6 +38,8 @@ export class SaveController {
 	private saving = false;
 	private failures = 0;
 	private disposed = false;
+	/** Waiting to be told what to do about a conflict: nothing is saved meanwhile. */
+	private blocked = false;
 	private flushing = false;
 	private pause: ReturnType<typeof setTimeout> | null = null;
 	private retry: ReturnType<typeof setTimeout> | null = null;
@@ -47,6 +53,7 @@ export class SaveController {
 		this.delayMs = options.delayMs ?? DEFAULT_DELAY_MS;
 		this.retryDelays = options.retryDelaysMs?.length ? options.retryDelaysMs : DEFAULT_RETRY_DELAYS_MS;
 		this.shouldRetry = options.shouldRetry ?? (() => true);
+		this.isConflict = options.isConflict ?? (() => false);
 	}
 
 	get status(): SaveStatus {
@@ -67,6 +74,7 @@ export class SaveController {
 	schedule(design: Design): void {
 		if (this.disposed || design === this.latest || design === this.lastSaved) return;
 		this.latest = design;
+		if (this.blocked) return; // kept for when it is said what to do, with the status as it is
 		this.set('dirty');
 		if (this.pause) clearTimeout(this.pause);
 		this.pause = setTimeout(() => {
@@ -77,7 +85,7 @@ export class SaveController {
 
 	/** Saves right now rather than after the pause. Resolves once everything is saved, or has failed. */
 	flush(): Promise<void> {
-		if (this.disposed || (this.latest === null && !this.saving)) return Promise.resolve();
+		if (this.disposed || this.blocked || (this.latest === null && !this.saving)) return Promise.resolve();
 		this.flushing = true;
 		if (this.pause) {
 			clearTimeout(this.pause);
@@ -86,6 +94,27 @@ export class SaveController {
 		const done = new Promise<void>((resolve) => this.waiters.push(resolve));
 		this.startIfIdle();
 		return done;
+	}
+
+	/** After a conflict, keeps this version: saves the newest one now (the caller has said it is based on what is stored). */
+	resume(): void {
+		if (!this.blocked) return;
+		this.blocked = false;
+		this.error = null;
+		this.startIfIdle();
+	}
+
+	/** After a conflict, lets go of this version: nothing of it is saved, and the controller is as it was when everything was saved. */
+	discard(): void {
+		if (this.pause) clearTimeout(this.pause);
+		if (this.retry) clearTimeout(this.retry);
+		this.pause = this.retry = null;
+		this.blocked = false;
+		this.latest = null;
+		this.error = null;
+		this.failures = 0;
+		this.set('saved');
+		this.release();
 	}
 
 	dispose(): void {
@@ -97,7 +126,7 @@ export class SaveController {
 	}
 
 	private startIfIdle(): void {
-		if (this.disposed || this.saving || !this.latest) return;
+		if (this.disposed || this.blocked || this.saving || !this.latest) return;
 		if (this.retry) {
 			clearTimeout(this.retry);
 			this.retry = null;
@@ -134,6 +163,13 @@ export class SaveController {
 		this.saving = false;
 		if (this.disposed) return;
 		this.error = error instanceof Error ? error : new Error(String(error));
+		if (this.isConflict(error)) {
+			this.blocked = true;
+			this.flushing = false;
+			this.set('conflict');
+			this.release();
+			return;
+		}
 		this.set('error');
 
 		if (this.shouldRetry(error)) {

@@ -256,3 +256,86 @@ describe('SaveController.dispose', () => {
 		expect(statuses).toHaveLength(before);
 	});
 });
+
+describe('SaveController when the design was changed elsewhere', () => {
+	const conflict = (e: unknown) => e instanceof Error && e.message === 'conflict';
+
+	async function conflicted() {
+		make({ isConflict: conflict });
+		controller.schedule(design('mine'));
+		await vi.advanceTimersByTimeAsync(800);
+		calls[0]!.reject(new Error('conflict'));
+		await settle();
+	}
+
+	it('stops with its own status, not an ordinary failure, and never retries by itself', async () => {
+		await conflicted();
+		expect(controller.status).toBe('conflict');
+		expect(controller.lastError?.message).toBe('conflict');
+		await vi.advanceTimersByTimeAsync(120_000);
+		expect(calls).toHaveLength(1);
+	});
+
+	it('keeps the version that was refused, so nothing is lost', async () => {
+		await conflicted();
+		expect(controller.pendingDesign()?.name).toBe('mine');
+	});
+
+	it('takes in further edits without saving them or changing the status, until it is told what to do', async () => {
+		await conflicted();
+		controller.schedule(design('mine, edited more'));
+		await vi.advanceTimersByTimeAsync(5000);
+		expect(calls).toHaveLength(1);
+		expect(controller.status).toBe('conflict');
+		expect(controller.pendingDesign()?.name).toBe('mine, edited more');
+	});
+
+	it('resume saves the newest version now, and is saved once that works', async () => {
+		await conflicted();
+		controller.schedule(design('mine, edited more'));
+		controller.resume();
+		await settle();
+		expect(calls).toHaveLength(2);
+		expect(calls[1]!.design.name).toBe('mine, edited more');
+		calls[1]!.resolve();
+		await settle();
+		expect(controller.status).toBe('saved');
+		expect(controller.pendingDesign()).toBeNull();
+	});
+
+	it('resume refused again is a conflict again (another tab saved in between)', async () => {
+		await conflicted();
+		controller.resume();
+		await settle();
+		calls[1]!.reject(new Error('conflict'));
+		await settle();
+		expect(controller.status).toBe('conflict');
+	});
+
+	it('discard lets go of the version, so nothing of it is ever saved, and is saved again', async () => {
+		await conflicted();
+		controller.discard();
+		expect(controller.pendingDesign()).toBeNull();
+		expect(controller.status).toBe('saved');
+		await vi.advanceTimersByTimeAsync(60_000);
+		expect(calls).toHaveLength(1);
+		controller.schedule(design('a new change'));
+		await vi.advanceTimersByTimeAsync(800);
+		expect(calls).toHaveLength(2);
+	});
+
+	it('flush resolves while waiting for the choice, so leaving the page is never held up', async () => {
+		await conflicted();
+		await expect(controller.flush()).resolves.toBeUndefined();
+		expect(calls).toHaveLength(1);
+	});
+
+	it('other failures are still ordinary errors', async () => {
+		make({ isConflict: conflict, shouldRetry: () => false });
+		controller.schedule(design('a'));
+		await vi.advanceTimersByTimeAsync(800);
+		calls[0]!.reject(new Error('gone'));
+		await settle();
+		expect(controller.status).toBe('error');
+	});
+});

@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { addShape, createEmptyDesign, type Design, parseDesign } from '@holecraft/core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DesignStore, isValidDesignId, StoredDesignError } from './designs.ts';
+import { DesignConflictError, DesignStore, isValidDesignId, StoredDesignError } from './designs.ts';
 
 let dir: string;
 let store: DesignStore;
@@ -145,6 +145,55 @@ describe('DesignStore.save', () => {
 		const saved = await store.save(d.id, { ...d, evil: '<script>' } as Design);
 		expect((saved as unknown as Record<string, unknown>).evil).toBeUndefined();
 		expect(await readFile(path.join(dir, 'designs', `${d.id}.json`), 'utf8')).not.toContain('script');
+	});
+});
+
+describe('DesignStore.save when the design changed since it was opened', () => {
+	it('saves when the version it was based on is the stored one, and the next save is based on what this one wrote', async () => {
+		const created = await store.create('Base');
+		const first = (await store.save(created.id, withBox(created), { base: created.updatedAt }))!;
+		expect(first.nodes).not.toEqual(created.nodes);
+		const second = await store.save(created.id, first, { base: first.updatedAt });
+		expect(second).not.toBeNull();
+	});
+
+	it('refuses a save based on an older version, naming the stored time, and leaves the stored design alone', async () => {
+		const created = await store.create('Base');
+		const elsewhere = (await store.save(created.id, withBox(created)))!; // another tab saved
+		const mine = withBox(withBox(created));
+		const refused = await store.save(created.id, mine, { base: created.updatedAt }).catch((e: unknown) => e);
+		expect(refused).toBeInstanceOf(DesignConflictError);
+		expect((refused as DesignConflictError).updatedAt).toBe(elsewhere.updatedAt);
+		expect(Object.keys((await store.get(created.id))!.nodes)).toHaveLength(1);
+	});
+
+	it('saves over a design someone else changed when it is based on the time they saved it (keeping one\u2019s own version)', async () => {
+		const created = await store.create('Base');
+		const elsewhere = (await store.save(created.id, withBox(created)))!;
+		const mine = withBox(withBox(created));
+		const saved = await store.save(created.id, mine, { base: elsewhere.updatedAt });
+		expect(Object.keys(saved!.nodes)).toHaveLength(2);
+	});
+
+	it('checks nothing when no base is given, as before (other programs, older pages)', async () => {
+		const created = await store.create('Base');
+		await store.save(created.id, withBox(created));
+		await expect(store.save(created.id, withBox(withBox(created)))).resolves.not.toBeNull();
+	});
+
+	it('is a rename or a design saved by another tab that makes a base old, but not moving it to a folder', async () => {
+		const created = await store.create('Base');
+		await store.setFolder(created.id, 'Parts');
+		await expect(store.save(created.id, withBox(created), { base: created.updatedAt })).resolves.not.toBeNull();
+		const renamed = (await store.rename(created.id, 'New name'))!;
+		const refused = await store.save(created.id, withBox(created), { base: created.updatedAt }).catch((e: unknown) => e);
+		expect(refused).toBeInstanceOf(DesignConflictError);
+		expect((refused as DesignConflictError).updatedAt).toBe(renamed.updatedAt);
+	});
+
+	it('still returns null for a design that does not exist, whatever the base', async () => {
+		const ghost = createEmptyDesign('0123456789abcdef0123456789abcdef');
+		await expect(store.save(ghost.id, ghost, { base: ghost.updatedAt })).resolves.toBeNull();
 	});
 });
 

@@ -102,6 +102,53 @@ describe('GET /api/designs/:id', () => {
 	});
 });
 
+describe('PUT /api/designs/:id from a page that says which version it was based on', () => {
+	const put = (d: Design, body: unknown, base?: string) =>
+		app.inject({
+			method: 'PUT',
+			url: `/api/designs/${d.id}`,
+			payload: JSON.stringify(body),
+			headers: { 'content-type': 'application/json', ...(base === undefined ? {} : { 'x-base-updated-at': base }) },
+		});
+
+	it('saves when the base is the stored version, and answers the new one', async () => {
+		const d = await create();
+		const res = await put(d, addShape(d, 'box', [0, 0]).design, d.updatedAt);
+		expect(res.statusCode).toBe(200);
+		expect(res.json<Design>().updatedAt).not.toBe(d.updatedAt);
+	});
+
+	it('answers 409 with the stored time and a message in words when the design was changed since, and changes nothing', async () => {
+		const d = await create();
+		const other = (await put(d, addShape(d, 'box', [0, 0]).design)).json<Design>();
+		const res = await put(d, addShape(addShape(d, 'box', [0, 0]).design, 'sphere', [50, 0]).design, d.updatedAt);
+		expect(res.statusCode).toBe(409);
+		expect(res.json<{ error: string; updatedAt: string }>().updatedAt).toBe(other.updatedAt);
+		expect(res.json<{ error: string }>().error).toMatch(/changed somewhere else/i);
+		const stored = (await app.inject({ method: 'GET', url: `/api/designs/${d.id}` })).json<Design>();
+		expect(stored.roots).toHaveLength(1);
+	});
+
+	it('saves over the other version when based on its time (keeping one\u2019s own)', async () => {
+		const d = await create();
+		const other = (await put(d, addShape(d, 'box', [0, 0]).design)).json<Design>();
+		const res = await put(d, addShape(addShape(d, 'box', [0, 0]).design, 'sphere', [50, 0]).design, other.updatedAt);
+		expect(res.statusCode).toBe(200);
+		expect(res.json<Design>().roots).toHaveLength(2);
+	});
+
+	it('checks nothing without the header', async () => {
+		const d = await create();
+		await put(d, addShape(d, 'box', [0, 0]).design);
+		expect((await put(d, addShape(d, 'sphere', [0, 0]).design)).statusCode).toBe(200);
+	});
+
+	it('is 400, not 409, for a base that is not a time at all', async () => {
+		const d = await create();
+		expect((await put(d, d, 'not a time')).statusCode).toBe(400);
+	});
+});
+
 describe('PUT /api/designs/:id', () => {
 	it('saves the design', async () => {
 		const d = await create();
