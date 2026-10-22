@@ -13,8 +13,8 @@ import { type Site, siteOf } from './sites.ts';
  * this file only joins them to the browser.
  */
 
-/** The biggest file copied or carried: Holecraft's own import limit. */
-const MAX_BYTES = 100 * 1024 * 1024;
+/** The biggest file copied or carried: Holecraft's own import limit (a binary STL of three million triangles is 150 MB). */
+const MAX_BYTES = 200 * 1024 * 1024;
 
 const files = new CaughtFiles();
 const log = new RecentLog();

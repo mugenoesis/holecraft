@@ -53,7 +53,7 @@ export async function sendToHolecraft(settings: Settings, file: SendFile, fetchF
 		fetchFn,
 	);
 	if (response.status === 403) throw new SendError(`Holecraft refused the file: is ${url} really Holecraft?`);
-	if (response.status === 413) throw new SendError('The file is too large for Holecraft to take (the limit is 100 MB)');
+	if (response.status === 413) throw new SendError('The file is too large for Holecraft to take (the limit is 200 MB)');
 	if (response.status === 404 || response.status === 415) {
 		throw new SendError(
 			`Holecraft at ${url} cannot take files from the add-on: it may be an older version, or the address may be something else`,

@@ -9,6 +9,7 @@ import {
 	MAX_AUTO_SELECT,
 	modelEntries,
 	openInboxFile,
+	readingMessage,
 	rowLayout,
 } from './inboxImport.ts';
 
@@ -166,5 +167,17 @@ describe('buildDesignFrom', () => {
 		await expect(buildDesignFrom('x.zip', [{ name: 'a.stl', bytes: bytes('1') }], d)).rejects.toThrow(/a\.stl.*nothing to import/);
 		expect(d.saved).toEqual([]);
 		expect(d.created).toEqual([]);
+	});
+});
+
+describe('readingMessage', () => {
+	it('is the usual words for an ordinary file', () => {
+		expect(readingMessage(0)).toBe('Opening the model…');
+		expect(readingMessage(5 * 1024 * 1024)).toBe('Opening the model…');
+	});
+
+	it('says it is big, and how big, when the page is going to be busy for a while', () => {
+		expect(readingMessage(95 * 1024 * 1024)).toBe('Reading a large model (95 MB): this can take a little while…');
+		expect(readingMessage(20 * 1024 * 1024)).toMatch(/large model \(20 MB\)/);
 	});
 });

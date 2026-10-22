@@ -97,3 +97,32 @@ describe('GET /api/meshes/:ref', () => {
 		}
 	});
 });
+
+describe('big models', () => {
+	/** A mesh of this many triangles over this many corners, as bytes (the triangles are nonsense, which is fine: only the numbers are checked). */
+	const bytes = (triangles: number, vertices: number) =>
+		encodeMesh({
+			positions: new Float32Array(vertices * 3).map((_, i) => i % 1000),
+			indices: new Uint32Array(triangles * 3).map((_, i) => i % vertices),
+		});
+
+	it('takes a model of 1.9 million triangles (more than it once did)', async () => {
+		const res = await upload(bytes(1_900_000, 950_000));
+		expect(res.statusCode).toBe(201);
+		const { ref } = res.json<{ ref: string }>();
+		const back = await app.inject(`/api/meshes/${ref}`);
+		expect(back.statusCode).toBe(200);
+		expect(back.rawPayload.length).toBe(12 + 950_000 * 12 + 1_900_000 * 12);
+	}, 60_000);
+
+	it('takes the biggest model that is allowed: 3 million triangles on 3 million corners (about 72 MB)', async () => {
+		const res = await upload(bytes(3_000_000, 3_000_000));
+		expect(res.statusCode).toBe(201);
+	}, 60_000);
+
+	it('refuses one with more triangles than that', async () => {
+		const res = await upload(bytes(3_000_001, 100));
+		expect(res.statusCode).toBe(400);
+		expect(res.json<{ error: string }>().error).toMatch(/too large/);
+	}, 60_000);
+});

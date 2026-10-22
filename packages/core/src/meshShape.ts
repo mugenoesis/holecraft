@@ -13,7 +13,7 @@ export interface MeshData {
 	indices: Uint32Array;
 }
 
-export const MAX_MESH_TRIANGLES = 1_000_000;
+export const MAX_MESH_TRIANGLES = 3_000_000;
 const MAX_MESH_VERTICES = 3_000_000;
 /** Smallest side an imported model may have, in mm: anything thinner is effectively flat. */
 const MIN_MODEL_SIZE = 0.01;

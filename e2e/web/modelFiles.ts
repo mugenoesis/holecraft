@@ -198,3 +198,32 @@ export function slicerPlate3mf(s: number): Buffer {
 		'Metadata/model_settings.config': '<?xml version="1.0"?><config><object id="2"><metadata key="name" value="Cube"/></object></config>',
 	});
 }
+
+/**
+ * A binary STL of a sphere (radius 20 mm) cut into about `2 * sectors * (stacks - 1)` triangles: big files without a big fixture. The corners are
+ * repeated for every triangle, as slicers and CAD programs write them. (Not a perfect closed surface at the poles, which is fine for a reader.)
+ */
+export function sphereStl(sectors: number, stacks: number): Buffer {
+	const point = (i: number, j: number): [number, number, number] => {
+		const theta = (Math.PI * j) / stacks;
+		const phi = (2 * Math.PI * (i % sectors)) / sectors;
+		return [20 * Math.sin(theta) * Math.cos(phi), 20 * Math.sin(theta) * Math.sin(phi), 20 * Math.cos(theta)];
+	};
+	const count = 2 * sectors * (stacks - 1);
+	const out = Buffer.alloc(84 + count * 50);
+	out.writeUInt32LE(count, 80);
+	let at = 84;
+	const triangle = (a: number[], b: number[], c: number[]) => {
+		at += 12; // the normal is left zero: readers work it out from the corners
+		for (const p of [a, b, c]) for (const v of p) at = out.writeFloatLE(v, at);
+		at += 2;
+	};
+	for (let j = 0; j < stacks; j++) {
+		for (let i = 0; i < sectors; i++) {
+			const [a, b, c, d] = [point(i, j), point(i + 1, j), point(i + 1, j + 1), point(i, j + 1)];
+			if (j > 0) triangle(a, c, b);
+			if (j < stacks - 1) triangle(a, d, c);
+		}
+	}
+	return out;
+}

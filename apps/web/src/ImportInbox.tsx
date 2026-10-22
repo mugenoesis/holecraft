@@ -4,7 +4,7 @@ import { createDesign, saveDesign } from './designsApi.ts';
 import { importModelFile } from './importModel.ts';
 import { browserStorage, readUpAxis } from './importUpAxis.ts';
 import { deleteInboxFile, fetchInboxFile } from './inboxApi.ts';
-import { buildDesignFrom, MAX_AUTO_SELECT, type ModelFile, type Opened, openInboxFile } from './inboxImport.ts';
+import { buildDesignFrom, MAX_AUTO_SELECT, type ModelFile, type Opened, openInboxFile, readingMessage } from './inboxImport.ts';
 import { uploadMesh } from './meshApi.ts';
 import { NotFound } from './NotFound.tsx';
 import { designPath, navigate } from './router.ts';
@@ -48,7 +48,11 @@ export function ImportInbox({ id }: { id: string }) {
 		started.current = true;
 		void (async () => {
 			try {
-				const opened = await openInboxFile(await fetchInboxFile(id));
+				const file = await fetchInboxFile(id);
+				// the work below holds the page, so the message is drawn first
+				setState({ kind: 'working', text: readingMessage(file.bytes.length) });
+				await new Promise<void>((resolve) => setTimeout(resolve, 50));
+				const opened = await openInboxFile(file);
 				if (opened.kind === 'models') return await openDesign(id, opened.title, opened.files);
 				setSelected(opened.files.length <= MAX_AUTO_SELECT ? opened.files.map((f) => f.name) : []);
 				setState({ kind: 'choosing', id, opened });

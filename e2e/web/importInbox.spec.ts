@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { uniqueName } from './helpers.ts';
-import { cube3mf, cubeStl, deflatedZip } from './modelFiles.ts';
+import { cube3mf, cubeStl, deflatedZip, sphereStl } from './modelFiles.ts';
 
 /*
  * Files the browser add-on sends: POST /api/import keeps one for a while and says where to open it; /import/<id> turns it into a new design (a zip
@@ -122,5 +122,31 @@ test.describe('files sent by the browser add-on', () => {
 		await expect(page.getByRole('checkbox', { name: 'A.stl' })).toBeVisible();
 		const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
 		expect(results.violations).toEqual([]);
+	});
+});
+
+test.describe('big models', () => {
+	test('a model of 1.9 million triangles (twice what was once the limit) opens as a design with its detail kept', async ({ page }) => {
+		test.setTimeout(120_000);
+		// 1000 x 951 gives 1,900,000 triangles: a 95 MB file, the size of a detailed scan or a hollow skeleton model
+		const file = sphereStl(1000, 951);
+		expect(file.readUInt32LE(80)).toBe(1_900_000);
+		const { id, openUrl } = await send(page, 'Detailed sphere.stl', file);
+		await page.goto(openUrl);
+		await expect(page).toHaveURL(/\/design\/[0-9a-f]{32}$/, { timeout: 90_000 });
+		await expect(objects(page)).toHaveCount(1);
+		expect((await page.request.get(`/api/import/${id}`)).status()).toBe(404);
+
+		// the stored model has every triangle (a mesh file is 12 bytes, then 12 per corner and 12 per triangle)
+		const designId = page.url().split('/').pop();
+		const design = (await (await page.request.get(`/api/designs/${designId}`)).json()) as {
+			nodes: Record<string, { params: { mesh?: string } }>;
+		};
+		const ref = Object.values(design.nodes).find((n) => n.params.mesh)?.params.mesh;
+		const stored = await page.request.get(`/api/meshes/${ref}`);
+		const bytes = await stored.body();
+		const triangles = bytes.readUInt32LE(8);
+		expect(triangles).toBeLessThanOrEqual(1_900_000);
+		expect(triangles).toBeGreaterThan(1_800_000);
 	});
 });

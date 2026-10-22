@@ -103,3 +103,19 @@ describe('GET and DELETE /api/import/:id', () => {
 		expect((await app.inject('/api/import/..%2F..%2Fetc')).statusCode).toBe(404);
 	});
 });
+
+describe('big files', () => {
+	it('takes a file over 100 MB (a model of two million triangles is about that)', async () => {
+		const res = await send('Big.stl', Buffer.alloc(101 * 1024 * 1024, 1));
+		expect(res.statusCode).toBe(201);
+		const { id, size } = res.json<{ id: string; size: number }>();
+		expect(size).toBe(101 * 1024 * 1024);
+		const back = await app.inject(`/api/import/${id}`);
+		expect(back.rawPayload.length).toBe(101 * 1024 * 1024);
+	}, 60_000);
+
+	it('refuses a file over 200 MB', async () => {
+		const res = await send('Huge.stl', Buffer.alloc(201 * 1024 * 1024, 1));
+		expect(res.statusCode).toBe(413);
+	}, 60_000);
+});

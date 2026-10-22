@@ -1,7 +1,19 @@
 import { deflateRawSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import type { ExportBody } from './export.ts';
-import { crc32, importMeshFile, parseObj, parseStl, readZip, weldMesh, write3mf, writeObj, writeStl, writeStoredZip } from './index.ts';
+import {
+	crc32,
+	importMeshFile,
+	MAX_IMPORT_TRIANGLES,
+	parseObj,
+	parseStl,
+	readZip,
+	weldMesh,
+	write3mf,
+	writeObj,
+	writeStl,
+	writeStoredZip,
+} from './index.ts';
 
 const text = (s: string) => new TextEncoder().encode(s);
 
@@ -371,4 +383,110 @@ describe('importMeshFile', () => {
 		new DataView(big.buffer).setUint32(80, 5_000_000, true);
 		await expect(importMeshFile('x.stl', big)).rejects.toThrow(/STL|large/i);
 	});
+});
+
+describe('weldMesh on large and awkward meshes', () => {
+	/** The way it used to be done, one text key per corner: the new one must give exactly the same mesh, in the same order, so stored models keep their names. */
+	function reference(positions: Float32Array, indices: Uint32Array) {
+		const slot = new Map<string, number>();
+		const remap = new Uint32Array(positions.length / 3);
+		const kept: number[] = [];
+		for (let i = 0; i < remap.length; i++) {
+			const [x, y, z] = [positions[i * 3]! + 0, positions[i * 3 + 1]! + 0, positions[i * 3 + 2]! + 0];
+			const key = `${x},${y},${z}`;
+			let at = slot.get(key);
+			if (at === undefined) {
+				at = kept.length / 3;
+				slot.set(key, at);
+				kept.push(x, y, z);
+			}
+			remap[i] = at;
+		}
+		const triangles: number[] = [];
+		for (let t = 0; t < indices.length; t += 3) {
+			const [a, b, c] = [remap[indices[t]!]!, remap[indices[t + 1]!]!, remap[indices[t + 2]!]!];
+			if (a !== b && b !== c && a !== c) triangles.push(a, b, c);
+		}
+		return { positions: new Float32Array(kept), indices: new Uint32Array(triangles) };
+	}
+
+	/** A small random generator, so a failure can be repeated. */
+	function random(seed: number) {
+		let s = seed >>> 0;
+		return () => {
+			s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+			return s / 2 ** 32;
+		};
+	}
+
+	it('gives the same mesh as the text-key way, whatever the corners (repeats, negative zero, tiny differences, collapsed triangles)', () => {
+		for (const seed of [1, 2, 3, 4, 5]) {
+			const next = random(seed);
+			const palette = [0, -0, 1, -1, 0.5, 1e-7, 1e-7 + 1e-14, 123456.789, -3.4e38, 3.4e38];
+			const corners = 3 * (50 + Math.floor(next() * 400));
+			const positions = new Float32Array(corners * 3).map(() => palette[Math.floor(next() * palette.length)]!);
+			const indices = new Uint32Array(corners).map((_, i) => i);
+			const want = reference(positions, indices);
+			const got = weldMesh(positions, indices);
+			expect([...got.positions], `seed ${seed}`).toEqual([...want.positions]);
+			expect([...got.indices], `seed ${seed}`).toEqual([...want.indices]);
+		}
+	});
+
+	it('keeps negative zero and zero as one place, as before', () => {
+		const welded = weldMesh(
+			new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0, -0, -0, -0, 1, 0, 0, 0, 0, 1]),
+			new Uint32Array([0, 1, 2, 3, 4, 5]),
+		);
+		expect(welded.positions.length / 3).toBe(4);
+	});
+
+	it('is the same for a mesh that is all shared corners, and for one with none shared', () => {
+		const shared = weldMesh(
+			new Float32Array(30 * 3),
+			new Uint32Array(30).map((_, i) => i),
+		);
+		expect(shared.indices.length).toBe(0); // every triangle collapsed to a point
+		const none = weldMesh(
+			new Float32Array(300 * 3).map((_, i) => i),
+			new Uint32Array(300).map((_, i) => i),
+		);
+		expect(none.positions.length / 3).toBe(300);
+		expect(none.indices.length / 3).toBe(100);
+	});
+
+	it('reads a binary STL with more triangles than the old limit (1.2 million) into the right mesh', () => {
+		const [nx, ny] = [600, 1000]; // a grid of quads: two triangles each
+		const count = nx * ny * 2;
+		const bytes = new Uint8Array(84 + count * 50);
+		const view = new DataView(bytes.buffer);
+		view.setUint32(80, count, true);
+		let at = 84;
+		const put = (...p: number[]) => {
+			at += 12; // the normal is not read
+			for (const v of p) {
+				view.setFloat32(at, v, true);
+				at += 4;
+			}
+			at += 2;
+		};
+		for (let j = 0; j < ny; j++) {
+			for (let i = 0; i < nx; i++) {
+				put(i, j, 0, i + 1, j, 0, i + 1, j + 1, 0);
+				put(i, j, 0, i + 1, j + 1, 0, i, j + 1, 0);
+			}
+		}
+		const mesh = parseStl(bytes);
+		expect(mesh.indices.length / 3).toBe(count);
+		expect(mesh.positions.length / 3).toBe((nx + 1) * (ny + 1));
+	}, 60_000);
+
+	it('refuses a binary STL over the limit, saying how many triangles it has', () => {
+		expect(MAX_IMPORT_TRIANGLES).toBe(3_000_000);
+		const count = MAX_IMPORT_TRIANGLES + 1;
+		// a file this big is not built: the check reads the count and the length, so a header that agrees with a sparse buffer of that length is enough
+		const bytes = new Uint8Array(84 + count * 50);
+		new DataView(bytes.buffer).setUint32(80, count, true);
+		expect(() => parseStl(bytes)).toThrow(/too large \(3000001 triangles\)/);
+	}, 60_000);
 });

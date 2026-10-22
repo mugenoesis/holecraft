@@ -37,7 +37,7 @@ describe('sendToHolecraft', () => {
 	it('says what went wrong for the answers it knows', async () => {
 		const withStatus = (status: number) => sendToHolecraft(settings, file, vi.fn().mockResolvedValue(json(status, { error: 'x' })));
 		await expect(withStatus(403)).rejects.toThrow(/refused/i);
-		await expect(withStatus(413)).rejects.toThrow(/too large/i);
+		await expect(withStatus(413)).rejects.toThrow(/too large.*200 MB/i);
 		await expect(withStatus(404)).rejects.toThrow(/older version|not a Holecraft|address/i);
 		await expect(withStatus(500)).rejects.toThrow(/500/);
 	});
