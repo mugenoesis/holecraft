@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	clampPanelWidth,
 	DEFAULT_PANEL_WIDTH,
+	initialFolded,
 	MAX_PANEL_WIDTH,
 	MIN_PANEL_WIDTH,
 	nudgedWidth,
@@ -65,5 +66,20 @@ describe('the collapsed sections', () => {
 		expect(toggleCollapsed([], 'Resin')).toEqual(['Resin']);
 		expect(toggleCollapsed(['Resin'], 'Objects')).toEqual(['Resin', 'Objects']);
 		expect(toggleCollapsed(['Resin', 'Objects'], 'Resin')).toEqual(['Objects']);
+	});
+});
+
+describe('initialFolded', () => {
+	it('starts with Resin folded away until the user has chosen otherwise', () => {
+		expect(initialFolded(null)).toEqual(['Resin']);
+	});
+
+	it('keeps whatever was chosen, even everything open', () => {
+		expect(initialFolded('[]')).toEqual([]);
+		expect(initialFolded('["Objects"]')).toEqual(['Objects']);
+	});
+
+	it('falls back to the start when the stored text is damaged', () => {
+		expect(initialFolded('nope')).toEqual(['Resin']);
 	});
 });

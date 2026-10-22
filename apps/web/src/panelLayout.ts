@@ -49,3 +49,13 @@ export function parseCollapsed(raw: string | null): string[] {
 /** The folded sections after one is folded or opened. */
 export const toggleCollapsed = (collapsed: readonly string[], name: string): string[] =>
 	collapsed.includes(name) ? collapsed.filter((n) => n !== name) : [...collapsed, name];
+
+/** The sections folded when the panel is first seen: Resin, which only matters when printing with resin. A saved choice wins, even an empty one. */
+export function initialFolded(raw: string | null): string[] {
+	try {
+		JSON.parse(raw ?? '');
+	} catch {
+		return ['Resin'];
+	}
+	return parseCollapsed(raw);
+}
