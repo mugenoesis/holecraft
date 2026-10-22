@@ -152,11 +152,11 @@ export interface MeshShapeInput {
 	size: [number, number, number];
 }
 
-/** Adds an imported model as a solid shape resting on the workplane, centred on `at`. Pure. */
+/** Adds an imported model as a solid shape resting on the workplane (or `lift` mm above it), centred on `at`. Pure. */
 export function addMeshShape(
 	design: Design,
 	input: MeshShapeInput,
-	opts: { at?: [number, number] | undefined; id?: NodeId | undefined; now?: Date | undefined } = {},
+	opts: { at?: [number, number] | undefined; lift?: number | undefined; id?: NodeId | undefined; now?: Date | undefined } = {},
 ): { design: Design; id: NodeId } {
 	const id = opts.id ?? newId();
 	const [width, depth, height] = input.size;
@@ -166,7 +166,7 @@ export function addMeshShape(
 		kind: 'shape',
 		shapeType: MESH_SHAPE_TYPE,
 		name: input.name,
-		transform: translation(at[0], at[1], 0),
+		transform: translation(at[0], at[1], opts.lift ?? 0),
 		mode: 'solid',
 		color: '#8d99ae',
 		hidden: false,
@@ -182,4 +182,27 @@ export function addMeshShape(
 			updatedAt: (opts.now ?? new Date()).toISOString(),
 		},
 	};
+}
+
+/** An imported model and where it goes: the middle of its footprint, and how far its lowest point is above the workplane. */
+export interface MeshPlacement {
+	input: MeshShapeInput;
+	at: [number, number];
+	lift: number;
+}
+
+/** Adds several imported models, each as a shape of its own at its own place (a file with several objects keeps its layout). The ids are in order. */
+export function addMeshShapes(
+	design: Design,
+	placements: readonly MeshPlacement[],
+	opts: { now?: Date } = {},
+): { design: Design; ids: NodeId[] } {
+	let current = design;
+	const ids: NodeId[] = [];
+	for (const p of placements) {
+		const added = addMeshShape(current, p.input, { at: p.at, lift: p.lift, ...(opts.now ? { now: opts.now } : {}) });
+		current = added.design;
+		ids.push(added.id);
+	}
+	return { design: current, ids };
 }

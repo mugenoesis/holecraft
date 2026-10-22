@@ -121,6 +121,7 @@ describe('openInboxFile', () => {
 });
 
 describe('buildDesignFrom', () => {
+	const empty = { positions: new Float32Array(), indices: new Uint32Array() };
 	const input = (name: string, w: number): MeshShapeInput => ({ name, ref: `${w}`.padStart(64, 'a'), size: [w, 10, 5] });
 	const deps = () => {
 		const created: string[] = [];
@@ -128,10 +129,10 @@ describe('buildDesignFrom', () => {
 		return {
 			created,
 			saved,
-			importOne: vi.fn(async (f: { name: string }) => ({
-				input: input(f.name, f.name === 'a.stl' ? 20 : 30),
-				mesh: { positions: new Float32Array(), indices: new Uint32Array() },
-			})),
+			importOne: vi.fn(async (f: { name: string }) => {
+				const i = input(f.name, f.name === 'a.stl' ? 20 : 30);
+				return { items: [{ input: i, mesh: empty, at: [0, 0] as [number, number], lift: 0 }], size: i.size };
+			}),
 			create: vi.fn(async (name: string) => {
 				created.push(name);
 				return createEmptyDesign('0123456789abcdef0123456789abcdef', name);
@@ -159,6 +160,40 @@ describe('buildDesignFrom', () => {
 		expect((first!.min[0] + first!.max[0]) / 2).toBeCloseTo(-20, 6);
 		expect((second!.min[0] + second!.max[0]) / 2).toBeCloseTo(15, 6);
 		expect(d.saved).toEqual([out]);
+	});
+
+	it('opens each object of a file with several (a 3MF plate) as a shape, keeping where they stand, and puts the files in a row by their whole size', async () => {
+		const d = deps();
+		d.importOne.mockImplementation(async (f: { name: string }) => {
+			if (f.name === 'plate.3mf') {
+				// two objects 60 mm apart, the second 5 mm up: 80 mm wide in all
+				const [a, b] = [input('Left', 20), input('Right', 20)];
+				return {
+					items: [
+						{ input: a, mesh: empty, at: [-30, 0] as [number, number], lift: 0 },
+						{ input: b, mesh: empty, at: [30, 0] as [number, number], lift: 5 },
+					],
+					size: [80, 10, 10] as [number, number, number],
+				};
+			}
+			const i = input(f.name, 20);
+			return { items: [{ input: i, mesh: empty, at: [0, 0] as [number, number], lift: 0 }], size: i.size };
+		});
+		const out = await buildDesignFrom(
+			'Pack.zip',
+			[
+				{ name: 'plate.3mf', bytes: bytes('1') },
+				{ name: 'a.stl', bytes: bytes('2') },
+			],
+			d,
+		);
+		expect(out.roots).toHaveLength(3);
+		const [left, right, single] = out.roots.map((id) => nodeBoundsIn(out, id)!);
+		const mid = (b: { min: number[]; max: number[] }) => (b.min[0]! + b.max[0]!) / 2;
+		// the plate (80 wide) and the single model (20 wide) with a 10 gap: 110 across, from -55; the plate's middle is at -15, the single one's at 45
+		expect([mid(left!), mid(right!), mid(single!)]).toEqual([-45, 15, 45]);
+		expect([left!.min[2], right!.min[2], single!.min[2]]).toEqual([0, 5, 0]);
+		expect(out.roots.map((id) => out.nodes[id]?.name)).toEqual(['Left', 'Right', 'a.stl']);
 	});
 
 	it('reports a model that cannot be read, naming it, and saves nothing', async () => {

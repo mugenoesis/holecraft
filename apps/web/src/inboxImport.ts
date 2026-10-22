@@ -1,5 +1,6 @@
-import { addMeshShape, type Design, MAX_NAME_LENGTH, type MeshData, type MeshShapeInput } from '@holecraft/core';
+import { addMeshShape, type Design, MAX_NAME_LENGTH } from '@holecraft/core';
 import { readZip } from '@holecraft/geometry';
+import type { ImportedModel } from './importModel.ts';
 
 /*
  * What happens to a file the browser add-on sent: it is a model (open it) or a zip of them (open the one in it, or ask which), and the models
@@ -79,18 +80,18 @@ export async function openInboxFile(file: ModelFile): Promise<Opened> {
 }
 
 export interface BuildDeps {
-	/** Reads a model and stores it on the server. */
-	importOne: (file: ModelFile) => Promise<{ input: MeshShapeInput; mesh: MeshData }>;
+	/** Reads a model file as the objects it holds and stores them on the server. */
+	importOne: (file: ModelFile) => Promise<ImportedModel>;
 	create: (name: string) => Promise<Design>;
 	save: (design: Design) => Promise<Design>;
 }
 
 /**
- * A new design named for the file, with each model as a shape in a row, saved. Every model is read before anything is made, so one that cannot be
+ * A new design named for the file, with each model as a shape in a row (the objects of a 3MF that holds several, each as a shape of its own), saved. Every model is read before anything is made, so one that cannot be
  * read (it is named in the message) leaves nothing behind.
  */
 export async function buildDesignFrom(title: string, files: readonly ModelFile[], deps: BuildDeps): Promise<Design> {
-	const read: { input: MeshShapeInput }[] = [];
+	const read: ImportedModel[] = [];
 	for (const file of files) {
 		try {
 			read.push(await deps.importOne(file));
@@ -98,10 +99,13 @@ export async function buildDesignFrom(title: string, files: readonly ModelFile[]
 			throw new Error(`${file.name}: ${error instanceof Error ? error.message : 'it could not be imported'}`);
 		}
 	}
-	const at = rowLayout(read.map((r) => r.input.size));
+	// the files go in a row by their whole size, and the objects of a file keep their places within its slot
+	const slots = rowLayout(read.map((r) => r.size));
 	let design = await deps.create(designNameFor(title));
-	read.forEach((r, i) => {
-		design = addMeshShape(design, r.input, { at: at[i]! }).design;
+	read.forEach((model, i) => {
+		for (const item of model.items) {
+			design = addMeshShape(design, item.input, { at: [slots[i]![0] + item.at[0], slots[i]![1] + item.at[1]], lift: item.lift }).design;
+		}
 	});
 	return deps.save(design);
 }

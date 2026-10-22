@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChooseModels } from './ChooseModels.tsx';
 import { createDesign, saveDesign } from './designsApi.ts';
-import { importModelFile } from './importModel.ts';
+import { importModelObjects } from './importModel.ts';
 import { browserStorage, readUpAxis } from './importUpAxis.ts';
 import { deleteInboxFile, fetchInboxFile } from './inboxApi.ts';
 import { buildDesignFrom, MAX_AUTO_SELECT, type ModelFile, type Opened, openInboxFile, readingMessage } from './inboxImport.ts';
@@ -14,7 +14,7 @@ type State = { kind: 'working'; text: string } | { kind: 'choosing'; id: string;
 
 /** Reads a model and stores it, with the axis the user last chose for imports. */
 const importOne = (file: ModelFile) =>
-	importModelFile(
+	importModelObjects(
 		{
 			name: file.name,
 			size: file.bytes.length,

@@ -2,7 +2,7 @@ import {
 	type AlignEdge,
 	type Axis,
 	addLibraryShape,
-	addMeshShape,
+	addMeshShapes,
 	addPaint,
 	addPaletteColor,
 	addResinHole,
@@ -29,6 +29,7 @@ import {
 	flipNodes,
 	groupNodes,
 	type History,
+	type MeshPlacement,
 	type MeshShapeInput,
 	mergeShapes,
 	moveNodes,
@@ -112,8 +113,8 @@ export type EditorAction =
 	| { type: 'addLibrary'; shape: Design; at?: [number, number]; plane?: WorkPlane; point?: Vec3 }
 	// Put the one selected shape or group on the Workplane tool's plane (see standOnPlane).
 	| { type: 'standOnPlane'; plane: WorkPlane }
-	/** An imported model, already stored on the server (see importModel). */
-	| { type: 'addMesh'; input: MeshShapeInput; at?: [number, number] }
+	/** The objects of an imported file, already stored on the server (see importModel), each with its place: one undo step, all selected. */
+	| { type: 'addMeshes'; items: MeshPlacement[] }
 	// 'down' is the pointer press; 'click' is the release when nothing was dragged.
 	| { type: 'pick'; id: NodeId | null; additive: boolean; phase: 'down' | 'click' }
 	| { type: 'marquee'; ids: NodeId[]; additive: boolean }
@@ -364,7 +365,7 @@ function duplicate(state: EditorState): EditorState {
 const sameIds = (a: readonly NodeId[], b: readonly NodeId[]) => a.length === b.length && a.every((id, i) => id === b[i]);
 
 /** Adding something new: a built-in shape, a saved one, or an imported model. */
-function reduceAdd(state: EditorState, action: ActionOf<'add' | 'addOnPlane' | 'addLibrary' | 'addMesh' | 'addSketch'>): EditorState {
+function reduceAdd(state: EditorState, action: ActionOf<'add' | 'addOnPlane' | 'addLibrary' | 'addMeshes' | 'addSketch'>): EditorState {
 	const design = state.history.present;
 	switch (action.type) {
 		case 'add':
@@ -384,9 +385,9 @@ function reduceAdd(state: EditorState, action: ActionOf<'add' | 'addOnPlane' | '
 			return added.id ? commit(state, added.design, [added.id]) : state;
 		}
 
-		case 'addMesh': {
-			const added = addMeshShape(design, action.input, { at: action.at });
-			return commit(state, added.design, [added.id]);
+		case 'addMeshes': {
+			const added = addMeshShapes(design, action.items);
+			return added.ids.length > 0 ? commit(state, added.design, added.ids) : state;
 		}
 
 		case 'addSketch': {
@@ -468,7 +469,7 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 		case 'add':
 		case 'addOnPlane':
 		case 'addLibrary':
-		case 'addMesh':
+		case 'addMeshes':
 		case 'addSketch':
 			return reduceAdd(state, action);
 

@@ -171,9 +171,9 @@ function EditorView({ initial }: { initial: Design }) {
 				merge={merge}
 				onHelp={openHelp}
 				onHistory={history.show}
-				onImported={(input, mesh) => {
-					addMesh(input.ref, mesh);
-					dispatch({ type: 'addMesh', input });
+				onImported={({ items }) => {
+					for (const item of items) addMesh(item.input.ref, item.mesh);
+					dispatch({ type: 'addMeshes', items: items.map(({ input, at, lift }) => ({ input, at, lift })) });
 				}}
 			/>
 

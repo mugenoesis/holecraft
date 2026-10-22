@@ -1,12 +1,12 @@
-import type { MeshData, MeshShapeInput, UpAxis } from '@holecraft/core';
+import type { UpAxis } from '@holecraft/core';
 import { useRef, useState } from 'react';
-import { IMPORT_ACCEPT, importModelFile } from './importModel.ts';
+import { IMPORT_ACCEPT, type ImportedModel, importModelObjects } from './importModel.ts';
 import { browserStorage, readUpAxis, writeUpAxis } from './importUpAxis.ts';
 import { uploadMesh } from './meshApi.ts';
 import { extrudeSvg } from './svgExtruder.ts';
 
-/** The "Import" button: pick an STL, OBJ, 3MF or SVG file and it becomes a shape in the design. */
-export function ImportButton({ onImported }: { onImported: (input: MeshShapeInput, mesh: MeshData) => void }) {
+/** The "Import" button: pick an STL, OBJ, 3MF or SVG file and it becomes a shape in the design (a 3MF with several objects, a shape for each). */
+export function ImportButton({ onImported }: { onImported: (model: ImportedModel) => void }) {
 	const picker = useRef<HTMLInputElement>(null);
 	const [busy, setBusy] = useState(false);
 	const [problem, setProblem] = useState<string | null>(null);
@@ -17,8 +17,7 @@ export function ImportButton({ onImported }: { onImported: (input: MeshShapeInpu
 		setBusy(true);
 		setProblem(null);
 		try {
-			const { input, mesh } = await importModelFile(file, { upload: uploadMesh, extrudeSvg }, { up });
-			onImported(input, mesh);
+			onImported(await importModelObjects(file, { upload: uploadMesh, extrudeSvg }, { up }));
 		} catch (error) {
 			setProblem(error instanceof Error ? error.message : 'The import failed');
 		} finally {

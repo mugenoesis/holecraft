@@ -1,8 +1,9 @@
-import { canGroup, canRedo, canUndo, canUngroup, type MeshData, type MeshShapeInput, type NodeId } from '@holecraft/core';
+import { canGroup, canRedo, canUndo, canUngroup, type MeshData, type NodeId } from '@holecraft/core';
 import type { Dispatch } from 'react';
 import { ExportMenu } from './ExportMenu.tsx';
 import type { EditorAction, EditorState } from './editorState.ts';
 import { ImportButton } from './ImportButton.tsx';
+import type { ImportedModel } from './importModel.ts';
 import { Link } from './Link.tsx';
 import { ServerStatus } from './ServerStatus.tsx';
 import type { SaveStatus } from './saveController.ts';
@@ -23,7 +24,7 @@ interface Props {
 	meshes: ReadonlyMap<string, MeshData>;
 	/** Merging the selected shapes into one solid. */
 	merge: MergeUi;
-	onImported: (input: MeshShapeInput, mesh: MeshData) => void;
+	onImported: (model: ImportedModel) => void;
 	save: { status: SaveStatus; problem: string | null; lastError: string | undefined };
 	/** The compact layout: arrows for undo and redo, and group and ungroup left to the bar over the view. */
 	compact: boolean;

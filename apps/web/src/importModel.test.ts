@@ -1,7 +1,7 @@
 import type { MeshData } from '@holecraft/core';
-import { writeObj, writeStl } from '@holecraft/geometry';
+import { write3mf, writeObj, writeStl } from '@holecraft/geometry';
 import { describe, expect, it, vi } from 'vitest';
-import { IMPORT_ACCEPT, importModelFile } from './importModel.ts';
+import { IMPORT_ACCEPT, importModelFile, importModelObjects } from './importModel.ts';
 
 const REF = 'a'.repeat(64);
 const tetra = {
@@ -108,5 +108,105 @@ describe('importModelFile', () => {
 describe('IMPORT_ACCEPT', () => {
 	it('lists the file types the picker should offer', () => {
 		expect(IMPORT_ACCEPT).toBe('.stl,.obj,.3mf,.svg');
+	});
+});
+
+describe('importModelObjects', () => {
+	/** A closed cube from (x, y, z) with sides `s`, as a mesh. */
+	const cube = (x: number, y: number, z: number, s: number): MeshData => {
+		const c = [
+			[0, 0, 0],
+			[1, 0, 0],
+			[1, 1, 0],
+			[0, 1, 0],
+			[0, 0, 1],
+			[1, 0, 1],
+			[1, 1, 1],
+			[0, 1, 1],
+		].map(([a, b, d]) => [x + a! * s, y + b! * s, z + d! * s]);
+		const faces = [0, 2, 1, 0, 3, 2, 4, 5, 6, 4, 6, 7, 0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3, 0, 4, 3, 4, 7];
+		return { positions: new Float32Array(c.flat()), indices: new Uint32Array(faces) };
+	};
+	const three = () =>
+		write3mf([
+			{ name: 'Left', color: '#ffffff', mesh: cube(0, 0, 0, 10) },
+			{ name: 'Middle', color: '#ffffff', mesh: cube(50, 10, 5, 20) },
+			{ name: 'Right', color: '#ffffff', mesh: cube(100, 0, 0, 10) },
+		]);
+
+	it('is one item at the middle, on the floor, for an STL, with the size of the model', async () => {
+		const d = deps();
+		const out = await importModelObjects(file('Bracket.stl', writeStl([body])), d);
+		expect(out.items).toHaveLength(1);
+		expect(out.items[0]).toMatchObject({ at: [0, 0], lift: 0, input: { name: 'Bracket', ref: REF, size: [10, 20, 30] } });
+		expect(out.size).toEqual([10, 20, 30]);
+	});
+
+	it('is an item for each object of a 3MF, each fitted and stored on its own', async () => {
+		const d = deps();
+		const out = await importModelObjects(file('Plate.3mf', three()), d);
+		expect(out.items.map((i) => i.input.name)).toEqual(['Left', 'Middle', 'Right']);
+		expect(out.items.map((i) => i.input.size)).toEqual([
+			[10, 10, 10],
+			[20, 20, 20],
+			[10, 10, 10],
+		]);
+		expect(d.upload).toHaveBeenCalledTimes(3);
+		for (const i of out.items) expect(Math.min(...i.mesh.positions)).toBeCloseTo(-0.5); // each in its own unit box
+	});
+
+	it('keeps the layout: the whole is centred on the plate and stands on it, and each object keeps its own place and height in it', async () => {
+		const out = await importModelObjects(file('Plate.3mf', three()), deps());
+		// together they span x 0 to 110, y 0 to 30 and z 0 to 25, so the middle is (55, 15) and the base is z 0
+		expect(out.items.map((i) => i.at)).toEqual([
+			[-50, -10],
+			[5, 5],
+			[50, -10],
+		]);
+		expect(out.items.map((i) => i.lift)).toEqual([0, 5, 0]);
+		expect(out.size).toEqual([110, 30, 25]);
+	});
+
+	it('stands the whole on the plate when the file has it floating, keeping the heights between the objects', async () => {
+		const floating = write3mf([
+			{ name: 'Low', color: '#ffffff', mesh: cube(0, 0, 100, 10) },
+			{ name: 'High', color: '#ffffff', mesh: cube(30, 0, 120, 10) },
+		]);
+		const out = await importModelObjects(file('Float.3mf', floating), deps());
+		expect(out.items.map((i) => i.lift)).toEqual([0, 20]);
+	});
+
+	it('uses the Up axis for every object alike', async () => {
+		const out = await importModelObjects(file('Plate.3mf', three()), deps(), { up: 'y' });
+		// y is the height now: the middle object, 10 to 30 in y, stands 10 mm above the first and last
+		expect(out.items.map((i) => i.lift)).toEqual([0, 10, 0]);
+		expect(out.size[2]).toBe(30);
+	});
+
+	it('names the object that cannot be used, and stores nothing', async () => {
+		const d = deps();
+		const flat = { positions: new Float32Array([0, 0, 0, 10, 0, 0, 0, 10, 0]), indices: new Uint32Array([0, 1, 2]) };
+		const zip = write3mf([
+			{ name: 'Fine', color: '#ffffff', mesh: cube(0, 0, 0, 10) },
+			{ name: 'Sheet', color: '#ffffff', mesh: flat },
+		]);
+		await expect(importModelObjects(file('Plate.3mf', zip), d)).rejects.toThrow(/Sheet.*flat/i);
+		expect(d.upload).not.toHaveBeenCalled();
+	});
+
+	it('refuses very large files before reading them, as importModelFile does', async () => {
+		const big = { name: 'big.3mf', size: 201 * 1024 * 1024, arrayBuffer: vi.fn() };
+		await expect(importModelObjects(big, deps())).rejects.toThrow(/too large/i);
+		expect(big.arrayBuffer).not.toHaveBeenCalled();
+	});
+
+	it('says what it can read when the file is not a model', async () => {
+		await expect(importModelObjects(file('notes.txt', 'hi'), deps())).rejects.toThrow(/STL, OBJ, 3MF or SVG/);
+	});
+
+	it('is one item for an SVG, as before', async () => {
+		const out = await importModelObjects(file('icon.svg', '<svg/>'), deps());
+		expect(out.items).toHaveLength(1);
+		expect(out.items[0]?.input.name).toBe('icon');
 	});
 });

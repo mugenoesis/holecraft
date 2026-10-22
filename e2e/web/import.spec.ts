@@ -15,7 +15,7 @@ import {
 	viewport,
 } from './helpers.ts';
 import { parseStl, stlCorners } from './meshFiles.ts';
-import { boxObj, cube3mf, cubeAsciiStl, cubeObj, cubeStl, flatStl, slicerPlate3mf, tetraStl } from './modelFiles.ts';
+import { boxObj, cube3mf, cubeAsciiStl, cubeObj, cubeStl, flatStl, plateOfThree3mf, slicerPlate3mf, tetraStl } from './modelFiles.ts';
 
 const importInput = (page: Page) => page.getByTestId('import-file');
 const list = (page: Page) => page.getByTestId('object-list');
@@ -382,5 +382,45 @@ test.describe('importing an SVG', () => {
 		await field(page, 'Height').press('Enter');
 		await page.getByRole('heading', { name: 'Objects' }).click();
 		expect((await exportStl(page)).volume).toBeCloseTo(30 * 20 * 12, 2);
+	});
+});
+
+test.describe('a 3MF with several objects (a slicer’s plate)', () => {
+	test('opens each object as a shape of its own, not one joined shape', async ({ page }) => {
+		await importFile(page, 'Plate.3mf', plateOfThree3mf());
+		await expect(list(page).locator('li')).toHaveCount(3);
+		await expect(list(page)).toContainText('Left');
+		await expect(list(page)).toContainText('Middle');
+		await expect(list(page)).toContainText('Right');
+		// all three are selected, ready to move or group together
+		await expect(page.getByText('Selected: 3')).toBeVisible();
+	});
+
+	test('keeps where they stand: the whole is centred on the plate, and the middle one is still 8 mm up', async ({ page }) => {
+		await importFile(page, 'Plate.3mf', plateOfThree3mf());
+		await expect(list(page).locator('li')).toHaveCount(3);
+		for (const [name, x, z] of [
+			['Left', '-40', '0'],
+			['Middle', '0', '8'],
+			['Right', '40', '0'],
+		] as const) {
+			await list(page).getByText(name, { exact: false }).first().click();
+			await expect(field(page, 'X')).toHaveValue(x);
+			await expect(field(page, 'Z')).toHaveValue(z);
+		}
+	});
+
+	test('are taken away together by one Undo', async ({ page }) => {
+		await importFile(page, 'Plate.3mf', plateOfThree3mf());
+		await expect(list(page).locator('li')).toHaveCount(3);
+		await page.keyboard.press('Control+z');
+		await expect(list(page).locator('li')).toHaveCount(0);
+	});
+
+	test('are separate solids when exported: three cubes of 10 mm', async ({ page }) => {
+		await importFile(page, 'Plate.3mf', plateOfThree3mf());
+		await expect(list(page).locator('li')).toHaveCount(3);
+		const stl = await exportStl(page);
+		expect(stl.volume).toBeCloseTo(3 * 10 ** 3, 0);
 	});
 });

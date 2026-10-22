@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
 import { uniqueName } from './helpers.ts';
-import { cube3mf, cubeStl, deflatedZip, sphereStl } from './modelFiles.ts';
+import { cube3mf, cubeStl, deflatedZip, plateOfThree3mf, sphereStl } from './modelFiles.ts';
 
 /*
  * Files the browser add-on sends: POST /api/import keeps one for a while and says where to open it; /import/<id> turns it into a new design (a zip
@@ -148,5 +148,15 @@ test.describe('big models', () => {
 		const triangles = bytes.readUInt32LE(8);
 		expect(triangles).toBeLessThanOrEqual(1_900_000);
 		expect(triangles).toBeGreaterThan(1_800_000);
+	});
+});
+
+test.describe('a 3MF with several objects sent by the add-on', () => {
+	test('opens as a design with a shape for each object, laid out as in the file', async ({ page }) => {
+		const { openUrl } = await send(page, 'Plate.3mf', plateOfThree3mf());
+		await page.goto(openUrl);
+		await expect(page).toHaveURL(/\/design\/[0-9a-f]{32}$/);
+		await expect(objects(page)).toHaveCount(3);
+		await expect(page.getByTestId('object-list')).toContainText('Middle');
 	});
 });
