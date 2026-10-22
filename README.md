@@ -90,6 +90,17 @@ into a **hole**, group it, export it.
   stored once on the server, in `<data folder>/meshes/`, so duplicating it costs nothing. Files for
   models you have deleted are not cleaned up yet.
 
+### From MakerWorld, Printables and Thingiverse (a Firefox add-on)
+
+The **Holecraft Send** add-on (in `apps/addon`) puts a button in Firefox, on a computer or on Android, that opens a model you have just downloaded in Holecraft or in [Trident Studio](https://github.com/mugenoesis/Trident). A web page cannot see another site's downloads, so the add-on is the part that does: while a tab on MakerWorld, Printables or Thingiverse is open, it notices a model or a zip coming down (STL, 3MF, OBJ, STEP, or a zip), keeps a copy for half an hour, and shows how many are waiting on its toolbar button. Tap it, and each file has **Open in Holecraft** and **Open in Trident**. Nothing leaves the browser until you press one, and only for the addresses you gave it.
+
+- **Holecraft** gets the file as it came (a zip too: Holecraft then asks which models to open) and opens it as a new design named for the file. See `/api/import` below.
+- **Trident** gets the model by its normal upload with your API key, and opens it there. A zip with several models shows one **Open in Trident** button for each model in it.
+- **Setting it up:** open the add-on's settings, give Holecraft's address (for example `http://192.168.1.3:8200`) and, for Trident, its address and an API key (one that may upload models), and press **Check** to see each answer. They are kept in the browser on that device. The settings page also lists what that browser can do and the downloads the add-on saw lately (with no signed part of an address), which shows why one was not offered.
+- **Build it:** `scripts/package-addon.sh` makes `apps/addon/release/holecraft-send-<version>.zip`. Firefox only installs signed add-ons: upload the zip at addons.mozilla.org (choose **On your own** to keep it unlisted) and it is signed within minutes. To try it first on a computer, open `about:debugging`, **This Firefox**, **Load Temporary Add-on**, and pick `apps/addon/dist/manifest.json`.
+- **On Android**, Firefox has no downloads API, so the add-on watches responses instead. To install the signed file: copy it to the phone, then in Firefox open **Settings, About Firefox**, tap the logo five times to unlock the debug menu, go back to **Settings**, and choose **Install extension from file**.
+- It asks for access to all sites because a download can come from any address (a download network), but it only looks at tabs on the three sites, and it never reads a page.
+
 ## Exporting for printing
 
 The **Export** button in the top bar downloads the whole design as (tick **Only the selected** in the menu, shown while something is selected, to export just those):
@@ -280,6 +291,7 @@ where it touches the UI, server, or packaging. See [AGENTS.md](AGENTS.md) for co
 apps/web        Browser editor: React UI + imperative three.js viewport (Vite)
 apps/server     Fastify server: serves the web app and the storage API (bundled with esbuild)
 apps/desktop    Electron shell that embeds the same server on 127.0.0.1
+apps/addon      Firefox add-on that sends a download from MakerWorld, Printables or Thingiverse to Holecraft or Trident
 packages/core   Document model and editor logic, with no DOM dependencies
 e2e/            Playwright integration tests (web + packaged desktop app)
 docker/         Dockerfile and compose file
@@ -296,6 +308,7 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/docker-smoke.sh` | Build the image (or, with `SKIP_BUILD=1`, take one already built), run it, verify health, the non-root user and that `/app` is readable by user 99:100 |
 | `scripts/release-docker.sh` | Build the release image (`mugenoesis/holecraft:<version>` and `latest`), smoke-test it, and push it to Docker Hub with `PUSH=1` |
 | `scripts/release-desktop.sh` | Build the AppImage and .deb for the release version, check them, write `SHA256SUMS.txt`, and attach them to the GitHub release with `UPLOAD=1` |
+| `scripts/package-addon.sh` | Build the Firefox add-on and the zip to have signed |
 | `scripts/package-desktop.sh` | Build the AppImage and .deb (in a Debian container) |
 | `npm run knip` | Unused files, exports and dependencies (fails the gate) |
 | `npm run coverage` | Unit tests with coverage; per-package floors in `vitest.config.ts` fail the gate, HTML report in `coverage/` |

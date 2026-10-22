@@ -10,6 +10,7 @@ COPY packages/core/package.json packages/core/
 COPY apps/web/package.json apps/web/
 COPY apps/server/package.json apps/server/
 COPY apps/desktop/package.json apps/desktop/
+COPY apps/addon/package.json apps/addon/
 # The desktop workspace is installed but its Electron binary isn't needed here.
 ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 RUN npm ci --no-audit --no-fund
