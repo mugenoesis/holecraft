@@ -117,13 +117,13 @@ const crc32 = (b: Buffer) => {
 	return (c ^ 0xffffffff) >>> 0;
 };
 
-/** A zip whose entries are deflate-compressed, as real 3MF files from slicers are. */
-function deflatedZip(entries: Record<string, string>): Buffer {
+/** A zip whose entries are deflate-compressed, as real 3MF files from slicers are (an entry is text, or the bytes of a file). */
+export function deflatedZip(entries: Record<string, string | Buffer>): Buffer {
 	const locals: Buffer[] = [];
 	const centrals: Buffer[] = [];
 	let offset = 0;
 	for (const [name, text] of Object.entries(entries)) {
-		const data = Buffer.from(text);
+		const data = typeof text === 'string' ? Buffer.from(text) : text;
 		const packed = deflateRawSync(data);
 		const nameBytes = Buffer.from(name);
 		const local = Buffer.alloc(30);

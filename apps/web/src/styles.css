@@ -2662,3 +2662,25 @@ button.primary:disabled {
 .app.compact .history-label {
 	display: none;
 }
+
+/* The list of models in a zip sent by the browser add-on */
+.choose-list {
+	list-style: none;
+	margin: 0.5rem 0 1rem;
+	padding: 0;
+	text-align: left;
+	max-height: 50vh;
+	overflow-y: auto;
+}
+.choose-list label {
+	display: flex;
+	align-items: center;
+	gap: 0.6rem;
+	padding: 0.25rem 0.5rem;
+	cursor: pointer;
+}
+.choose-models .button-row {
+	justify-content: center;
+	align-items: center;
+	flex-wrap: wrap;
+}

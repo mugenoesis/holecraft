@@ -240,7 +240,7 @@ There is no authentication yet, so anyone who can reach the port can read, chang
 design. Only expose Holecraft on a trusted network.
 
 **Storage API** (used by the app; handy for backups and scripts): `GET /api/designs`,
-`POST /api/designs`, `GET|PUT|PATCH|DELETE /api/designs/:id` `POST /api/designs/:id/duplicate`, `GET /api/designs/:id/versions` and `POST /api/designs/:id/versions/:version/restore`.
+`POST /api/designs`, `GET|PUT|PATCH|DELETE /api/designs/:id` `POST /api/designs/:id/duplicate`, `GET /api/designs/:id/versions` and `POST /api/designs/:id/versions/:version/restore`. Files sent by the browser add-on wait in an inbox: `POST /api/import` (the file as `application/vnd.holecraft.import`, its name URL-encoded in `x-file-name`, and the header `x-holecraft-import: 1`, which a web page cannot add to a request to this server) answers `{ id, openUrl: "/import/<id>" }`, and `GET|DELETE /api/import/:id` read and forget it. Opening `/import/<id>` in the editor makes a new design named for the file with the model in it (a zip with several models asks which to open, and puts them in a row); the file is deleted from the server then, or after a day if it is never opened (at most 20 wait at once).
 Everything sent to it is validated, and a design larger than 8 MB or with a broken structure is
 refused.
 Serve it at the root of a host or subdomain (`holecraft.example.lan`). Path prefixes such as

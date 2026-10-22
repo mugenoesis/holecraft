@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export type Route = { name: 'home' } | { name: 'design'; id: string } | { name: 'notfound' };
+export type Route = { name: 'home' } | { name: 'design'; id: string } | { name: 'import'; id: string } | { name: 'notfound' };
 
 const ID_PATTERN = /^[0-9a-f]{32}$/;
 
@@ -13,6 +13,7 @@ export function parseRoute(pathname: string): Route {
 	if (parts.length === 0) return { name: 'home' };
 	const [first, id] = parts;
 	if (first === 'design' && parts.length === 2 && ID_PATTERN.test(id!)) return { name: 'design', id: id! };
+	if (first === 'import' && parts.length === 2 && ID_PATTERN.test(id!)) return { name: 'import', id: id! };
 	return { name: 'notfound' };
 }
 
@@ -20,10 +21,11 @@ export const designPath = (id: string): string => `/design/${id}`;
 
 const CHANGE_EVENT = 'holecraft:navigate';
 
-/** Moves to another screen without reloading the page. */
-export function navigate(path: string): void {
+/** Moves to another screen without reloading the page. With `replace`, the screen it leaves is not kept in the back button's history (a screen that only hands over to another). */
+export function navigate(path: string, opts: { replace?: boolean } = {}): void {
 	if (path === window.location.pathname) return;
-	window.history.pushState(null, '', path);
+	if (opts.replace) window.history.replaceState(null, '', path);
+	else window.history.pushState(null, '', path);
 	window.dispatchEvent(new Event(CHANGE_EVENT));
 }
 
