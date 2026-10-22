@@ -34,3 +34,32 @@ export function rigidInverse(m: Readonly<Mat4>): Mat4 {
 	out[15] = 1;
 	return out;
 }
+
+/** The inverse of any matrix that is a turn, a stretch and a move (the bottom row 0 0 0 1), or null when it flattens space. */
+export function invertAffine(m: Readonly<Mat4>): Mat4 | null {
+	const [a, b, c] = [m[0]!, m[4]!, m[8]!];
+	const [d, e, f] = [m[1]!, m[5]!, m[9]!];
+	const [g, h, i] = [m[2]!, m[6]!, m[10]!];
+	const det = a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
+	if (!Number.isFinite(det) || Math.abs(det) < 1e-12) return null;
+	const inv = [
+		(e * i - f * h) / det,
+		(c * h - b * i) / det,
+		(b * f - c * e) / det,
+		(f * g - d * i) / det,
+		(a * i - c * g) / det,
+		(c * d - a * f) / det,
+		(d * h - e * g) / det,
+		(b * g - a * h) / det,
+		(a * e - b * d) / det,
+	];
+	const t = [m[12]!, m[13]!, m[14]!];
+	const out: Mat4 = new Array<number>(16).fill(0);
+	// inv holds the rows of the inverse of the 3x3 part: row r, column c is inv[r * 3 + c]
+	for (let col = 0; col < 3; col++) {
+		for (let row = 0; row < 3; row++) out[col * 4 + row] = inv[row * 3 + col]!;
+		out[12 + col] = -(inv[col * 3]! * t[0]! + inv[col * 3 + 1]! * t[1]! + inv[col * 3 + 2]! * t[2]!);
+	}
+	out[15] = 1;
+	return out;
+}

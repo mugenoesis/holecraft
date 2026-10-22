@@ -107,6 +107,7 @@ function EditorView({ initial }: { initial: Design }) {
 	// The Workplane tool's plane (not saved): new shapes stand on it instead of on the floor.
 	const [plane, setPlane] = useState<WorkPlane | null>(null);
 	const [sketchEdit, setSketchEdit] = useState<NodeId | null>(null);
+	const [engraveEdit, setEngraveEdit] = useState<{ group: NodeId; node: NodeId } | null>(null);
 	const addOnPlane = useCallback(
 		(shape: ShapeType, onPlane: WorkPlane, point: Vec3) => dispatch({ type: 'addOnPlane', shape, plane: onPlane, point }),
 		[],
@@ -215,6 +216,8 @@ function EditorView({ initial }: { initial: Design }) {
 					sketchEdit={sketchEdit}
 					onSketchEditChange={setSketchEdit}
 					onEngrave={engrave}
+					engraveEdit={engraveEdit}
+					onEngraveEditChange={setEngraveEdit}
 					onFinishSketch={({ outlines, height, frame, editId }) =>
 						dispatch(
 							editId
@@ -256,6 +259,7 @@ function EditorView({ initial }: { initial: Design }) {
 								dispatch={dispatch}
 								library={library}
 								onEditSketch={setSketchEdit}
+								onEditEngraving={(group, node) => setEngraveEdit({ group, node })}
 								unlockedStretch={state.unlockedStretch}
 							/>
 							<ModelCheckPanel check={modelCheck} />

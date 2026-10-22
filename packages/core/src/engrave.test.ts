@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyDesign, type Design, type GroupNode, type ShapeNode } from './design.ts';
-import { engraveInto, engravePolygons, whyNotEngrave } from './engrave.ts';
+import { engraveInto, engravePolygons, reengrave, whyNotEngrave } from './engrave.ts';
+import { engravingsIn } from './engraveRecord.ts';
 import { groupNodes } from './groups.ts';
 import type { MeshShapeInput } from './meshShape.ts';
 import { addShape, nodeBoundsIn } from './ops.ts';
+import { frameOfPlane } from './sketchFrame.ts';
 import { textMetrics } from './text.ts';
 
 const bbox = (rings: readonly (readonly (readonly [number, number])[])[]) => {
@@ -113,5 +115,68 @@ describe('engraveInto', () => {
 		expect(engraveInto(locked, 'a', input, bounds, 'engrave').id).toBeNull();
 		const bad = { min: [Number.NaN, 0, 0] as [number, number, number], max: [1, 1, 1] as [number, number, number] };
 		expect(engraveInto(d, 'a', input, bad, 'engrave')).toEqual({ design: d, id: null });
+	});
+});
+
+describe('engraveInto with a record', () => {
+	const record = {
+		settings: { text: 'Hi', font: 1, em: 10, angle: 0, at: [0, 0] as [number, number], depth: 1, mode: 'engrave' as const },
+		frame: frameOfPlane({ origin: [0, 0, 20], normal: [0, 0, 1] }),
+	};
+
+	it('keeps it on the engraving, so it can be edited later', () => {
+		const out = engraveInto(scene(), 'a', input, bounds, 'engrave', { id: 'e', groupId: 'g', record });
+		expect(engravingsIn(out.design, 'g')).toEqual([{ id: 'e', record }]);
+	});
+
+	it('keeps nothing when it is not given one', () => {
+		const out = engraveInto(scene(), 'a', input, bounds, 'engrave', { id: 'e', groupId: 'g' });
+		expect(engravingsIn(out.design, 'g')).toEqual([]);
+	});
+});
+
+describe('reengrave', () => {
+	const record = {
+		settings: { text: 'Hi', font: 1, em: 10, angle: 0, at: [0, 0] as [number, number], depth: 1, mode: 'engrave' as const },
+		frame: frameOfPlane({ origin: [0, 0, 20], normal: [0, 0, 1] }),
+	};
+	const engraved = () => engraveInto(scene(), 'a', input, bounds, 'engrave', { id: 'e', groupId: 'g', record }).design;
+	const input2: MeshShapeInput = { name: 'Engraving "Bye"', ref: 'b'.repeat(64), size: [20, 6, 3] };
+	const bounds2 = { min: [-10, -3, 16] as [number, number, number], max: [10, 3, 19] as [number, number, number] };
+	const record2 = { ...record, settings: { ...record.settings, text: 'Bye', em: 12 } };
+
+	it('swaps the engraving for the new fitted lettering, in the same place in the same group', () => {
+		const out = reengrave(engraved(), 'e', input2, bounds2, record2);
+		const e = out.nodes.e as ShapeNode;
+		expect(e.params.mesh).toBe(input2.ref);
+		expect([e.params.width, e.params.depth, e.params.height]).toEqual([20, 6, 3]);
+		expect(e.name).toBe('Engraving "Bye"');
+		expect((out.nodes.g as GroupNode).children).toEqual(['a', 'e']);
+		expect(out.roots).toEqual(['g']);
+		expect(engravingsIn(out, 'g')).toEqual([{ id: 'e', record: record2 }]);
+	});
+
+	it('puts it where the new lettering is: the middle of its footprint, on its lowest point', () => {
+		const out = reengrave(engraved(), 'e', input2, bounds2, record2);
+		const e = out.nodes.e as ShapeNode;
+		expect([e.transform[12], e.transform[13], e.transform[14]]).toEqual([0, 0, 16]);
+	});
+
+	it('turns an engraving into raised lettering, a solid in the target’s colour, and back', () => {
+		const raised = reengrave(engraved(), 'e', input2, bounds2, { ...record2, settings: { ...record2.settings, mode: 'raised' } });
+		expect((raised.nodes.e as ShapeNode).mode).toBe('solid');
+		expect((raised.nodes.e as ShapeNode).color).toBe(scene().nodes.a!.color);
+		const back = reengrave(raised, 'e', input, bounds, record);
+		expect((back.nodes.e as ShapeNode).mode).toBe('hole');
+	});
+
+	it('gives the same design back for a shape that is not an engraving, one that is not there, a locked group or bounds that are not numbers', () => {
+		const d = engraved();
+		expect(reengrave(d, 'a', input2, bounds2, record2)).toBe(d);
+		expect(reengrave(d, 'nope', input2, bounds2, record2)).toBe(d);
+		const locked = { ...d, nodes: { ...d.nodes, g: { ...d.nodes.g!, locked: true } } } as Design;
+		expect(reengrave(locked, 'e', input2, bounds2, record2)).toBe(locked);
+		const bad = { min: [Number.NaN, 0, 0] as [number, number, number], max: [1, 1, 1] as [number, number, number] };
+		expect(reengrave(d, 'e', input2, bad, record2)).toBe(d);
 	});
 });

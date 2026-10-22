@@ -1,9 +1,16 @@
 import {
 	type Design,
+	type EngraveRecord,
 	type EngraveSettings,
 	engravePolygons,
+	engraveRecordOf,
+	frameInWorld,
 	frameOfPlane,
+	groupFrame,
+	invertAffine,
 	isUsablePlane,
+	type Mat4,
+	type NodeId,
 	nodeBoundsIn,
 	type SketchFrame,
 	textMetrics,
@@ -52,11 +59,15 @@ export function engraveStart(design: Design, hit: Hit): EngraveStart | { problem
 	if (!isUsablePlane([...hit.normal]))
 		return { problem: 'That face points down, so the lettering could not be read: choose a side or the top.' };
 	const origin: [number, number, number] = [round(hit.point[0]), round(hit.point[1]), round(hit.point[2])];
-	const frame = frameOfPlane({ origin, normal: [...hit.normal] });
-	const b = nodeBoundsIn(design, hit.id);
+	return startOn(design, hit.id, frameOfPlane({ origin, normal: [...hit.normal] }));
+}
+
+/** The start for a shape and the plane the words go on: how much of the view to frame, the room the words have, and a letter size that fits (or `em`, when it is given). */
+function startOn(design: Design, id: string, frame: SketchFrame, em?: number): EngraveStart {
+	const b = nodeBoundsIn(design, id);
 	const diagonal = b ? Math.hypot(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]) : 0;
 	const reach = b ? reachOf(b, frame) : { minX: -Infinity, maxX: Infinity, minY: -Infinity, maxY: Infinity };
-	return { id: hit.id, frame, size: Math.max(60, diagonal * 1.6), reach, em: fittingEm(reach.maxX - reach.minX) };
+	return { id, frame, size: Math.max(60, diagonal * 1.6), reach, em: em ?? fittingEm(reach.maxX - reach.minX) };
 }
 
 /** The box round a world box as the plane sees it (from its eight corners). */
@@ -103,9 +114,41 @@ export function engraveRequest(start: EngraveStart, s: EngraveSettings): Engrave
 		targetId: start.id,
 		frame: start.frame,
 		polygons,
+		settings: s,
 		depth: s.depth,
 		mode: s.mode,
 		resolution: Math.min(1, Math.max(0.3, s.em / 20)),
 		name: s.mode === 'engrave' ? `Engraving "${words}"` : `Raised "${words}"`,
 	};
+}
+
+/** An engraving opened for editing: its own choices, the plane they were placed on (as the group is now), and what is needed to fit it again. */
+export interface EngraveEdit {
+	/** The engraving's choices, which the tool starts with. */
+	settings: EngraveSettings;
+	/** The group as the target, the plane in the world as the group is now, and the room the words have there. */
+	start: EngraveStart;
+	/** What the engraving remembers: its plane is in the group's own frame, and stays there. */
+	record: EngraveRecord;
+	/** The design with the engraving left out, which is what the lettering is fitted to (or it would be fitted to its own cut). */
+	fitDesign: Design;
+	/** Takes a point in the world into the group's own frame, where the engraving shape lives. */
+	into: Mat4;
+}
+
+/** What opening an engraving to edit it starts, or why it cannot be done in words for the tool. */
+export function engraveEdit(design: Design, groupId: NodeId, nodeId: NodeId): EngraveEdit | { problem: string } {
+	const group = design.nodes[groupId];
+	const node = design.nodes[nodeId];
+	if (group?.kind !== 'group' || !node || !group.children.includes(nodeId)) return { problem: 'That engraving is no longer there.' };
+	const record = engraveRecordOf(node);
+	if (!record) return { problem: `${node.name} is not an engraving.` };
+	if (!design.roots.includes(groupId)) return { problem: `${group.name} is inside another group: ungroup it first to edit its engraving.` };
+	if (group.locked) return { problem: `${group.name} is locked: unlock it in the Objects list to edit its engraving.` };
+	if (group.hidden) return { problem: `${group.name} is hidden: show it in the Objects list to edit its engraving.` };
+	const into = invertAffine(groupFrame(group));
+	if (!into) return { problem: `${group.name} has no size, so its engraving cannot be edited.` };
+	const fitDesign: Design = { ...design, nodes: { ...design.nodes, [nodeId]: { ...node, hidden: true } } };
+	const frame = frameInWorld(group, record.frame);
+	return { settings: record.settings, start: startOn(fitDesign, groupId, frame, record.settings.em), record, fitDesign, into };
 }

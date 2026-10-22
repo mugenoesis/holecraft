@@ -18,6 +18,7 @@ import type { Dispatch } from 'react';
 import { ChamferFields } from './ChamferFields.tsx';
 import { ColourField, useColourEdit } from './ColourField.tsx';
 import { CountersinkFields } from './CountersinkFields.tsx';
+import { EditEngravingButtons } from './EditEngravingButton.tsx';
 import type { EditorAction } from './editorState.ts';
 import { PanelSection } from './PanelSection.tsx';
 import { SaveToLibrary } from './SaveToLibrary.tsx';
@@ -53,6 +54,8 @@ interface Props {
 	library: Library;
 	/** Takes the sketch shape back into the Sketch tool to redraw it. */
 	onEditSketch?: (id: NodeId) => void;
+	/** Takes an engraving (the group it is in, and its shape) back into the Engrave tool. */
+	onEditEngraving?: (group: NodeId, node: NodeId) => void;
 	/** The groups holding a fastener whose stretching has been unlocked this session. */
 	unlockedStretch?: readonly NodeId[];
 }
@@ -119,7 +122,7 @@ function ShapeColour({ design, ids, value, dispatch }: { design: Design; ids: No
 	return <ColourField label="Color" inputLabel="Color" value={value} designColours={design.palette} {...events} />;
 }
 
-export function PropertiesPanel({ design, selection, dispatch, library, onEditSketch, unlockedStretch = [] }: Props) {
+export function PropertiesPanel({ design, selection, dispatch, library, onEditSketch, onEditEngraving, unlockedStretch = [] }: Props) {
 	const nodes = selection.flatMap((id) => (design.nodes[id] ? [design.nodes[id]] : []));
 
 	if (nodes.length === 0) {
@@ -225,6 +228,7 @@ export function PropertiesPanel({ design, selection, dispatch, library, onEditSk
 					</p>
 				)}
 				<p>Contains {shapes} shapes</p>
+				{onEditEngraving && <EditEngravingButtons design={design} id={only.id} onEdit={onEditEngraving} />}
 				{typeToggle}
 				{color}
 				{actions}

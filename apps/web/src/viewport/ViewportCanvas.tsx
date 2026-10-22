@@ -22,9 +22,11 @@ import { GeometryService } from '../geometry/GeometryService.ts';
 import { createWorkerEvaluator, type WorkerEvaluator } from '../geometry/workerEvaluator.ts';
 import type { Placing } from '../placing.ts';
 import { ThumbnailScheduler } from '../thumbnailScheduler.ts';
+import type { EngraveEditJob } from '../useEngrave.ts';
 import type { Projection } from './CameraRig.ts';
 import { EdgeTool } from './EdgeTool.tsx';
 import { EngraveHost } from './EngraveTool.tsx';
+import { editedNodeIds, withoutNodes } from './editedNodes.ts';
 import { HandlesOverlay } from './HandlesOverlay.tsx';
 import { PaintTool } from './PaintTool.tsx';
 import { PlaceLayer, useToolState } from './PlaceTool.tsx';
@@ -39,6 +41,7 @@ import { shapeDropHandlers } from './shapeDrop.ts';
 import { skippedEdgeNotices } from './skippedEdges.ts';
 import type { SupportsView } from './supportsView.ts';
 import { useSimpleThreads } from './useSimpleThreads.ts';
+import { useToolEdit } from './useToolEdit.ts';
 import { useXray } from './useXray.ts';
 import { ViewCube } from './ViewCube.tsx';
 import { type PixelRect, Viewport } from './Viewport.ts';
@@ -110,7 +113,10 @@ interface Props {
 	/** A drawing is finished: make a new Sketch shape on the frame's plane, or redraw `editId`. */
 	onFinishSketch: (done: { outlines: SketchOutline[]; height: number; frame: SketchFrame; editId: NodeId | null }) => void;
 	/** Lettering is placed on a surface and Done was pressed: fit it to the shape and put it in the design; null when that worked, else the problem. */
-	onEngrave: (request: EngraveRequest) => Promise<string | null>;
+	onEngrave: (request: EngraveRequest, edit?: EngraveEditJob) => Promise<string | null>;
+	/** The engraving being edited (its group and shape; set by Properties' Edit engraving), or null; the tool tells when it is done. */
+	engraveEdit: { group: NodeId; node: NodeId } | null;
+	onEngraveEditChange: (edit: { group: NodeId; node: NodeId } | null) => void;
 }
 
 /** React host for the imperative three.js viewport, plus its overlay controls. */
@@ -133,16 +139,10 @@ export function ViewportCanvas(props: Props) {
 	const { tool, setTool, toggleTool } = useToolState(props.placing, props.onCancelPlacing);
 	// What the ghost of a shape being placed is while it is on show (read by the tests, like the camera).
 	const [ghost, setGhost] = useState<string | undefined>(undefined);
-	// Edit sketch (in Properties) turns the Sketch tool on for that shape; leaving the tool by any way lets go of the shape
-	const { sketchEdit, onSketchEditChange } = props;
-	useEffect(() => {
-		if (sketchEdit) setTool('sketch');
-	}, [sketchEdit, setTool]);
-	const wasSketching = useRef(false);
-	useEffect(() => {
-		if (wasSketching.current && tool !== 'sketch') onSketchEditChange(null);
-		wasSketching.current = tool === 'sketch';
-	}, [tool, onSketchEditChange]);
+	// Edit sketch and Edit engraving (in Properties) turn their tool on for that shape; leaving the tool by any way lets go of it
+	const { sketchEdit, onSketchEditChange, engraveEdit, onEngraveEditChange } = props;
+	useToolEdit(sketchEdit !== null, tool, 'sketch', setTool, () => onSketchEditChange(null));
+	useToolEdit(engraveEdit !== null, tool, 'engrave', setTool, () => onEngraveEditChange(null));
 	const [camera, setCamera] = useState<{ state: OrbitState; projection: Projection }>({ state: HOME_VIEW, projection: 'perspective' });
 	const cameraRef = useRef(camera);
 	cameraRef.current = camera;
@@ -150,13 +150,11 @@ export function ViewportCanvas(props: Props) {
 	// While editing, threads can be drawn as plain cylinders: only the view and its geometry work use this; selection, saving and export use `design`
 	const [simpleThreads, toggleSimpleThreads] = useSimpleThreads();
 	const x = useXray(design);
-	// the sketch shape being redrawn is left out of the view: its drawing is on screen instead
-	const sketching = tool === 'sketch' ? props.sketchEdit : null;
-	const drawn = useMemo(() => {
-		const shown = simpleThreads ? withSimpleThreads(design) : design;
-		const node = sketching ? shown.nodes[sketching] : undefined;
-		return node ? { ...shown, nodes: { ...shown.nodes, [node.id]: { ...node, hidden: true } } } : shown;
-	}, [design, simpleThreads, sketching]);
+	// the sketch shape being redrawn, or the engraving being edited, is left out of the view: its drawing or lettering is on screen instead
+	const edited = editedNodeIds(tool, sketchEdit, engraveEdit);
+	const editedKey = edited.join(',');
+	// biome-ignore lint/correctness/useExhaustiveDependencies: editedKey stands for the ids, so a new array with the same ids does not redraw
+	const drawn = useMemo(() => withoutNodes(simpleThreads ? withSimpleThreads(design) : design, edited), [design, simpleThreads, editedKey]);
 	const drawnRef = useRef(drawn);
 	drawnRef.current = drawn;
 
@@ -420,7 +418,8 @@ export function ViewportCanvas(props: Props) {
 						getViewport={getViewport}
 						design={design}
 						camera={camera}
-						onEngrave={(request) => latest.current.onEngrave(request)}
+						edit={engraveEdit}
+						onEngrave={(request, job) => latest.current.onEngrave(request, job)}
 						onClose={() => setTool(null)}
 					/>
 					{tool === 'paint' && (
