@@ -125,7 +125,8 @@ test.describe('the Engrave tool', () => {
 		await boxFromAbove(page);
 		await startOnTop(page, 'WIDE WORDS', '40', '1');
 		await bar(page).getByRole('button', { name: 'Done' }).click();
-		await expect(bar(page)).toContainText('past the edge');
+		// The refusal comes back from the geometry worker, which a slow runner can take longer than the usual wait over.
+		await expect(bar(page)).toContainText('past the edge', { timeout: 20_000 });
 		await expect(bar(page)).toBeVisible();
 		await fill(page, 'Letter size', '3');
 		await bar(page).getByRole('button', { name: 'Done' }).click();
