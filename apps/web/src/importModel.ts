@@ -7,8 +7,8 @@ export const IMPORT_ACCEPT = [...IMPORT_EXTENSIONS, '.svg'].join(',');
 /** How deep an imported SVG is extruded to start with, in mm: it can be resized like any shape afterwards. */
 const SVG_DEPTH = 5;
 
-/** Bigger files are refused before reading: about a million triangles fit well inside this. */
-const MAX_FILE_BYTES = 100 * 1024 * 1024;
+/** Bigger files are refused before reading: a binary STL of three million triangles (the most a model may have) is 150 MB. */
+const MAX_FILE_BYTES = 200 * 1024 * 1024;
 
 export interface ImportDeps {
 	/** Stores a model on the server and returns its reference. */
@@ -39,7 +39,7 @@ export async function importModelFile(
 	/** Which of the file's axes is up (Z, unless the file was made by something that makes Y the height). */
 	options: { up?: UpAxis } = {},
 ): Promise<{ input: MeshShapeInput; mesh: MeshData }> {
-	if (file.size > MAX_FILE_BYTES) throw new Error('That file is too large to import (the limit is 100 MB)');
+	if (file.size > MAX_FILE_BYTES) throw new Error('That file is too large to import (the limit is 200 MB)');
 
 	const isSvg = file.name.toLowerCase().endsWith('.svg');
 	const imported = isSvg ? await importSvg(file, deps) : await importMeshFile(file.name, new Uint8Array(await file.arrayBuffer()));

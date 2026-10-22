@@ -485,7 +485,7 @@ scripts/screenshot.sh http://127.0.0.1:8080/ test-results/shot.png   # visual ch
   box until a model arrives. Export gets the same table (`exportDeps(meshes)`).
 - CSG: `imported()` in evaluate.ts builds a manifold with `Manifold.ofMesh`; a mesh that is not
   watertight throws a message naming the shape, which the group fallback and the export alert show.
-- Parsing, normalising and uploading run on the main thread (fine to a few hundred thousand triangles).
+- Parsing, normalising and uploading run on the main thread. The limits are `MAX_IMPORT_TRIANGLES` / `MAX_MESH_TRIANGLES` = 3 million triangles (a stored mesh is then at most about 72 MB: `MAX_MESH_BYTES` on the server is 80 MB), 200 MB for a file (`MAX_FILE_BYTES` in importModel.ts, the import inbox's `MAX_IMPORT_BYTES`). `weldMesh` finds shared corners in a table of numbers (open addressing, keyed by the three coordinates' bit patterns, grown as it fills), not text keys: that took a 1.9 million triangle model from 2 s and 850 MB to 0.3 s and 500 MB, and it gives exactly the mesh the text-key way did (a test keeps that way as the reference, so stored models keep their names). Measured on a 1.9 million triangle sphere in Node: weld 0.3 s, normalise 0.2 s, health check about 1.5 s, three.js creased normals 0.5 s, a cut about 1.5 s. The inbox page says it is reading a large model (`readingMessage`) and lets the message be drawn before the work that holds the page.
 - Test fixtures for e2e are built by `e2e/web/modelFiles.ts`, independently of the app's readers.
 
 ## Local test container

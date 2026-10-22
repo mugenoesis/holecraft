@@ -105,3 +105,9 @@ export async function buildDesignFrom(title: string, files: readonly ModelFile[]
 	});
 	return deps.save(design);
 }
+
+/** What the waiting screen says while a file is read: for a big model, that it is big and will take a while (the page is busy while it works, so it cannot show progress). */
+export function readingMessage(bytes: number): string {
+	const mb = Math.round(bytes / (1024 * 1024));
+	return mb >= 20 ? `Reading a large model (${mb} MB): this can take a little while…` : 'Opening the model…';
+}

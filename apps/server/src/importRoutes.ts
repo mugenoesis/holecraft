@@ -7,8 +7,8 @@ export const IMPORT_CONTENT_TYPE = 'application/vnd.holecraft.import';
 /** The header the browser add-on sends. Another site cannot add it to a request to this server (a custom header needs the server's agreement). */
 const IMPORT_HEADER = 'x-holecraft-import';
 
-/** Largest file accepted: the editor's own import limit. */
-const MAX_IMPORT_BYTES = 100 * 1024 * 1024;
+/** Largest file accepted: the editor's own import limit (a binary STL of three million triangles is 150 MB). */
+const MAX_IMPORT_BYTES = 200 * 1024 * 1024;
 
 /**
  * Where model files from other places wait to be opened: the browser add-on sends one with `POST /api/import` and is told the address to open

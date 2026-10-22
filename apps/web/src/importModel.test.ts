@@ -87,8 +87,14 @@ describe('importModelFile', () => {
 		expect(d.upload).not.toHaveBeenCalled();
 	});
 
+	it('does not refuse a file of 150 MB, which holds a model of about three million triangles', async () => {
+		const big = { name: 'big.stl', size: 150 * 1024 * 1024, arrayBuffer: vi.fn().mockRejectedValue(new Error('read')) };
+		await expect(importModelFile(big, deps())).rejects.toThrow('read');
+		expect(big.arrayBuffer).toHaveBeenCalled();
+	});
+
 	it('refuses very large files before reading them', async () => {
-		const big = { name: 'big.stl', size: 200 * 1024 * 1024, arrayBuffer: vi.fn() };
+		const big = { name: 'big.stl', size: 201 * 1024 * 1024, arrayBuffer: vi.fn() };
 		await expect(importModelFile(big, deps())).rejects.toThrow(/too large/i);
 		expect(big.arrayBuffer).not.toHaveBeenCalled();
 	});
