@@ -59,6 +59,11 @@ function toggles(p: Props): Toggle[] {
 		tool('edges', 'Edges', 'Chamfer or round edges of the selected shape (E)'),
 		tool('paint', 'Paint', "Paint faces in the design's filament colours: click a face (N)"),
 		tool('sketch', 'Sketch', 'Draw a 2D sketch on the floor or a chosen face, then extrude it into a shape (K)'),
+		tool(
+			'engrave',
+			'Engrave',
+			'Engrave or raise lettering on the surface of a shape: click a face, type the words, place them and press Done (T)',
+		),
 	];
 	list.push({
 		label: 'X-ray',

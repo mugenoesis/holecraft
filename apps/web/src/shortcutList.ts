@@ -56,6 +56,7 @@ export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = [
 			{ keys: 'E', what: 'Edges', handled: view('e') },
 			{ keys: 'N', what: 'Paint', handled: view('n') },
 			{ keys: 'K', what: 'Sketch', handled: view('k') },
+			{ keys: 'T', what: 'Engrave', handled: view('t') },
 		],
 	},
 	{
