@@ -4,9 +4,13 @@ import {
 	type Design,
 	groupNodes,
 	rotationOfTransform,
+	type ShapeNode,
 	setHidden,
 	setLocked,
 	setNodeEuler,
+	setTextWrap,
+	wrapOf,
+	wrappedBox,
 } from '@holecraft/core';
 import { describe, expect, it } from 'vitest';
 import { selectedHandles, selectedRings, selectedShape } from './selectedShape.ts';
@@ -133,5 +137,33 @@ describe('selectedHandles', () => {
 		const g2 = groupNodes(d, ['a', 'b'], { id: 'g' }).design;
 		expect(selectedHandles(setHidden(g2, ['g'], true), ['g'])).toBeNull();
 		expect(selectedHandles(setLocked(g2, ['g'], true), ['g'])).toBeNull();
+	});
+});
+
+describe('wrapped text', () => {
+	const wrappedScene = (): Design => {
+		const d = addShape(createEmptyDesign('d'), 'text', [10, 20], { id: 't' }).design;
+		return setTextWrap(d, 't', 20);
+	};
+
+	it('has no resize or lift handles (they are for a flat box), but can still be turned', () => {
+		expect(selectedHandles(wrappedScene(), ['t'])).toBeNull();
+		expect(selectedRings(wrappedScene(), ['t'])).not.toBeNull();
+	});
+
+	it('has flat text keep its handles', () => {
+		const d = addShape(createEmptyDesign('d'), 'text', [10, 20], { id: 't' }).design;
+		expect(selectedHandles(d, ['t'])).not.toBeNull();
+	});
+
+	it('has its rings round the middle of the bent box, not the flat one', () => {
+		const d = wrappedScene();
+		const node = d.nodes.t as ShapeNode;
+		const { width, depth, height } = node.params as { width: number; depth: number; height: number };
+		const box = wrappedBox(width, depth, height, wrapOf(node));
+		const s = selectedShape(d, ['t'])!;
+		const z0 = node.transform[14]!;
+		expect(s.center[2]).toBeCloseTo(z0 + (box.min[2] + box.max[2]) / 2, 9);
+		expect(s.ringRadius).toBeCloseTo(Math.hypot(box.max[0] - box.min[0], box.max[1] - box.min[1], box.max[2] - box.min[2]) / 2 + 6, 9);
 	});
 });

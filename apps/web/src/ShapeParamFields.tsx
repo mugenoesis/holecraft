@@ -1,4 +1,14 @@
-import { getShapeDef, isShapeType, type ParamDef, type ShapeNode, shapeParam, shapeParamMm, textOf, typedParamMm } from '@holecraft/core';
+import {
+	getShapeDef,
+	isShapeType,
+	type ParamDef,
+	type ShapeNode,
+	shapeParam,
+	shapeParamMm,
+	textOf,
+	typedParamMm,
+	wrapOf,
+} from '@holecraft/core';
 import type { Dispatch } from 'react';
 import type { EditorAction } from './editorState.ts';
 import { NumberField, TextField } from './PropertiesPanel.tsx';
@@ -37,7 +47,28 @@ export function ShapeParamFields({ node, dispatch }: { node: ShapeNode; dispatch
 					</div>
 				);
 			})}
+			{node.shapeType === 'text' && <WrapField node={node} dispatch={dispatch} />}
 		</>
+	);
+}
+
+/** Where the text goes round a cylinder: its radius in mm, 0 for flat, negative for the inside. A radius the words cannot go round is raised, and it says so. */
+function WrapField({ node, dispatch }: { node: ShapeNode; dispatch: Dispatch<EditorAction> }) {
+	const typed = Number.isFinite(Number(node.params.wrap)) ? Number(node.params.wrap) : 0;
+	const used = wrapOf(node);
+	return (
+		<div className="param-field">
+			<NumberField label="Wrap radius" value={typed} onCommit={(radius) => dispatch({ type: 'setTextWrap', id: node.id, radius })} />
+			<p className="muted hint field-hint">
+				0 is flat. A radius bends the words round the outside of a cylinder that size; a negative one round the inside. There are no resize
+				handles while it is bent.
+			</p>
+			{Math.abs(used) > Math.abs(typed) + 1e-9 && (
+				<p className="muted hint field-hint" data-testid="param-limited">
+					Raised to {fmt(Math.abs(used))} mm: the words are too long to go that far round.
+				</p>
+			)}
+		</div>
 	);
 }
 

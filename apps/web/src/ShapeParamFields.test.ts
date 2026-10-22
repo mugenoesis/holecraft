@@ -1,4 +1,4 @@
-import { addShape, createEmptyDesign, getShapeDef, type ShapeNode, setShapeParam } from '@holecraft/core';
+import { addShape, createEmptyDesign, getShapeDef, type ShapeNode, setShapeParam, setTextWrap } from '@holecraft/core';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -60,5 +60,35 @@ describe('a Text shape’s fields', () => {
 
 	it('has no Text box on any other shape', () => {
 		expect(render('tube')).not.toContain('aria-label="Text"');
+	});
+});
+
+describe('the Wrap radius field of a text shape', () => {
+	const renderWrapped = (radius?: number) => {
+		let design = addShape(createEmptyDesign('d'), 'text', [0, 0], { id: 'a' }).design;
+		if (radius !== undefined) design = setTextWrap(design, 'a', radius);
+		return renderToStaticMarkup(createElement(ShapeParamFields, { node: design.nodes.a as ShapeNode, dispatch: () => {} }));
+	};
+
+	it('is a number field after the font, 0 (flat) to start with, and says what its numbers mean', () => {
+		const html = renderWrapped();
+		expect(html).toContain('Wrap radius');
+		expect(html).toMatch(/<input[^>]*type="number"[^>]*value="0"/);
+		expect(html).toMatch(/flat/i);
+		expect(html).toMatch(/negative/i);
+	});
+
+	it('shows the radius that was typed', () => {
+		expect(renderWrapped(25)).toMatch(/<input[^>]*type="number"[^>]*value="25"/);
+		expect(renderWrapped(-25)).toMatch(/<input[^>]*type="number"[^>]*value="-25"/);
+	});
+
+	it('says so when the words are too long for the radius and it is raised to the least that fits', () => {
+		expect(renderWrapped(25)).not.toContain('Raised to');
+		expect(renderWrapped(2)).toMatch(/Raised to \d+(\.\d+)? mm/);
+	});
+
+	it('is not on any other shape', () => {
+		expect(render('tube')).not.toContain('Wrap radius');
 	});
 });

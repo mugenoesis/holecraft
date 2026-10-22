@@ -48,6 +48,7 @@ export * from './supportPoints.ts';
 export * from './surfacePlane.ts';
 export * from './text.ts';
 export * from './textShape.ts';
+export * from './textWrap.ts';
 export * from './threadStandards.ts';
 export * from './units.ts';
 export * from './validate.ts';

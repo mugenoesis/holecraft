@@ -5,6 +5,7 @@ import { groupFrame } from './groupFrame.ts';
 import { newId } from './ids.ts';
 import { multiplyMat4 } from './mat4.ts';
 import { getShapeDef, type ShapeType } from './shapes.ts';
+import { wrapOf, wrappedBox } from './textWrap.ts';
 
 export function translation(x: number, y: number, z: number): Mat4 {
 	return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1];
@@ -65,12 +66,15 @@ export function addShape(
  */
 export function shapeBounds(node: ShapeNode, parent?: Readonly<Mat4>): Bounds {
 	const { width, depth, height } = node.params as { width: number; depth: number; height: number };
+	// text wrapped round a cylinder is bent, so its box is the bent one (centred on its base centre, standing on z = 0 where it touches the cylinder)
+	const wrap = node.shapeType === 'text' ? wrapOf(node) : 0;
+	const local = wrappedBox(width, depth, height, wrap);
 	const m = parent ? multiplyMat4(parent, node.transform) : node.transform;
 	const min: Vec3 = [Infinity, Infinity, Infinity];
 	const max: Vec3 = [-Infinity, -Infinity, -Infinity];
-	for (const x of [-width / 2, width / 2]) {
-		for (const y of [-depth / 2, depth / 2]) {
-			for (const z of [0, height]) {
+	for (const x of [local.min[0], local.max[0]]) {
+		for (const y of [local.min[1], local.max[1]]) {
+			for (const z of [local.min[2], local.max[2]]) {
 				for (let k = 0; k < 3; k++) {
 					// + 0 turns a -0 from the multiplications into 0.
 					const v = m[k]! * x + m[4 + k]! * y + m[8 + k]! * z + m[12 + k]! + 0;

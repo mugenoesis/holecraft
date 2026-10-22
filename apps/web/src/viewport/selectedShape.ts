@@ -12,6 +12,8 @@ import {
 	shapeCenter,
 	translationOf,
 	type Vec3,
+	wrapOf,
+	wrappedBox,
 } from '@holecraft/core';
 
 export interface SelectedShape {
@@ -28,6 +30,12 @@ export interface SelectedShape {
 	ringRadius: number;
 }
 
+/** The world position of the middle of a box given in a shape's own frame. */
+function worldPoint(m: readonly number[], box: { min: Vec3; max: Vec3 }): Vec3 {
+	const [x, y, z] = [0, 1, 2].map((k) => (box.min[k]! + box.max[k]!) / 2) as Vec3;
+	return [0, 1, 2].map((k) => m[12 + k]! + m[k]! * x + m[4 + k]! * y + m[8 + k]! * z) as Vec3;
+}
+
 /** The single selected shape with everything the handles need, or null when none should show. */
 export function selectedShape(design: Design, selection: readonly NodeId[]): SelectedShape | null {
 	const id = selection.length === 1 ? selection[0]! : undefined;
@@ -36,14 +44,17 @@ export function selectedShape(design: Design, selection: readonly NodeId[]): Sel
 	const [x, y, z] = translationOf(node.transform);
 	const { width, depth, height } = node.params as { width: number; depth: number; height: number };
 	const rotation = rotationOfTransform(node.transform);
+	const wrapped = node.shapeType === 'text' && wrapOf(node) !== 0 ? wrappedBox(width, depth, height, wrapOf(node)) : null;
 	return {
 		id,
 		geometry: { x, y, z, width, depth, height },
 		rotation,
 		yaw: eulerOfTransform(node.transform)[2],
 		upright: isUpright(rotation),
-		center: shapeCenter(node.transform, height),
-		ringRadius: Math.hypot(width, depth, height) / 2 + 6,
+		// wrapped text is bent, so its middle and size are those of its bent box
+		center: wrapped ? worldPoint(node.transform, wrapped) : shapeCenter(node.transform, height),
+		ringRadius:
+			(wrapped ? Math.hypot(...[0, 1, 2].map((k) => wrapped.max[k]! - wrapped.min[k]!)) : Math.hypot(width, depth, height)) / 2 + 6,
 	};
 }
 
@@ -84,6 +95,8 @@ export function selectedHandles(
 			geometry && { id, geometry, yaw: eulerOfTransform(node.transform)[2], rotation, tilted: !isUpright(rotation), lengthOnly: false }
 		);
 	}
+	// wrapped text is bent, so a handle on its flat box would be in the wrong place: it is sized by typing instead
+	if (node.kind === 'shape' && node.shapeType === 'text' && wrapOf(node) !== 0) return null;
 	const shape = selectedShape(design, selection);
 	return (
 		shape && {
