@@ -30,6 +30,7 @@ import { dragModeFor } from './pressMode.ts';
 import { thumbnailCamera } from './thumbnailCamera.ts';
 import { type Point, twoFingerStep } from './touchGesture.ts';
 import { createWorkplane } from './workplane.ts';
+import type { Xray } from './xray.ts';
 
 /** Rectangle in pixels, relative to the viewport. */
 export interface PixelRect {
@@ -119,6 +120,7 @@ export class Viewport {
 		private readonly opts: ViewportOptions,
 	) {
 		this.renderer = new THREE.WebGLRenderer({ antialias: true });
+		this.renderer.localClippingEnabled = true; // the X-ray cut clips each shape's own material, not the workplane or the handles
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 		this.canvas = this.renderer.domElement;
 		host.appendChild(this.canvas);
@@ -160,6 +162,12 @@ export class Viewport {
 		this.design = design;
 		this.lastSync = { results, failed, meshes };
 		this.designScene.sync(design, results, failed, meshes);
+		this.requestRender();
+	}
+
+	/** Draws solids see-through and/or cut away at a plane, to look inside the design (the design itself is not changed). */
+	setXray(xray: Xray): void {
+		this.designScene.setXray(xray);
 		this.requestRender();
 	}
 
@@ -233,7 +241,7 @@ export class Viewport {
 			const ghostWasShown = this.ghost?.visible ?? false;
 			if (this.ghost) this.ghost.visible = false;
 			try {
-				this.designScene.withoutSelection(() => renderer.render(this.scene, camera));
+				this.designScene.withoutXray(() => this.designScene.withoutSelection(() => renderer.render(this.scene, camera)));
 			} finally {
 				if (this.workplane) this.workplane.visible = true;
 				if (this.planeMarker) this.planeMarker.visible = true;

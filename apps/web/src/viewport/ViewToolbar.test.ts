@@ -19,6 +19,8 @@ const render = (compact: boolean, tool: SurfaceTool | null = null) =>
 			hasThreads: false,
 			simpleThreads: false,
 			onToggleSimpleThreads: noop,
+			xrayOn: false,
+			onToggleXray: noop,
 			compact,
 		}),
 	);
@@ -36,6 +38,7 @@ describe('ViewToolbar', () => {
 			'Edges',
 			'Paint',
 			'Sketch',
+			'X-ray',
 		]);
 	});
 
@@ -60,6 +63,32 @@ describe('ViewToolbar', () => {
 		expect(buttons(html)).toEqual(['Home view', 'Fit all', 'Select']);
 		expect(html).toContain('aria-haspopup="menu"');
 		expect(html).toContain('Tools');
+	});
+
+	it('keeps the X-ray switch out of the compact bar (it is in the Tools menu, and its controls show over the view)', () => {
+		const on = renderToStaticMarkup(
+			createElement(ViewToolbar, {
+				viewport: { current: null },
+				projection: 'perspective',
+				tool: null,
+				multiSelect: false,
+				onToggleMultiSelect: noop,
+				onToggleTool: noop,
+				planeActive: false,
+				onResetPlane: noop,
+				hasThreads: false,
+				simpleThreads: false,
+				onToggleSimpleThreads: noop,
+				xrayOn: true,
+				onToggleXray: noop,
+				compact: true,
+			}),
+		);
+		expect(buttons(on)).toEqual(['Home view', 'Fit all', 'Select']);
+	});
+
+	it('presses the X-ray button while it is on, on a desktop', () => {
+		expect(render(false)).toMatch(/aria-pressed="false" aria-label="X-ray"/);
 	});
 
 	it('keeps the tool in use on the compact bar, pressed, so one tap puts it away', () => {

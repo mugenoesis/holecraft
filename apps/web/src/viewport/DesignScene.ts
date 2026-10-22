@@ -25,6 +25,7 @@ import * as THREE from 'three';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { GroupResult } from '../geometry/GeometryService.ts';
 import { paintVertexColors } from './paintColors.ts';
+import { cutPlane, XRAY_OFF, type Xray } from './xray.ts';
 
 const SELECTED_TINT = 0x1f6f8b;
 const OUTLINE_COLOR = 0x0f766e;
@@ -33,6 +34,7 @@ const HOLE_COLOR = 0x8fa1b0;
 const HOLE_OPACITY = 0.35;
 /** How faint everything is while a sketch is being drawn (the next sync draws it so). */
 const DIMMED_OPACITY = 0.25;
+const XRAY_OPACITY = 0.3;
 
 /** Unit-sized geometry resting on z=0, scaled per shape by its width/depth/height. */
 export function createUnitGeometry(type: ShapeType): THREE.BufferGeometry {
@@ -163,6 +165,7 @@ export class DesignScene {
 	private readonly outlineGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1).translate(0, 0, 0.5));
 	/** `paintedOn` is the shape colour the vertex colours were made against (null when the mesh is not painted). */
 	private dimmed = false;
+	private xray: Xray = XRAY_OFF;
 	private readonly resultMeshes = new Map<NodeId, { mesh: THREE.Mesh; source: GroupMesh | null; paintedOn: string | null }>();
 	private selection = new Set<NodeId>();
 
@@ -471,13 +474,58 @@ export class DesignScene {
 	}
 
 	private applyLook(material: THREE.MeshStandardMaterial, color: string, hole: boolean): void {
-		const seeThrough = hole || this.dimmed;
+		material.userData.look = { color, hole };
+		const seeThrough = hole || this.dimmed || this.xray.seeThrough;
 		if (material.transparent !== seeThrough) material.needsUpdate = true;
 		material.transparent = seeThrough;
-		material.opacity = hole ? HOLE_OPACITY : this.dimmed ? DIMMED_OPACITY : 1;
+		material.opacity = hole ? HOLE_OPACITY : this.dimmed ? DIMMED_OPACITY : this.xray.seeThrough ? XRAY_OPACITY : 1;
 		material.depthWrite = !seeThrough;
+		this.applyCut(material);
 		if (hole) material.color.setHex(HOLE_COLOR);
 		else material.color.set(color);
+	}
+
+	/** Clips the material at the X-ray cut (and draws both sides, so the inside of what is cut shows), or not at all. */
+	private applyCut(material: THREE.MeshStandardMaterial): void {
+		const { cut } = this.xray;
+		const side = cut ? THREE.DoubleSide : THREE.FrontSide;
+		if (material.side !== side || (material.clippingPlanes?.length ?? 0) !== (cut ? 1 : 0)) material.needsUpdate = true;
+		material.side = side;
+		if (!cut) {
+			material.clippingPlanes = null;
+			return;
+		}
+		const { normal, constant } = cutPlane(cut);
+		material.clippingPlanes = [new THREE.Plane(new THREE.Vector3(...normal), constant)];
+	}
+
+	/** Draws solids see-through and/or cut away at a plane (from the next `sync`; `restyle` puts it on what is already drawn). */
+	setXray(xray: Xray): void {
+		this.xray = xray;
+		this.restyle();
+	}
+
+	/** Runs `fn` with no X-ray (for pictures of the design), then puts it back. */
+	withoutXray<T>(fn: () => T): T {
+		const kept = this.xray;
+		if (kept === XRAY_OFF) return fn();
+		this.setXray(XRAY_OFF);
+		try {
+			return fn();
+		} finally {
+			this.setXray(kept);
+		}
+	}
+
+	/** Draws every mesh again in the look it was last given, with the current X-ray. */
+	private restyle(): void {
+		for (const mesh of this.meshes()) {
+			const material = mesh.material as THREE.MeshStandardMaterial;
+			const look = material.userData.look as { color: string; hole: boolean } | undefined;
+			if (!look) continue;
+			this.applyLook(material, look.color, look.hole);
+			if (material.vertexColors) material.color.set(0xffffff); // painted: the colours are in the geometry
+		}
 	}
 
 	/** Draws everything faint (while a sketch is drawn over it) from the next `sync`, or solid again. */

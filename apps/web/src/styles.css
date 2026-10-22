@@ -2598,3 +2598,24 @@ button.primary:disabled {
 .ask-dialog p {
 	font-size: 0.95rem;
 }
+
+/* X-ray: see-through and cut-away controls over the view, bottom left (the view cube and toolbar are at the top) */
+.xray-bar {
+	position: absolute;
+	left: 12px;
+	bottom: 12px;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+	max-width: calc(100% - 24px);
+	padding: 6px 10px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
+	font-size: 0.9rem;
+}
+.xray-bar input[type="range"] {
+	width: 160px;
+}

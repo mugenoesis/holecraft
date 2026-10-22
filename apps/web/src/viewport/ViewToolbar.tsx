@@ -30,6 +30,9 @@ interface Props {
 	hasThreads: boolean;
 	simpleThreads: boolean;
 	onToggleSimpleThreads: () => void;
+	/** The X-ray switch (see through and cut away, to look inside); the controls are over the view while it is on. */
+	xrayOn: boolean;
+	onToggleXray: () => void;
 	/** The compact layout: the tools go in a menu. */
 	compact: boolean;
 }
@@ -57,6 +60,12 @@ function toggles(p: Props): Toggle[] {
 		tool('paint', 'Paint', "Paint faces in the design's filament colours: click a face (N)"),
 		tool('sketch', 'Sketch', 'Draw a 2D sketch on the floor or a chosen face, then extrude it into a shape (K)'),
 	];
+	list.push({
+		label: 'X-ray',
+		title: 'Look inside: draw solids see-through and cut away what is past a plane. Only the view changes, not the design',
+		pressed: p.xrayOn,
+		onClick: p.onToggleXray,
+	});
 	if (p.hasThreads)
 		list.push({
 			label: 'Simple threads',
@@ -141,7 +150,7 @@ export function ViewToolbar(props: Props) {
 	};
 	const rest = toggles(props);
 	// The tool in use stays on the bar in the compact layout, so one tap puts it away (a touch screen has no Escape).
-	const active = rest.find((t) => t.pressed && t.label !== 'Simple threads');
+	const active = rest.find((t) => t.pressed && t.label !== 'Simple threads' && t.label !== 'X-ray');
 
 	return (
 		<div className="viewport-toolbar" role="toolbar" aria-label="View controls">
