@@ -1,7 +1,8 @@
 import type { Design, MeshData, NodeId } from '@holecraft/core';
 import { useEffect, useRef, useState } from 'react';
 import { ExportMenuItems } from './ExportMenuItems.tsx';
-import { type ExportFormat, exportDeps, hasExportableShapes, onlySelected, runExport } from './exportDesign.ts';
+import { ExportCancelled, type ExportFormat, exportDeps, hasExportableShapes, onlySelected, runExport } from './exportDesign.ts';
+import { useBelowPlane } from './useBelowPlane.tsx';
 
 /** The "Export" button and its menu of file formats, for the top bar. */
 export function ExportMenu({
@@ -18,6 +19,7 @@ export function ExportMenu({
 	const [problem, setProblem] = useState<string | null>(null);
 	const [selectedOnly, setSelectedOnly] = useState(false);
 	const root = useRef<HTMLDivElement>(null);
+	const belowPlane = useBelowPlane();
 	const canExport = hasExportableShapes(design);
 
 	// The choice only makes sense while something is selected; otherwise export everything.
@@ -44,9 +46,9 @@ export function ExportMenu({
 		setBusy(true);
 		setProblem(null);
 		try {
-			await runExport(usingSelection ? picked : design, format, exportDeps(meshes));
+			await runExport(usingSelection ? picked : design, format, exportDeps(meshes, belowPlane.ask));
 		} catch (error) {
-			setProblem(error instanceof Error ? error.message : 'The export failed');
+			if (!(error instanceof ExportCancelled)) setProblem(error instanceof Error ? error.message : 'The export failed');
 		} finally {
 			setBusy(false);
 		}
@@ -78,9 +80,12 @@ export function ExportMenu({
 						meshes={meshes}
 						onFormat={(format) => void start(format)}
 						onSent={() => setOpen(false)}
+						askBelowPlane={belowPlane.ask}
 					/>
 				</div>
 			)}
+
+			{belowPlane.dialog}
 
 			{problem && (
 				<span className="export-problem" role="alert">

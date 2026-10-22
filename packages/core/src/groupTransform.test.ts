@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createEmptyDesign, type Design } from './design.ts';
-import { setNodeEuler, setShapeSize } from './edit.ts';
+import { MAX_SHAPE_SIZE, setNodeEuler, setShapeSize } from './edit.ts';
 import { groupNodes } from './groups.ts';
 import {
 	canResizeGroup,
@@ -291,11 +291,12 @@ describe('setGroupGeometry', () => {
 		expect(out.nodes[g]!.transform).toEqual(tipped.nodes[g]!.transform); // the group itself did not move or turn
 	});
 
-	it('lets a tipped group\u2019s base dip below the workplane, as a tipped shape\u2019s may, but not a level one', () => {
+	it('lets a group\u2019s base dip below the workplane, tipped or level', () => {
 		const { d, g } = pair();
 		const tipped = setGroupRotation(d, g, eulerToMatrix([0, 90, 0]));
-		const geo = groupGeometry(tipped, g)!;
-		expect(setGroupGeometry(tipped, g, { ...geo, z: -5 })).not.toBe(tipped);
+		expect(setGroupGeometry(tipped, g, { ...groupGeometry(tipped, g)!, z: -5 })).not.toBe(tipped);
+		const level = setGroupGeometry(d, g, { ...groupGeometry(d, g)!, z: -5 });
+		expect(groupGeometry(level, g)!.z).toBeCloseTo(-5, 9);
 	});
 
 	it('refuses bad numbers, sizes that are too big or too small, and locked groups', () => {
@@ -315,8 +316,8 @@ describe('setGroupGeometry', () => {
 		expect(setGroupGeometry(d, g, groupGeometry(d, g)!)).toBe(d);
 	});
 
-	it('does not go below the workplane when lifted negatively', () => {
+	it('refuses to go further below the workplane than a shape may be big', () => {
 		const { d, g } = pair();
-		expect(setGroupGeometry(d, g, { ...groupGeometry(d, g)!, z: -5 })).toBe(d);
+		expect(setGroupGeometry(d, g, { ...groupGeometry(d, g)!, z: -MAX_SHAPE_SIZE - 1 })).toBe(d);
 	});
 });

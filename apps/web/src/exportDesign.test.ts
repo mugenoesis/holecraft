@@ -2,7 +2,15 @@ import { addShape, createEmptyDesign, type Design, renameDesign, setSupportPoint
 import type { ExportBody } from '@holecraft/geometry';
 import { readStoredZip } from '@holecraft/geometry';
 import { describe, expect, it, vi } from 'vitest';
-import { EXPORT_FORMATS, exportStlBytes, hasExportableShapes, onlySelected, runExport } from './exportDesign.ts';
+import {
+	EXPORT_FORMATS,
+	ExportCancelled,
+	exportStlBytes,
+	hasExportableShapes,
+	onlySelected,
+	reachesBelowPlane,
+	runExport,
+} from './exportDesign.ts';
 
 const body = (name = 'Box 1'): ExportBody => ({
 	name,
@@ -138,5 +146,65 @@ describe('onlySelected and support points', () => {
 		);
 		expect(withPoints.supports).toBeDefined();
 		expect(onlySelected(withPoints, ['b']).supports).toBeUndefined();
+	});
+});
+
+describe('a part below the workplane', () => {
+	const under = (): ExportBody => ({
+		name: 'Sunk',
+		color: '#f28c28',
+		mesh: {
+			positions: new Float32Array([0, 0, -5, 10, 0, 0, 0, 10, 0, 0, 0, 10]),
+			indices: new Uint32Array([0, 2, 1, 0, 1, 3, 1, 2, 3, 0, 3, 2]),
+		},
+	});
+
+	it('is noticed only when a corner of a body is below z = 0 (touching the plane is not below)', () => {
+		expect(reachesBelowPlane([body()])).toBe(false);
+		expect(reachesBelowPlane([body(), under()])).toBe(true);
+		expect(reachesBelowPlane([])).toBe(false);
+	});
+
+	it('asks nothing when everything is on or above the plane', async () => {
+		const ask = vi.fn();
+		await runExport(design(), 'stl', { ...deps(), belowPlane: ask });
+		expect(ask).not.toHaveBeenCalled();
+	});
+
+	it('asks what to do, and "keep" exports the bodies as they are', async () => {
+		const d = { ...deps([under()]), belowPlane: vi.fn().mockResolvedValue('keep') };
+		await runExport(design(), 'stl', d);
+		expect(d.belowPlane).toHaveBeenCalledTimes(1);
+		expect(d.bodies).toHaveBeenCalledTimes(1);
+		expect(d.save).toHaveBeenCalledTimes(1);
+	});
+
+	it('"cut" asks the engine again, with the cut, and exports that', async () => {
+		const bodies = vi
+			.fn()
+			.mockResolvedValueOnce([under()])
+			.mockResolvedValueOnce([body('Cut')]);
+		const d = { bodies, save: vi.fn(), belowPlane: vi.fn().mockResolvedValue('cut') };
+		await runExport(design(), 'obj', d);
+		expect(bodies).toHaveBeenNthCalledWith(2, expect.anything(), { cutBelowPlane: true });
+		expect(String(d.save.mock.calls[0]![1])).toContain('o Cut');
+	});
+
+	it('"cancel" exports nothing and says it was cancelled', async () => {
+		const d = { ...deps([under()]), belowPlane: vi.fn().mockResolvedValue('cancel') };
+		await expect(runExport(design(), 'stl', d)).rejects.toBeInstanceOf(ExportCancelled);
+		expect(d.save).not.toHaveBeenCalled();
+	});
+
+	it('says so when cutting leaves nothing to export', async () => {
+		const bodies = vi.fn().mockResolvedValueOnce([under()]).mockResolvedValueOnce([]);
+		const d = { bodies, save: vi.fn(), belowPlane: vi.fn().mockResolvedValue('cut') };
+		await expect(runExport(design(), 'stl', d)).rejects.toThrow(/nothing is left above the workplane/i);
+	});
+
+	it('does not ask when the caller has no way to ask (Hollow, Merge), and keeps the bodies', async () => {
+		const d = deps([under()]);
+		await expect(exportStlBytes(design(), d)).resolves.toBeDefined();
+		expect(d.bodies).toHaveBeenCalledTimes(1);
 	});
 });

@@ -12,15 +12,39 @@ export const EXPORT_FORMATS: ReadonlyArray<{ id: ExportFormat; label: string; hi
 	{ id: 'orca3mf', label: '3MF for OrcaSlicer', hint: 'Multi-colour filaments', mime: 'model/3mf', extension: '3mf' },
 ];
 
+export type BelowPlaneChoice = 'cut' | 'keep' | 'cancel';
+
 export interface ExportDeps {
-	/** Works out what to print: each solid with its holes cut, in the world. */
-	bodies: (design: Design) => Promise<ExportBody[]>;
+	/** Works out what to print: each solid with its holes cut, in the world (and, if asked, cut off at the workplane). */
+	bodies: (design: Design, options?: { cutBelowPlane?: boolean }) => Promise<ExportBody[]>;
 	save: (fileName: string, data: Uint8Array | string, mime: string) => void;
+	/** Asked when part of the design is below the workplane: cut it off, export it as it is, or cancel. Without it the part is kept. */
+	belowPlane?: () => Promise<BelowPlaneChoice>;
+}
+
+/** Thrown when the user cancels an export at the below-the-plane question: not a failure, so nothing is shown. */
+export class ExportCancelled extends Error {
+	constructor() {
+		super('The export was cancelled');
+		this.name = 'ExportCancelled';
+	}
+}
+
+/** Whether any body has a corner below the workplane (z under 0). */
+export function reachesBelowPlane(bodies: readonly ExportBody[]): boolean {
+	return bodies.some((b) => {
+		for (let i = 2; i < b.mesh.positions.length; i += 3) if (b.mesh.positions[i]! < -1e-4) return true;
+		return false;
+	});
 }
 
 /** The real thing: the geometry worker, given the imported models the design uses, and a browser download. */
-export function exportDeps(meshes: ReadonlyMap<string, MeshData>): ExportDeps {
-	return { bodies: (design) => exportBodiesInWorker(design, meshes), save: downloadFile };
+export function exportDeps(meshes: ReadonlyMap<string, MeshData>, belowPlane?: () => Promise<BelowPlaneChoice>): ExportDeps {
+	return {
+		bodies: (design, options) => exportBodiesInWorker(design, meshes, options),
+		save: downloadFile,
+		...(belowPlane ? { belowPlane } : {}),
+	};
 }
 
 /** The same design with only the selected top-level shapes and groups left to export. */
@@ -46,9 +70,21 @@ interface BuiltExport {
 	mime: string;
 }
 
+/** The bodies to export: as they are, or (when some are below the workplane and the user says so) cut off at it. Throws `ExportCancelled` on cancel. */
+async function settleBelowPlane(design: Design, bodies: ExportBody[], deps: ExportDeps): Promise<ExportBody[]> {
+	if (!deps.belowPlane || !reachesBelowPlane(bodies)) return bodies;
+	const choice = await deps.belowPlane();
+	if (choice === 'cancel') throw new ExportCancelled();
+	if (choice === 'keep') return bodies;
+	const cut = await deps.bodies(design, { cutBelowPlane: true });
+	if (cut.length === 0) throw new Error('Nothing is left above the workplane to export: move the design up, or keep the part below it');
+	return cut;
+}
+
 async function buildExport(design: Design, format: ExportFormat, deps: ExportDeps): Promise<BuiltExport> {
-	const bodies = await deps.bodies(design);
-	if (bodies.length === 0) throw new Error('Nothing to export: there are no solid shapes in this design');
+	const whole = await deps.bodies(design);
+	if (whole.length === 0) throw new Error('Nothing to export: there are no solid shapes in this design');
+	const bodies = await settleBelowPlane(design, whole, deps);
 
 	const info = EXPORT_FORMATS.find((f) => f.id === format)!;
 	const data =

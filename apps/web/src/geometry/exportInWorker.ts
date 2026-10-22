@@ -7,7 +7,11 @@ import type { WorkerRequest, WorkerResponse } from './geometry.worker.ts';
  * is rare and has to wait for the whole design, so a short-lived worker (which loads the WebAssembly
  * again) keeps it clear of the editor's live preview worker.
  */
-export function exportBodiesInWorker(design: Design, meshes: ReadonlyMap<string, MeshData>): Promise<ExportBody[]> {
+export function exportBodiesInWorker(
+	design: Design,
+	meshes: ReadonlyMap<string, MeshData>,
+	options: { cutBelowPlane?: boolean } = {},
+): Promise<ExportBody[]> {
 	return new Promise((resolve, reject) => {
 		const worker = new Worker(new URL('./geometry.worker.ts', import.meta.url), { type: 'module' });
 		const finish = () => worker.terminate();
@@ -23,7 +27,13 @@ export function exportBodiesInWorker(design: Design, meshes: ReadonlyMap<string,
 			reject(new Error(event.message || 'The geometry worker stopped unexpectedly'));
 		};
 
-		const request: WorkerRequest = { kind: 'export', id: 1, design: { nodes: design.nodes, roots: design.roots }, meshes };
+		const request: WorkerRequest = {
+			kind: 'export',
+			id: 1,
+			design: { nodes: design.nodes, roots: design.roots },
+			meshes,
+			cutBelowPlane: !!options.cutBelowPlane,
+		};
 		worker.postMessage(request);
 	});
 }

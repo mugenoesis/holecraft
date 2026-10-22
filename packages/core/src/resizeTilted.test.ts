@@ -89,10 +89,10 @@ describe('dragHandleTilted', () => {
 		near(sizes(got), sizes(box));
 	});
 
-	it('does not lift it below the workplane: it rests on its lowest corner', () => {
-		// turned on its side the shape reaches 10 below its base centre, so the base centre cannot go under 10
+	it('can lift it through the workplane: its lowest corner may go under it', () => {
+		// turned on its side the shape reaches 10 below its base centre, so the base centre at 3 puts its lowest corner 7 mm under the plane
 		const got = dragHandleTilted(box, onItsSide, 'lift', [0, -20, 3], off);
-		near(origin(got), [0, 0, 10]);
+		near(origin(got), [0, 0, 3]);
 	});
 });
 

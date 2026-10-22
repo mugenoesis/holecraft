@@ -97,9 +97,9 @@ describe('dropToPlane', () => {
 });
 
 describe('setPosition with a height', () => {
-	it('sets Z, and rejects a negative Z', () => {
+	it('sets Z, and takes a negative Z (the shape goes through the workplane)', () => {
 		const s = run(selectedBox(), { type: 'setPosition', id: 'a', at: [0, 0, 12] });
 		expect(pos(s, 'a')).toEqual([0, 0, 12]);
-		expect(run(s, { type: 'setPosition', id: 'a', at: [0, 0, -3] })).toBe(s);
+		expect(pos(run(s, { type: 'setPosition', id: 'a', at: [0, 0, -3] }), 'a')).toEqual([0, 0, -3]);
 	});
 });

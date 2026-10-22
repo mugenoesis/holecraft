@@ -2590,3 +2590,11 @@ button.primary:disabled {
 .dashboard-foot {
 	margin-top: 24px;
 }
+
+/* The question asked when part of an export is below the workplane */
+.ask-dialog {
+	width: min(480px, 92vw);
+}
+.ask-dialog p {
+	font-size: 0.95rem;
+}

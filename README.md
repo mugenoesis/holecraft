@@ -106,6 +106,8 @@ completely are left out. The file is named after the design. The files have been
 independent mesh library (`scripts/verify-exports.sh`): closed, consistently wound, the right volume.
 In the desktop app you choose where to save; set `HOLECRAFT_DOWNLOAD_DIR` to save straight into a folder.
 
+**Going through the workplane.** A shape can be lifted below the workplane, by dragging its lift handle past the plane or typing a negative **Z**, so that part of it is underground (down to 1000 mm). A hole never decides how tall a group is or where it sits: a hole cube under a solid cube leaves a group as tall as the solid one, standing where the solid one stands, and **Drop to workplane** rests the lowest solid point on the plane. When what you export (a file, or Send to Trident) has any part below the plane, Holecraft asks first: **Cut off at the workplane** removes everything under the plane from the file and leaves a flat bottom (a part wholly underground is left out; painting on a part that is cut is dropped), **Export as it is** keeps the whole shape where it is for the slicer to deal with (most slicers lift it onto the bed), and **Cancel** exports nothing. Nothing is asked when everything is on or above the plane. Hollow, Merge and the support-point request keep the shape as it is and do not ask.
+
 ### Send to Trident
 
 If you run Trident Studio (version 0.6 or later), **Export, Send to Trident** uploads the design to it and opens it there, with the palette

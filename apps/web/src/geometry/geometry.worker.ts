@@ -20,7 +20,7 @@ export type WorkerRequest =
 	| { kind: 'group'; id: number; subtree: Subtree; meshes: ReadonlyMap<string, MeshData> }
 	| { kind: 'edges'; id: number; subtree: Subtree; meshes: ReadonlyMap<string, MeshData>; treated?: boolean }
 	| { kind: 'svg'; id: number; text: string; depth: number }
-	| { kind: 'export'; id: number; design: Pick<Design, 'nodes' | 'roots'>; meshes: ReadonlyMap<string, MeshData> };
+	| { kind: 'export'; id: number; design: Pick<Design, 'nodes' | 'roots'>; meshes: ReadonlyMap<string, MeshData>; cutBelowPlane?: boolean };
 
 export type WorkerResponse =
 	| { id: number; mesh: GroupMesh | null }
@@ -42,7 +42,7 @@ scope.onmessage = async ({ data }) => {
 		const manifold = await ready;
 
 		if (data.kind === 'export') {
-			const bodies = collectBodies(manifold, data.design, data.meshes);
+			const bodies = collectBodies(manifold, data.design, data.meshes, { cutBelowPlane: !!data.cutBelowPlane });
 			// Hand the buffers over rather than copying them.
 			scope.postMessage(
 				{ id: data.id, bodies },
