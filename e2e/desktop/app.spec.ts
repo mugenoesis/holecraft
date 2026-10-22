@@ -112,6 +112,39 @@ test.describe('desktop app', () => {
 		}
 	});
 
+	test('loads a font that is not the default when it is picked, so the packaged app serves the font files and the worker reads them', async () => {
+		const downloads = path.join(dataDir, 'downloads');
+		const app = await electron.launch({
+			executablePath,
+			args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+			env: { ...process.env, HOLECRAFT_DATA_DIR: dataDir, HOLECRAFT_DOWNLOAD_DIR: downloads },
+		});
+		try {
+			const win = await app.firstWindow();
+			await win.waitForLoadState('load');
+			await win.getByRole('button', { name: 'New design' }).click();
+			await expect(win.getByTestId('viewport').locator('canvas')).toBeVisible();
+			await win.getByRole('region', { name: 'Shapes' }).getByRole('button', { name: 'Text', exact: true }).press('Enter');
+			await win
+				.getByTestId('object-list')
+				.getByRole('button', { name: /^Text 1 / })
+				.click();
+			await win.getByRole('region', { name: 'Properties' }).getByLabel('Font', { exact: true }).selectOption({ label: 'Script' });
+			await expect(
+				win.getByRole('region', { name: 'Properties' }).getByLabel('Font', { exact: true }).locator('option:checked'),
+			).toHaveText('Script');
+
+			await win.getByRole('button', { name: 'Export', exact: true }).click();
+			await win.getByRole('menuitem', { name: /as STL/ }).click();
+			const saved = path.join(downloads, 'Untitled design.stl');
+			await expect.poll(() => existsSync(saved), { timeout: 15_000 }).toBe(true);
+			// letters, not a placeholder box (a box is 12 triangles)
+			expect(readFileSync(saved).readUInt32LE(80)).toBeGreaterThan(200);
+		} finally {
+			await app.close();
+		}
+	});
+
 	test('imports a compressed 3MF model and keeps it after a restart', async () => {
 		const launch = () =>
 			electron.launch({

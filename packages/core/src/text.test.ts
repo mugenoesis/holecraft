@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { FONT_DATA } from './fonts/fontData.generated.ts';
 import { FONTS, fontById, TEXT_MAX_LENGTH, textMetrics, textOutlines } from './text.ts';
+
+const SANS = fontById(1)!;
 
 const area = (poly: readonly (readonly [number, number])[]) =>
 	poly.reduce((sum, [x, y], i) => sum + (x * poly[(i + 1) % poly.length]![1] - poly[(i + 1) % poly.length]![0] * y), 0) / 2;
@@ -40,14 +41,14 @@ describe('textMetrics', () => {
 		const h = textMetrics('H', 1)!;
 		expect(h.depth).toBeGreaterThan(0.7);
 		expect(h.depth).toBeLessThan(0.76);
-		const data = FONT_DATA.sans.glyphs[0x48]!;
-		expect(h.depth).toBeCloseTo((data.box[3] - data.box[1]) / FONT_DATA.sans.unitsPerEm, 9);
-		expect(h.width).toBeCloseTo((data.box[2] - data.box[0]) / FONT_DATA.sans.unitsPerEm, 9);
+		const data = SANS.glyphs[0x48]!;
+		expect(h.depth).toBeCloseTo((data.box[3] - data.box[1]) / SANS.unitsPerEm, 9);
+		expect(h.width).toBeCloseTo((data.box[2] - data.box[0]) / SANS.unitsPerEm, 9);
 	});
 
 	it('moves along by each letter’s advance: HH is H wider by exactly one advance', () => {
 		const [one, two] = [textMetrics('H', 1)!, textMetrics('HH', 1)!];
-		expect(two.width - one.width).toBeCloseTo(FONT_DATA.sans.glyphs[0x48]!.advance / FONT_DATA.sans.unitsPerEm, 9);
+		expect(two.width - one.width).toBeCloseTo(SANS.glyphs[0x48]!.advance / SANS.unitsPerEm, 9);
 		expect(two.depth).toBeCloseTo(one.depth, 9);
 	});
 
@@ -99,7 +100,7 @@ describe('textOutlines', () => {
 	it('puts letters side by side: the second letter’s outline is the first’s moved along by the advance', () => {
 		const [one, two] = [textOutlines('l', 1)!, textOutlines('ll', 1)!];
 		expect(two.polygons).toHaveLength(2 * one.polygons.length);
-		const advance = FONT_DATA.sans.glyphs[0x6c]!.advance / FONT_DATA.sans.unitsPerEm;
+		const advance = SANS.glyphs[0x6c]!.advance / SANS.unitsPerEm;
 		const [first, second] = [two.polygons[0]!, two.polygons[1]!];
 		expect(second[0]![0] - first[0]![0]).toBeCloseTo(advance, 6);
 		expect(second[0]![1]).toBeCloseTo(first[0]![1], 9);
@@ -134,14 +135,20 @@ describe('the added fonts', () => {
 	});
 
 	it('keep the outlines of the first four unchanged (a saved design must look as it did): the capital H is as it was', () => {
-		const h = (k: 'sans' | 'serif' | 'mono' | 'script') => {
-			const g = FONT_DATA[k].glyphs[0x48]!;
-			return [FONT_DATA[k].unitsPerEm, g.advance, ...g.box, g.path.length, Object.keys(FONT_DATA[k].glyphs).length];
+		const h = (id: number) => {
+			const font = fontById(id)!;
+			const g = font.glyphs[0x48]!;
+			return [font.unitsPerEm, g.advance, ...g.box, g.path.length, Object.keys(font.glyphs).length];
 		};
-		expect(h('sans')).toEqual([2048, 1530, 135, 0, 1395, 1490, 105, 190]);
-		expect(h('serif')).toEqual([1000, 819, 28, 0, 792, 714, 658, 191]);
-		expect(h('mono')).toEqual([2048, 1229, 123, 0, 1092, 1456, 101, 191]);
-		expect(h('script')).toEqual([1000, 665, 12, 0, 694, 750, 294, 191]);
-		expect(Object.keys(FONT_DATA).slice(0, 4)).toEqual(['sans', 'serif', 'mono', 'script']);
+		expect(h(1)).toEqual([2048, 1530, 135, 0, 1395, 1490, 105, 190]);
+		expect(h(2)).toEqual([1000, 819, 28, 0, 792, 714, 658, 191]);
+		expect(h(3)).toEqual([2048, 1229, 123, 0, 1092, 1456, 101, 191]);
+		expect(h(4)).toEqual([1000, 665, 12, 0, 694, 750, 294, 191]);
+		expect(FONTS.slice(0, 4).map((f) => [f.id, f.label])).toEqual([
+			[1, 'Sans'],
+			[2, 'Serif'],
+			[3, 'Mono'],
+			[4, 'Script'],
+		]);
 	});
 });
