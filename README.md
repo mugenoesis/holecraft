@@ -26,8 +26,8 @@ independent project with its own code and design, and it runs entirely on your o
 > cylinder, **Merge**, **Model check and repair** for imported models, an **X-ray** view; colour painting and a filament
 > palette; **import** (STL, OBJ, 3MF, SVG) and **export** (STL, OBJ, 3MF, and 3MF for OrcaSlicer); **Send to Trident**
 > and resin tools (hollowing, drain holes, tilt, support points) with a [Trident Studio](https://github.com/mugenoesis/Trident)
-> slicer. Still to come: more Sketch tools (revolve, dimensions), packaging (Flatpak, multi-arch Docker, login)
-> and version history. There is no authentication, so keep it on a trusted network.
+> slicer. Still to come: more Sketch tools (revolve, dimensions) and packaging (Flatpak, multi-arch Docker, login).
+> There is no authentication, so keep it on a trusted network.
 
 ## Colours and multi-colour printing
 
