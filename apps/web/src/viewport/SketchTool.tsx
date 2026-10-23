@@ -46,6 +46,7 @@ const FLOOR: WorkPlane = { origin: [0, 0, 0], normal: [0, 0, 1] };
 /** How near (pixels) a press must be to a point of the drawing to take hold of it. */
 const REACH_PX = 10;
 const DEFAULT_HEIGHT = 10;
+const DEFAULT_RADIUS = '2';
 const keyOf = (e: KeyboardEvent): SketchAction => ({ type: 'key', key: e.key, ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey });
 const HANDLED_KEYS = new Set(['Enter', 'Backspace', 'Delete', 'Escape']);
 
@@ -125,6 +126,7 @@ export function SketchTool({ getViewport, design, plane, editId, camera, onFinis
 		(outlines): SketchEditorState => ({ ...createSketchEditor(outlines), tool: editId ? 'select' : 'rectangle' }),
 	);
 	const [height, setHeight] = useState(start.height);
+	const [radius, setRadius] = useState(DEFAULT_RADIUS);
 	const [problem, setProblem] = useState<string | null>(null);
 	const { frame } = start;
 
@@ -135,6 +137,11 @@ export function SketchTool({ getViewport, design, plane, editId, camera, onFinis
 	const toScreen = (p: SketchPoint): [number, number] => {
 		const at = viewport?.project(fromFrame(frame, p));
 		return at ? [at.x, at.y] : [0, 0];
+	};
+	const round = () => {
+		const mm = Number(radius);
+		if (!(mm > 0 && mm <= 1000)) return setProblem('The corner radius must be a number above 0 and up to 1000 mm');
+		dispatch({ type: 'fillet', radius: mm });
 	};
 	const finish = () => {
 		const mm = Number(height);
@@ -158,6 +165,7 @@ export function SketchTool({ getViewport, design, plane, editId, camera, onFinis
 				sides={state.sides}
 				snap={state.snap}
 				height={height}
+				radius={radius}
 				hint={problem ?? sketchHint(state)}
 				canFinish={state.outlines.length > 0}
 				canDelete={state.selected !== null}
@@ -173,6 +181,11 @@ export function SketchTool({ getViewport, design, plane, editId, camera, onFinis
 				onDelete={() => dispatch({ type: 'key', key: 'Delete' })}
 				onStraighten={() => dispatch({ type: 'straighten' })}
 				onSmooth={() => dispatch({ type: 'smooth' })}
+				onRadius={(text) => {
+					setRadius(text);
+					setProblem(null);
+				}}
+				onRound={round}
 				onCancel={onCancel}
 				onFinish={finish}
 			/>

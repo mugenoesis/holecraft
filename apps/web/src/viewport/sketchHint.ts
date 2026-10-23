@@ -31,7 +31,7 @@ export function sketchHint(state: SketchEditorState): string {
 	if (tool === 'spline') return splineHint(state);
 	if (tool === 'select') {
 		return state.selected
-			? 'Drag to move it, a corner to reshape it, or a ◆ on a side to bend it · Delete removes it (a side goes straight again) · click empty space to let go'
+			? 'Drag to move it, a corner to reshape it, or a ◆ on a side to bend it · Round corners rounds the selected corner (or all of them) · Delete removes it (a side goes straight again) · click empty space to let go'
 			: 'Click an outline to select it (an outline inside another is a hole)';
 	}
 	if (tool === 'rectangle') return 'Drag from one corner to the opposite one';

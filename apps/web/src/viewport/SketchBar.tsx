@@ -7,6 +7,8 @@ interface Props {
 	snap: number;
 	/** The extrude height as typed (it can be half way to a number). */
 	height: string;
+	/** The corner radius as typed (it can be half way to a number). */
+	radius: string;
 	hint: string;
 	canFinish: boolean;
 	canDelete: boolean;
@@ -21,6 +23,8 @@ interface Props {
 	onDelete: () => void;
 	onStraighten: () => void;
 	onSmooth: () => void;
+	onRadius: (text: string) => void;
+	onRound: () => void;
 	onCancel: () => void;
 	onFinish: () => void;
 }
@@ -82,6 +86,25 @@ export function SketchBar(p: Props) {
 				</span>
 				{p.canReshape && (
 					<>
+						<span className="edge-size">
+							<label htmlFor="sketch-radius">Corner radius</label>
+							<input
+								id="sketch-radius"
+								type="text"
+								inputMode="decimal"
+								aria-label="Corner radius"
+								value={p.radius}
+								onChange={(e) => p.onRadius(e.target.value)}
+							/>
+							<span>mm</span>
+						</span>
+						<button
+							type="button"
+							onClick={p.onRound}
+							title="Round the selected corner, or every corner of the selected outline, with an arc of this radius"
+						>
+							Round corners
+						</button>
 						<button type="button" onClick={p.onStraighten} title="Make every side of the selected outline straight">
 							Straighten sides
 						</button>
