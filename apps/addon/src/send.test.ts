@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { IMPORT_CONTENT_TYPE, SendError, sendToHolecraft, sendToTrident, testHolecraft, testTrident } from './send.ts';
 import type { Settings } from './settings.ts';
 
-const settings: Settings = { holecraftUrl: 'http://tower:8200', tridentUrl: 'http://tower:8000', tridentKey: 'secret' };
+const settings: Settings = {
+	holecraftUrl: 'http://tower:8200',
+	tridentUrl: 'http://tower:8000',
+	tridentKey: 'secret',
+	showBanner: true,
+	showNotification: true,
+};
 const file = { name: 'Étagère (1).stl', bytes: new Uint8Array([1, 2, 3]) };
 const json = (status: number, body: unknown) =>
 	new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });

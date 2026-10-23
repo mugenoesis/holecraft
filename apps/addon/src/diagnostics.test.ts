@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { diagnose } from './diagnostics.ts';
 
 const full = {
+	notifications: { create: () => {} },
 	webRequest: { onHeadersReceived: {}, filterResponseData: () => {} },
-	tabs: { create: () => {}, onUpdated: {} },
+	tabs: { create: () => {}, onUpdated: {}, executeScript: () => {}, sendMessage: () => {} },
 	browserAction: { setBadgeText: () => {} },
 	storage: { local: {} },
 	runtime: { getManifest: () => ({ version: '1.2.3' }) },
@@ -35,6 +36,15 @@ describe('diagnose', () => {
 		const d = diagnose({ browser: { ...full, webRequest: undefined }, userAgent: 'x' });
 		expect(line(d, 'Watch downloads')?.ok).toBe(false);
 		expect(line(d, 'Watch downloads')?.required).toBe(true);
+	});
+
+	it('says whether it can put a banner on a page, and whether the browser has notifications (neither is needed)', () => {
+		const d = diagnose({ browser: full, userAgent: 'x' });
+		expect(line(d, 'Banner on the page')).toMatchObject({ ok: true, required: false });
+		expect(line(d, 'Notifications')).toMatchObject({ ok: true, required: false });
+		const none = diagnose({ browser: { ...full, notifications: undefined, tabs: { create: () => {} } }, userAgent: 'x' });
+		expect(line(none, 'Banner on the page')).toMatchObject({ ok: false, required: false });
+		expect(line(none, 'Notifications')).toMatchObject({ ok: false, required: false });
 	});
 
 	it('does not fall over for a browser that has almost nothing', () => {

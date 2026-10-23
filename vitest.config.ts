@@ -14,7 +14,7 @@ export default defineConfig({
 				'apps/server/src/main.ts', // the process entry point, exercised by the Docker smoke test
 				'apps/web/src/main.tsx',
 				'vitest.setup.ts',
-				'apps/addon/src/{background,popup,options,ui}.ts', // glue to the browser's own API, exercised by the browser tests in e2e/
+				'apps/addon/src/{background,popup,options,toast,ui}.ts', // glue to the browser's own API, exercised by the browser tests in e2e/
 			],
 			reporter: ['text-summary', 'html', 'lcov'],
 			// Floors, set just under what each package has today, so coverage can only go up. The web app's

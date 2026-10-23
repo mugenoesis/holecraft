@@ -43,7 +43,13 @@ function zipOf(entries: Record<string, string>): Uint8Array {
 	return new Uint8Array(Buffer.concat([...parts, dir, end]));
 }
 
-const settings: Settings = { holecraftUrl: 'http://hc:8200', tridentUrl: 'http://tr:8000', tridentKey: 'k' };
+const settings: Settings = {
+	holecraftUrl: 'http://hc:8200',
+	tridentUrl: 'http://tr:8000',
+	tridentKey: 'k',
+	showBanner: true,
+	showNotification: true,
+};
 let files: CaughtFiles;
 let stored: Settings;
 let opened: string[];
@@ -253,8 +259,14 @@ describe('settings', () => {
 	it('gives them back, and saves new ones tidied', async () => {
 		const handle = createController(deps);
 		expect(await handle({ type: 'getSettings' })).toEqual({ ok: true, data: settings });
-		const saved = await handle({ type: 'saveSettings', settings: { holecraftUrl: 'tower:8200/', tridentUrl: '', tridentKey: ' key ' } });
-		expect(saved).toEqual({ ok: true, data: { holecraftUrl: 'http://tower:8200', tridentUrl: '', tridentKey: 'key' } });
+		const saved = await handle({
+			type: 'saveSettings',
+			settings: { holecraftUrl: 'tower:8200/', tridentUrl: '', tridentKey: ' key ', showBanner: false, showNotification: true },
+		});
+		expect(saved).toEqual({
+			ok: true,
+			data: { holecraftUrl: 'http://tower:8200', tridentUrl: '', tridentKey: 'key', showBanner: false, showNotification: true },
+		});
 		expect(stored.holecraftUrl).toBe('http://tower:8200');
 	});
 

@@ -65,10 +65,21 @@ async function openAddon(page: Page, baseURL: string, over: Partial<Settings> = 
 	});
 	await page.exposeFunction('__background', (request: unknown) => handle(request as never));
 	await page.addInitScript(() => {
-		const w = window as unknown as { __background: (r: unknown) => Promise<unknown>; browser: unknown; __optionsOpened?: boolean };
+		const w = window as unknown as {
+			__background: (r: unknown) => Promise<unknown>;
+			browser: unknown;
+			__optionsOpened?: boolean;
+			__deliver: (message: unknown) => void;
+		};
+		// what a page's content script is given by the background page: it listens for messages, and the test sends one
+		const listeners: ((message: unknown) => void)[] = [];
+		w.__deliver = (message) => {
+			for (const l of listeners) l(message);
+		};
 		w.browser = {
 			runtime: {
 				sendMessage: (r: unknown) => w.__background(r),
+				onMessage: { addListener: (fn: (message: unknown) => void) => listeners.push(fn) },
 				openOptionsPage: async () => {
 					w.__optionsOpened = true;
 				},
@@ -76,6 +87,12 @@ async function openAddon(page: Page, baseURL: string, over: Partial<Settings> = 
 		};
 	});
 	await page.route(`${ORIGIN}/**`, async (route) => {
+		if (new URL(route.request().url()).pathname === '/page.html') {
+			return route.fulfill({
+				body: '<!doctype html><html lang="en"><title>A model page</title><main><h1>A page on a site</h1><p>Some text</p></main>',
+				contentType: 'text/html',
+			});
+		}
 		const name = new URL(route.request().url()).pathname.slice(1);
 		try {
 			const body = await readFile(path.join(DIST, name));
@@ -236,5 +253,140 @@ test.describe('the add-on’s settings page', () => {
 		await page.goto(`${ORIGIN}/options.html`);
 		await expect(page.getByRole('heading', { name: 'Holecraft Send: settings' })).toBeVisible();
 		expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze()).violations).toEqual([]);
+	});
+});
+
+const banner = (page: Page) => page.locator('#holecraft-send-banner');
+
+/** Opens a page that stands for the one a file came down in, and gives it the banner script, as the background page does. */
+async function pageWithBanner(page: Page) {
+	await page.goto(`${ORIGIN}/page.html`);
+	await page.addScriptTag({ path: path.join(DIST, 'toast.js') });
+}
+const announce = (page: Page, id: string) =>
+	page.evaluate(
+		(fileId) => (window as unknown as { __deliver: (m: unknown) => void }).__deliver({ type: 'holecraft-send-banner', id: fileId }),
+		id,
+	);
+
+test.describe('the banner on the page a file came down in', () => {
+	test('says what was caught, and has the buttons to send it', async ({ page, baseURL }) => {
+		const h = await openAddon(page, baseURL!, { tridentUrl: 'http://127.0.0.1:1' });
+		const id = caughtModel(h);
+		await pageWithBanner(page);
+		await announce(page, id);
+		await expect(banner(page).getByText('Caught Gear.stl')).toBeVisible();
+		await expect(banner(page).getByText(/MakerWorld · 684 B/)).toBeVisible();
+		await expect(banner(page).getByRole('button', { name: 'Open in Holecraft' })).toBeEnabled();
+		await expect(banner(page).getByRole('button', { name: 'Open in Trident' })).toBeEnabled();
+		await expect(banner(page).getByRole('button', { name: 'Hide' })).toBeVisible();
+	});
+
+	test('Open in Holecraft sends the file so it opens as a design, and the banner goes', async ({ page, baseURL }) => {
+		const h = await openAddon(page, baseURL!);
+		const id = caughtModel(h);
+		await pageWithBanner(page);
+		await announce(page, id);
+		await banner(page).getByRole('button', { name: 'Open in Holecraft' }).click();
+		await expect.poll(() => h.opened.length).toBe(1);
+		await expect(banner(page).getByText('Caught Gear.stl')).toHaveCount(0);
+		expect(h.files.count()).toBe(0);
+		const editor = await page.context().newPage();
+		await editor.goto(h.opened[0]!);
+		await expect(editor.getByTestId('object-list').locator('li')).toHaveCount(1);
+	});
+
+	test('shows why sending failed in the banner, keeps the file, and lets it be tried again', async ({ page, baseURL }) => {
+		const h = await openAddon(page, baseURL!, { holecraftUrl: 'http://127.0.0.1:1' });
+		const id = caughtModel(h);
+		await pageWithBanner(page);
+		await announce(page, id);
+		await banner(page).getByRole('button', { name: 'Open in Holecraft' }).click();
+		await expect(banner(page).getByRole('alert')).toContainText('Could not reach Holecraft at http://127.0.0.1:1');
+		await expect(banner(page).getByRole('button', { name: 'Open in Holecraft' })).toBeEnabled();
+		expect(h.files.count()).toBe(1);
+	});
+
+	test('Hide takes the banner away but keeps the file for the toolbar button', async ({ page, baseURL }) => {
+		const h = await openAddon(page, baseURL!);
+		const id = caughtModel(h);
+		await pageWithBanner(page);
+		await announce(page, id);
+		await banner(page).getByRole('button', { name: 'Hide' }).click();
+		await expect(banner(page).getByText('Caught Gear.stl')).toHaveCount(0);
+		expect(h.files.count()).toBe(1);
+	});
+
+	test('shows a banner for each file, and one banner only however often the script is put on the page', async ({ page, baseURL }) => {
+		const h = await openAddon(page, baseURL!);
+		const a = caughtModel(h, 'A.stl');
+		const b = caughtModel(h, 'B.stl');
+		await pageWithBanner(page);
+		await page.addScriptTag({ path: path.join(DIST, 'toast.js') });
+		await announce(page, a);
+		await announce(page, b);
+		await expect(banner(page).getByText('Caught A.stl')).toHaveCount(1);
+		await expect(banner(page).getByText('Caught B.stl')).toHaveCount(1);
+	});
+
+	test('offers each model in a zip for Trident, as the popup does', async ({ page, baseURL }) => {
+		const h = await openAddon(page, baseURL!, { tridentUrl: 'http://127.0.0.1:1' });
+		const id = h.files.add({
+			name: 'Kit.zip',
+			kind: 'zip',
+			size: null,
+			url: 'https://cdn.example.com/Kit.zip',
+			site: 'Printables',
+			bytes: new Uint8Array(deflatedZip({ 'Left.stl': cubeStl(10), 'Right.stl': cubeStl(10) })),
+		});
+		await pageWithBanner(page);
+		await announce(page, id);
+		await expect(banner(page).getByRole('button', { name: 'Open in Trident: Left.stl' })).toBeVisible();
+		await expect(banner(page).getByRole('button', { name: 'Open in Trident: Right.stl' })).toBeVisible();
+	});
+
+	test('does not let the page change how it looks (it lives in a shadow root)', async ({ page, baseURL }) => {
+		const h = await openAddon(page, baseURL!);
+		const id = caughtModel(h);
+		await pageWithBanner(page);
+		await page.addStyleTag({ content: 'button { display: none !important; } .card, .title { color: red !important; }' });
+		await announce(page, id);
+		await expect(banner(page).getByRole('button', { name: 'Open in Holecraft' })).toBeVisible();
+	});
+
+	test('says nothing for a file that is gone', async ({ page, baseURL }) => {
+		await openAddon(page, baseURL!);
+		await pageWithBanner(page);
+		await announce(page, 'not-there');
+		await page.waitForTimeout(300);
+		await expect(banner(page)).toHaveCount(0);
+	});
+
+	test('passes the accessibility scan', async ({ page, baseURL }) => {
+		const h = await openAddon(page, baseURL!);
+		const id = caughtModel(h);
+		await pageWithBanner(page);
+		await announce(page, id);
+		await expect(banner(page).getByText('Caught Gear.stl')).toBeVisible();
+		expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).include('#holecraft-send-banner').analyze()).violations).toEqual(
+			[],
+		);
+	});
+});
+
+test.describe('the settings page: telling you about a file', () => {
+	test('has a banner on and a notification off to start with, and keeps what is chosen', async ({ page, baseURL }) => {
+		const h = await openAddon(page, baseURL!);
+		await page.goto(`${ORIGIN}/options.html`);
+		await expect(page.getByLabel(/Show a banner on the page/)).toBeChecked();
+		await expect(page.getByLabel(/Also show a notification/)).not.toBeChecked();
+		await page.getByLabel(/Show a banner on the page/).uncheck();
+		await page.getByLabel(/Also show a notification/).check();
+		await page.getByRole('button', { name: 'Save' }).click();
+		await expect(page.locator('#saved')).toHaveText('Saved');
+		expect([h.settings.showBanner, h.settings.showNotification]).toEqual([false, true]);
+		await page.reload();
+		await expect(page.getByLabel(/Show a banner on the page/)).not.toBeChecked();
+		await expect(page.getByLabel(/Also show a notification/)).toBeChecked();
 	});
 });

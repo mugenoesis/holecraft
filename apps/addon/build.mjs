@@ -13,7 +13,7 @@ await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 
 await build({
-	entryPoints: { background: 'src/background.ts', popup: 'src/popup.ts', options: 'src/options.ts' },
+	entryPoints: { background: 'src/background.ts', popup: 'src/popup.ts', options: 'src/options.ts', toast: 'src/toast.ts' },
 	outdir: dist,
 	bundle: true,
 	format: 'iife',
@@ -42,7 +42,17 @@ const crc32 = (data) => {
 	for (const byte of data) c = crcTable[(c ^ byte) & 0xff] ^ (c >>> 8);
 	return (c ^ 0xffffffff) >>> 0;
 };
-const names = ['manifest.json', 'background.js', 'popup.js', 'popup.html', 'options.js', 'options.html', 'addon.css', 'icon.png'];
+const names = [
+	'manifest.json',
+	'background.js',
+	'popup.js',
+	'popup.html',
+	'options.js',
+	'options.html',
+	'toast.js',
+	'addon.css',
+	'icon.png',
+];
 const locals = [];
 const centrals = [];
 let offset = 0;

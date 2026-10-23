@@ -33,8 +33,15 @@ describe('the add-on manifest', () => {
 		expect(manifest.browser_specific_settings.gecko.data_collection_permissions).toEqual({ required: ['none'] });
 	});
 
-	it('asks only for what it uses: to see and copy responses, open tabs and keep settings', () => {
-		expect([...manifest.permissions].sort()).toEqual(['<all_urls>', 'storage', 'tabs', 'webRequest', 'webRequestBlocking']);
+	it('asks only for what it uses: to see and copy responses, open tabs, keep settings and (when turned on) notify', () => {
+		expect([...manifest.permissions].sort()).toEqual([
+			'<all_urls>',
+			'notifications',
+			'storage',
+			'tabs',
+			'webRequest',
+			'webRequestBlocking',
+		]);
 	});
 
 	it('runs on Firefox for Android too', () => {
@@ -43,6 +50,8 @@ describe('the add-on manifest', () => {
 
 	it('names pages and scripts that exist (the built ones come from src/, the rest from static/)', async () => {
 		const built = new Set(['background.js', 'popup.js', 'options.js', 'icon.png']);
+		// toast.js is put on a page by the background page (tabs.executeScript), so the manifest does not name it, but there has to be something to build it from
+		await expect(readFile(path.join(here, 'src/toast.ts'))).resolves.toBeDefined();
 		const named = [
 			...manifest.background.scripts,
 			manifest.browser_action.default_popup,

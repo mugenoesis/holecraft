@@ -35,7 +35,7 @@
 			"project": ["src/**/*.ts"]
 		},
 		"apps/addon": {
-			"entry": ["src/background.ts", "src/popup.ts", "src/options.ts"],
+			"entry": ["src/background.ts", "src/popup.ts", "src/options.ts", "src/toast.ts"],
 			"project": ["src/**/*.ts"]
 		}
 	}

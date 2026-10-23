@@ -38,6 +38,18 @@ export function diagnose(env: { browser: Record<string, unknown>; userAgent: str
 				required: false,
 			},
 			{
+				label: 'Banner on the page',
+				ok: has(b.tabs as Loose, 'executeScript') && has(b.tabs as Loose, 'sendMessage'),
+				detail: 'Lets a banner with the buttons appear on the page a file came down in',
+				required: false,
+			},
+			{
+				label: 'Notifications',
+				ok: has(b.notifications as Loose, 'create'),
+				detail: 'Lets the browser tell you a file was caught (turn it on in the settings)',
+				required: false,
+			},
+			{
 				label: 'Open a tab',
 				ok: has(b.tabs as Loose, 'create'),
 				detail: 'Needed to open Holecraft or Trident after sending',

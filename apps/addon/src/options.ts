@@ -17,12 +17,16 @@ async function save(): Promise<void> {
 		holecraftUrl: field('holecraftUrl').value,
 		tridentUrl: field('tridentUrl').value,
 		tridentKey: field('tridentKey').value,
+		showBanner: field('showBanner').checked,
+		showNotification: field('showNotification').checked,
 	};
 	const out = await ask<Settings>({ type: 'saveSettings', settings });
 	if (!out.ok) return show('saved', out.error, true);
 	field('holecraftUrl').value = out.data.holecraftUrl;
 	field('tridentUrl').value = out.data.tridentUrl;
 	field('tridentKey').value = out.data.tridentKey;
+	field('showBanner').checked = out.data.showBanner;
+	field('showNotification').checked = out.data.showNotification;
 	show('saved', 'Saved', false);
 }
 
@@ -73,6 +77,8 @@ async function load() {
 		field('holecraftUrl').value = out.data.holecraftUrl;
 		field('tridentUrl').value = out.data.tridentUrl;
 		field('tridentKey').value = out.data.tridentKey;
+		field('showBanner').checked = out.data.showBanner;
+		field('showNotification').checked = out.data.showNotification;
 	}
 	await Promise.all([showDiagnostics(), showRecent()]);
 }

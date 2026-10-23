@@ -19,7 +19,7 @@ export interface PopupAction {
 	hint: string;
 }
 
-interface PopupRow {
+export interface PopupRow {
 	id: string;
 	title: string;
 	detail: string;
@@ -76,4 +76,14 @@ export function popupView(state: State, zipModels: Readonly<Record<string, reado
 		};
 	});
 	return { message: '', rows };
+}
+
+/** The row for one caught file, as the popup would show it (null if it is no longer there): what the banner on the page shows. */
+export function rowFor(state: State, zipModels: Readonly<Record<string, readonly string[]>>, id: string): PopupRow | null {
+	return popupView({ ...state, files: state.files.filter((f) => f.id === id) }, zipModels).rows[0] ?? null;
+}
+
+/** The words of the browser's notification when a file is caught. */
+export function noticeText(file: { name: string; site: string }): { title: string; message: string } {
+	return { title: 'Holecraft Send', message: `${file.name} from ${file.site} is ready to send to Holecraft or Trident. Tap to choose.` };
 }
