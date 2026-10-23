@@ -1,4 +1,5 @@
 import type { CaughtFiles } from './caught.ts';
+import { mayDeleteDownload } from './cleanup.ts';
 import type { Diagnostics } from './diagnostics.ts';
 import type { Reply, Request, State, Target } from './messages.ts';
 import { baseName, modelNamesIn, TRIDENT_EXTENSIONS } from './names.ts';
@@ -19,6 +20,8 @@ export interface ControllerDeps {
 	onChange: () => void;
 	/** The biggest file carried. */
 	maxBytes: number;
+	/** Deletes the file the browser saved for a caught file, and says what it did. Missing where the browser cannot (Firefox for Android). */
+	deleteDownload?: ((file: { url: string; name: string; at: number }) => Promise<string>) | undefined;
 }
 
 const ok = <T>(data: T): Reply<T> => ({ ok: true, data });
@@ -66,6 +69,28 @@ export function createController(deps: ControllerDeps): (request: Request) => Pr
 		return { name: baseName(found.name), bytes: await extractZipEntry(file.bytes, found) };
 	}
 
+	/** Deletes the downloaded file after a send, writing what happened in the log: a failure here never undoes the sending. */
+	async function removeDownloaded(caught: { name: string; url: string; site: string; at: number }): Promise<void> {
+		if (!deps.deleteDownload) return;
+		let note: string;
+		try {
+			note = await deps.deleteDownload({ url: caught.url, name: caught.name, at: caught.at });
+		} catch (error) {
+			note = `Could not delete the downloaded file: ${error instanceof Error ? error.message : 'unknown problem'}`;
+		}
+		deps.log.add({
+			at: Date.now(),
+			site: caught.site,
+			url: '',
+			status: 200,
+			contentType: '',
+			disposition: '',
+			name: caught.name,
+			kind: null,
+			note,
+		});
+	}
+
 	async function send(id: string, to: Target, entry: string | undefined): Promise<Reply> {
 		const settings = await deps.loadSettings();
 		const file = await bytesOf(id);
@@ -73,8 +98,10 @@ export function createController(deps: ControllerDeps): (request: Request) => Pr
 			to === 'holecraft'
 				? await sendToHolecraft(settings, file, deps.fetchFn)
 				: await sendToTrident(settings, await forTrident(file, entry), deps.fetchFn);
+		const caught = deps.files.get(id);
 		deps.files.remove(id);
 		deps.onChange();
+		if (caught && settings.deleteAfterSend && mayDeleteDownload(caught.kind, to)) await removeDownloaded(caught);
 		await deps.openTab(openUrl);
 		return ok(null);
 	}

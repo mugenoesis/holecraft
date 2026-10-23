@@ -13,7 +13,8 @@
 		"gecko_android": { "strict_min_version": "128.0" }
 	},
 	"icons": { "48": "icon.png", "96": "icon.png" },
-	"permissions": ["webRequest", "webRequestBlocking", "tabs", "storage", "<all_urls>"],
+	"permissions": ["webRequest", "webRequestBlocking", "tabs", "storage", "notifications", "<all_urls>"],
+	"optional_permissions": ["downloads"],
 	"background": { "scripts": ["background.js"], "persistent": true },
 	"browser_action": {
 		"default_title": "Holecraft Send",

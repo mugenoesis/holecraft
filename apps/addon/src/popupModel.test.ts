@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { State } from './messages.ts';
-import { popupView, sizeText } from './popupModel.ts';
+import { noticeText, popupView, rowFor, sizeText } from './popupModel.ts';
 
 const file = (over: Record<string, unknown> = {}) => ({
 	id: 'f1',
@@ -88,5 +88,35 @@ describe('popupView', () => {
 	it('is newest first, as it is given', () => {
 		const v = popupView(state({ files: [file({ id: 'b', name: 'B.stl' }), file({ id: 'a', name: 'A.stl' })] }), {});
 		expect(v.rows.map((r) => r.id)).toEqual(['b', 'a']);
+	});
+});
+
+describe('rowFor', () => {
+	it('is the row of one caught file, with the same buttons the popup gives it', () => {
+		const s = state({ files: [file({ id: 'a', name: 'A.stl' }), file({ id: 'b', name: 'B.stl' })] });
+		const row = rowFor(s, {}, 'b');
+		expect(row?.id).toBe('b');
+		expect(row?.title).toBe('B.stl');
+		expect(row?.actions.map((a) => a.label)).toEqual(['Open in Holecraft', 'Open in Trident']);
+	});
+
+	it('is null for a file that is no longer there', () => {
+		expect(rowFor(state(), {}, 'nope')).toBeNull();
+	});
+
+	it('follows the same rules for a zip as the popup: a button for each model when they are known', () => {
+		const zip = file({ id: 'z', name: 'Pack.zip', kind: 'zip' });
+		const row = rowFor(state({ files: [zip] }), { z: ['a.stl', 'b.stl'] }, 'z');
+		expect(row?.actions.map((a) => a.label)).toEqual(['Open in Holecraft', 'Open in Trident: a.stl', 'Open in Trident: b.stl']);
+	});
+});
+
+describe('noticeText', () => {
+	it('says what was caught and where from, and what to do', () => {
+		const text = noticeText(file({ name: 'Gear.stl', site: 'MakerWorld' }));
+		expect(text.title).toBe('Holecraft Send');
+		expect(text.message).toContain('Gear.stl');
+		expect(text.message).toContain('MakerWorld');
+		expect(text.message).toMatch(/send/i);
 	});
 });

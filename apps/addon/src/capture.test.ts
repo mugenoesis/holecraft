@@ -203,3 +203,46 @@ describe('handleHeaders', () => {
 		expect(files.count()).toBe(0);
 	});
 });
+
+describe('handleHeaders tells when a file has been caught', () => {
+	it('says which file and in which tab, once all of it has come down', () => {
+		const caught: [string, number][] = [];
+		handleHeaders(details(), { ...deps, onCaught: (id, tab) => caught.push([id, tab]) });
+		filter.feed([1, 2, 3]);
+		expect(caught).toEqual([]);
+		filter.stop();
+		expect(caught).toHaveLength(1);
+		expect(caught[0]![0]).toBe(files.list()[0]!.id);
+		expect(caught[0]![1]).toBe(7);
+	});
+
+	it('says so for a file kept as its address only, too', () => {
+		const caught: [string, number][] = [];
+		handleHeaders(details(), { ...deps, filterResponseData: undefined, onCaught: (id, tab) => caught.push([id, tab]) });
+		expect(caught).toHaveLength(1);
+	});
+
+	it('says so once when copying fails part way', () => {
+		const caught: string[] = [];
+		handleHeaders(details(), { ...deps, onCaught: (id) => caught.push(id) });
+		filter.feed([1]);
+		filter.onerror?.();
+		filter.stop();
+		expect(caught).toHaveLength(1);
+	});
+
+	it('says nothing for what is not a model or a zip', () => {
+		const caught: string[] = [];
+		handleHeaders(details({ responseHeaders: [{ name: 'Content-Type', value: 'text/html' }] }), {
+			...deps,
+			onCaught: (id) => caught.push(id),
+		});
+		expect(caught).toEqual([]);
+	});
+
+	it('does not need anyone to listen', () => {
+		handleHeaders(details(), deps);
+		filter.feed([1]);
+		expect(() => filter.stop()).not.toThrow();
+	});
+});

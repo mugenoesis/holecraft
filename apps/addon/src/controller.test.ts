@@ -43,7 +43,14 @@ function zipOf(entries: Record<string, string>): Uint8Array {
 	return new Uint8Array(Buffer.concat([...parts, dir, end]));
 }
 
-const settings: Settings = { holecraftUrl: 'http://hc:8200', tridentUrl: 'http://tr:8000', tridentKey: 'k' };
+const settings: Settings = {
+	holecraftUrl: 'http://hc:8200',
+	tridentUrl: 'http://tr:8000',
+	tridentKey: 'k',
+	showBanner: true,
+	showNotification: false,
+	deleteAfterSend: false,
+};
 let files: CaughtFiles;
 let stored: Settings;
 let opened: string[];
@@ -253,8 +260,28 @@ describe('settings', () => {
 	it('gives them back, and saves new ones tidied', async () => {
 		const handle = createController(deps);
 		expect(await handle({ type: 'getSettings' })).toEqual({ ok: true, data: settings });
-		const saved = await handle({ type: 'saveSettings', settings: { holecraftUrl: 'tower:8200/', tridentUrl: '', tridentKey: ' key ' } });
-		expect(saved).toEqual({ ok: true, data: { holecraftUrl: 'http://tower:8200', tridentUrl: '', tridentKey: 'key' } });
+		const saved = await handle({
+			type: 'saveSettings',
+			settings: {
+				holecraftUrl: 'tower:8200/',
+				tridentUrl: '',
+				tridentKey: ' key ',
+				showBanner: false,
+				showNotification: true,
+				deleteAfterSend: true,
+			},
+		});
+		expect(saved).toEqual({
+			ok: true,
+			data: {
+				holecraftUrl: 'http://tower:8200',
+				tridentUrl: '',
+				tridentKey: 'key',
+				showBanner: false,
+				showNotification: true,
+				deleteAfterSend: true,
+			},
+		});
 		expect(stored.holecraftUrl).toBe('http://tower:8200');
 	});
 
@@ -285,5 +312,84 @@ describe('recent and diagnostics', () => {
 			ok: true,
 			data: { lines: [{ label: 'webRequest', ok: true, detail: '' }] },
 		});
+	});
+});
+
+describe('deleting the downloaded file after sending', () => {
+	const deleting = vi.fn<NonNullable<ControllerDeps['deleteDownload']>>();
+	beforeEach(() => {
+		deleting.mockReset();
+		deleting.mockResolvedValue('Deleted the downloaded file');
+		deps.deleteDownload = deleting;
+		stored = { ...settings, deleteAfterSend: true };
+	});
+
+	it('does it after a model was sent to Holecraft, when that is chosen, and says which file', async () => {
+		const id = catchModel();
+		fetchFn.mockResolvedValue(hcOk());
+		await createController(deps)({ type: 'send', id, to: 'holecraft' });
+		expect(deleting).toHaveBeenCalledTimes(1);
+		expect(deleting).toHaveBeenCalledWith(expect.objectContaining({ name: 'Gear.stl', url: 'https://cdn.example.com/g' }));
+	});
+
+	it('does it after a model was sent to Trident', async () => {
+		const id = catchModel();
+		fetchFn.mockResolvedValue(json(200, { model_id: 'm1' }));
+		await createController(deps)({ type: 'send', id, to: 'trident' });
+		expect(deleting).toHaveBeenCalledTimes(1);
+	});
+
+	it('does it after a zip was sent whole to Holecraft', async () => {
+		const id = catchZip({ 'a.stl': 'A', 'b.stl': 'B' });
+		fetchFn.mockResolvedValue(hcOk());
+		await createController(deps)({ type: 'send', id, to: 'holecraft' });
+		expect(deleting).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not do it when only one model was taken out of a zip for Trident: the rest of the zip would be lost', async () => {
+		const id = catchZip({ 'a.stl': 'A', 'b.stl': 'B' });
+		fetchFn.mockResolvedValue(json(200, { model_id: 'm1' }));
+		await createController(deps)({ type: 'send', id, to: 'trident', entry: 'a.stl' });
+		expect(deleting).not.toHaveBeenCalled();
+	});
+
+	it('does not do it unless it is chosen', async () => {
+		stored = { ...settings, deleteAfterSend: false };
+		const id = catchModel();
+		fetchFn.mockResolvedValue(hcOk());
+		await createController(deps)({ type: 'send', id, to: 'holecraft' });
+		expect(deleting).not.toHaveBeenCalled();
+	});
+
+	it('does not do it when the sending failed', async () => {
+		const id = catchModel();
+		fetchFn.mockRejectedValue(new Error('network'));
+		await createController(deps)({ type: 'send', id, to: 'holecraft' });
+		expect(deleting).not.toHaveBeenCalled();
+	});
+
+	it('still counts the sending as done, and writes what happened in the log, when the file could not be deleted', async () => {
+		deleting.mockRejectedValue(new Error('permission denied'));
+		const id = catchModel();
+		fetchFn.mockResolvedValue(hcOk());
+		const out = await createController(deps)({ type: 'send', id, to: 'holecraft' });
+		expect(out).toEqual({ ok: true, data: null });
+		expect(opened).toHaveLength(1);
+		expect(deps.log.list()[0]?.note).toMatch(/could not delete.*permission denied/i);
+	});
+
+	it('writes what was done into the log, so it can be seen afterwards', async () => {
+		const id = catchModel();
+		fetchFn.mockResolvedValue(hcOk());
+		await createController(deps)({ type: 'send', id, to: 'holecraft' });
+		expect(deps.log.list()[0]?.note).toBe('Deleted the downloaded file');
+		expect(deps.log.list()[0]?.name).toBe('Gear.stl');
+	});
+
+	it('does nothing when the browser has no way to delete (the Android one)', async () => {
+		deps.deleteDownload = undefined;
+		const id = catchModel();
+		fetchFn.mockResolvedValue(hcOk());
+		await expect(createController(deps)({ type: 'send', id, to: 'holecraft' })).resolves.toEqual({ ok: true, data: null });
 	});
 });

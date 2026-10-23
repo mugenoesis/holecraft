@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { diagnose } from './diagnostics.ts';
 
 const full = {
+	notifications: { create: () => {} },
 	webRequest: { onHeadersReceived: {}, filterResponseData: () => {} },
-	tabs: { create: () => {}, onUpdated: {} },
+	tabs: { create: () => {}, onUpdated: {}, executeScript: () => {}, sendMessage: () => {} },
+	permissions: { request: () => {} },
 	browserAction: { setBadgeText: () => {} },
 	storage: { local: {} },
 	runtime: { getManifest: () => ({ version: '1.2.3' }) },
@@ -35,6 +37,26 @@ describe('diagnose', () => {
 		const d = diagnose({ browser: { ...full, webRequest: undefined }, userAgent: 'x' });
 		expect(line(d, 'Watch downloads')?.ok).toBe(false);
 		expect(line(d, 'Watch downloads')?.required).toBe(true);
+	});
+
+	it('says whether it can put a banner on a page, and whether the browser has notifications (neither is needed)', () => {
+		const d = diagnose({ browser: full, userAgent: 'x' });
+		expect(line(d, 'Banner on the page')).toMatchObject({ ok: true, required: false });
+		expect(line(d, 'Notifications')).toMatchObject({ ok: true, required: false });
+		const none = diagnose({ browser: { ...full, notifications: undefined, tabs: { create: () => {} } }, userAgent: 'x' });
+		expect(line(none, 'Banner on the page')).toMatchObject({ ok: false, required: false });
+		expect(line(none, 'Notifications')).toMatchObject({ ok: false, required: false });
+	});
+
+	it('says desktop Firefox can delete a downloaded file, and Firefox for Android cannot (it gives add-ons no way to)', () => {
+		const desktop = diagnose({ browser: full, userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0' });
+		expect(line(desktop, 'Delete downloaded files')).toMatchObject({ ok: true, required: false });
+		const phone = diagnose({ browser: full, userAgent: 'Mozilla/5.0 (Android 14; Mobile; rv:140.0) Gecko/140.0 Firefox/140.0' });
+		expect(line(phone, 'Delete downloaded files')).toMatchObject({ ok: false, required: false });
+		expect(line(phone, 'Delete downloaded files')?.detail).toMatch(/Android/);
+		expect(
+			line(diagnose({ browser: { ...full, permissions: undefined }, userAgent: 'Firefox/140.0' }), 'Delete downloaded files')?.ok,
+		).toBe(false);
 	});
 
 	it('does not fall over for a browser that has almost nothing', () => {

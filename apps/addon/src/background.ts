@@ -1,8 +1,10 @@
 import { handleHeaders, type StreamFilter } from './capture.ts';
 import { CaughtFiles } from './caught.ts';
+import { downloadToDelete } from './cleanup.ts';
 import { createController } from './controller.ts';
 import { diagnose } from './diagnostics.ts';
 import type { Request } from './messages.ts';
+import { announceCaught } from './notify.ts';
 import { RecentLog } from './recent.ts';
 import { EMPTY_SETTINGS, parseSettings } from './settings.ts';
 import { type Site, siteOf } from './sites.ts';
@@ -34,6 +36,31 @@ function showCount() {
 	void browser.browserAction.setBadgeBackgroundColor({ color: '#0f766e' });
 }
 
+/** Tells the user a file was caught: a banner on the page it came down in and/or a notification, as chosen in the settings. */
+const announce = (id: string, tabId: number) =>
+	void announceCaught(id, tabId, {
+		settings: async () => parseSettings((await browser.storage.local.get('settings')).settings ?? EMPTY_SETTINGS),
+		describe: (fileId) => files.list().find((f) => f.id === fileId) ?? null,
+		showBanner: async (tab, fileId) => {
+			await browser.tabs.executeScript(tab, { file: 'toast.js' });
+			await browser.tabs.sendMessage(tab, { type: 'holecraft-send-banner', id: fileId });
+		},
+		showNotification: async (fileId, text) => {
+			await browser.notifications.create(`holecraft-send-${fileId}`, {
+				type: 'basic',
+				iconUrl: browser.runtime.getURL('icon.png'),
+				...text,
+			});
+		},
+	});
+
+// tapping a notification opens the list of what was caught (the toolbar button's popup, in a tab), with the same buttons
+if (typeof browser.notifications?.onClicked?.addListener === 'function') {
+	browser.notifications.onClicked.addListener(() => {
+		void browser.tabs.create({ url: browser.runtime.getURL('popup.html') });
+	});
+}
+
 const handle = createController({
 	files,
 	log,
@@ -48,6 +75,18 @@ const handle = createController({
 	diagnose: () => diagnose({ browser: browser as unknown as Record<string, unknown>, userAgent: navigator.userAgent }),
 	onChange: showCount,
 	maxBytes: MAX_BYTES,
+	// the downloads API is there only where the browser has it and the right was given (it is asked for when the setting is turned on)
+	deleteDownload: async (file) => {
+		const downloads = (browser as { downloads?: typeof browser.downloads }).downloads;
+		if (typeof downloads?.search !== 'function')
+			throw new Error('this browser gives add-ons no way to delete downloads, or the permission was not given');
+		const items = await downloads.search({ state: 'complete', exists: true, orderBy: ['-startTime'], limit: 100 });
+		const id = downloadToDelete(items, file);
+		if (id === null) return 'Did not delete anything: no finished download matched this file';
+		await downloads.removeFile(id);
+		await downloads.erase({ id });
+		return 'Deleted the downloaded file';
+	},
 });
 
 // the browser's answer to a message is the promise this returns
@@ -78,6 +117,7 @@ browser.webRequest.onHeadersReceived.addListener(
 				filterResponseData,
 				maxBytes: MAX_BYTES,
 				onChange: showCount,
+				onCaught: announce,
 			});
 		} catch {
 			// a problem with one response must never get in the way of the page

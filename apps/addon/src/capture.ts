@@ -35,6 +35,8 @@ export interface CaptureDeps {
 	maxBytes: number;
 	/** Called when the files caught have changed. */
 	onChange: () => void;
+	/** Called once a file has been caught (all of it has come down, or only its address is kept), with its id and the tab it came down in. */
+	onCaught?: ((id: string, tabId: number) => void) | undefined;
 }
 
 const header = (details: HeaderDetails, name: string): string | undefined =>
@@ -103,7 +105,7 @@ export function handleHeaders(details: HeaderDetails, deps: CaptureDeps): void {
 function copyDownload(details: HeaderDetails, candidate: Candidate, site: Site, entry: Omit<RecentEntry, 'note'>, deps: CaptureDeps): void {
 	const keep = (bytes: Uint8Array | null) => {
 		deps.files.removeByUrl(details.url);
-		deps.files.add({
+		const id = deps.files.add({
 			name: candidate.name,
 			kind: candidate.kind,
 			size: candidate.size ?? bytes?.length ?? null,
@@ -112,6 +114,7 @@ function copyDownload(details: HeaderDetails, candidate: Candidate, site: Site, 
 			bytes,
 		});
 		deps.onChange();
+		deps.onCaught?.(id, details.tabId);
 	};
 	if (!deps.filterResponseData) {
 		deps.log.add({ ...entry, note: 'Caught (this browser cannot copy a download: the address is kept)' });

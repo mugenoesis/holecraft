@@ -10,6 +10,7 @@ const manifest = JSON.parse(await readFile(path.join(here, 'static/manifest.json
 	name: string;
 	description: string;
 	permissions: string[];
+	optional_permissions?: string[];
 	background: { scripts: string[]; persistent: boolean };
 	browser_action: { default_popup: string };
 	options_ui: { page: string };
@@ -33,8 +34,20 @@ describe('the add-on manifest', () => {
 		expect(manifest.browser_specific_settings.gecko.data_collection_permissions).toEqual({ required: ['none'] });
 	});
 
-	it('asks only for what it uses: to see and copy responses, open tabs and keep settings', () => {
-		expect([...manifest.permissions].sort()).toEqual(['<all_urls>', 'storage', 'tabs', 'webRequest', 'webRequestBlocking']);
+	it('asks only for what it uses: to see and copy responses, open tabs, keep settings and (when turned on) notify', () => {
+		expect([...manifest.permissions].sort()).toEqual([
+			'<all_urls>',
+			'notifications',
+			'storage',
+			'tabs',
+			'webRequest',
+			'webRequestBlocking',
+		]);
+	});
+
+	it('asks for the right to delete downloads only when that is turned on in the settings, not when it is installed', () => {
+		expect(manifest.optional_permissions).toEqual(['downloads']);
+		expect(manifest.permissions).not.toContain('downloads');
 	});
 
 	it('runs on Firefox for Android too', () => {
@@ -43,6 +56,8 @@ describe('the add-on manifest', () => {
 
 	it('names pages and scripts that exist (the built ones come from src/, the rest from static/)', async () => {
 		const built = new Set(['background.js', 'popup.js', 'options.js', 'icon.png']);
+		// toast.js is put on a page by the background page (tabs.executeScript), so the manifest does not name it, but there has to be something to build it from
+		await expect(readFile(path.join(here, 'src/toast.ts'))).resolves.toBeDefined();
 		const named = [
 			...manifest.background.scripts,
 			manifest.browser_action.default_popup,

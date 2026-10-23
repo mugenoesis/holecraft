@@ -124,3 +124,9 @@ button.link {
 	color: var(--accent);
 	text-decoration: underline;
 }
+label.check {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-weight: 400;
+}
