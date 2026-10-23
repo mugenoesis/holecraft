@@ -36,6 +36,10 @@
 			<label class="check"><input id="showBanner" type="checkbox" /> Show a banner on the page, with buttons to send it</label>
 			<label class="check"><input id="showNotification" type="checkbox" /> Also show a notification from the browser (it may not work in every browser)</label>
 
+			<h2>After sending</h2>
+			<label class="check"><input id="deleteAfterSend" type="checkbox" /> Delete the file the browser saved, once it has been sent</label>
+			<p id="deleteNote" class="muted">Only on desktop Firefox, which asks for permission when you turn this on. It deletes the model, or the zip when it went whole to Holecraft; not a zip that only one model was taken from. What was deleted is shown below, under the downloads the add-on has seen.</p>
+
 			<div class="buttons">
 				<button type="submit" class="primary">Save</button>
 				<span id="saved" role="status"></span>

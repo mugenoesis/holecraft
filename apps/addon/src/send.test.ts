@@ -7,7 +7,8 @@ const settings: Settings = {
 	tridentUrl: 'http://tower:8000',
 	tridentKey: 'secret',
 	showBanner: true,
-	showNotification: true,
+	showNotification: false,
+	deleteAfterSend: false,
 };
 const file = { name: 'Étagère (1).stl', bytes: new Uint8Array([1, 2, 3]) };
 const json = (status: number, body: unknown) =>

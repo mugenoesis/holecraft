@@ -19,6 +19,7 @@ async function save(): Promise<void> {
 		tridentKey: field('tridentKey').value,
 		showBanner: field('showBanner').checked,
 		showNotification: field('showNotification').checked,
+		deleteAfterSend: field('deleteAfterSend').checked,
 	};
 	const out = await ask<Settings>({ type: 'saveSettings', settings });
 	if (!out.ok) return show('saved', out.error, true);
@@ -27,6 +28,7 @@ async function save(): Promise<void> {
 	field('tridentKey').value = out.data.tridentKey;
 	field('showBanner').checked = out.data.showBanner;
 	field('showNotification').checked = out.data.showNotification;
+	field('deleteAfterSend').checked = out.data.deleteAfterSend;
 	show('saved', 'Saved', false);
 }
 
@@ -40,6 +42,13 @@ async function test(target: 'holecraft' | 'trident') {
 async function showDiagnostics() {
 	const out = await ask<Diagnostics>({ type: 'diagnostics' });
 	if (!out.ok) return;
+	// deleting a download is not possible in every browser (Firefox for Android): the choice is then off, and says why
+	const deleting = out.data.lines.find((l) => l.label === 'Delete downloaded files');
+	if (deleting && !deleting.ok) {
+		field('deleteAfterSend').checked = false;
+		field('deleteAfterSend').disabled = true;
+		byId('deleteNote').textContent = deleting.detail;
+	}
 	byId('diagnostics').replaceChildren(
 		...out.data.lines.map((l) =>
 			el(
@@ -79,6 +88,7 @@ async function load() {
 		field('tridentKey').value = out.data.tridentKey;
 		field('showBanner').checked = out.data.showBanner;
 		field('showNotification').checked = out.data.showNotification;
+		field('deleteAfterSend').checked = out.data.deleteAfterSend;
 	}
 	await Promise.all([showDiagnostics(), showRecent()]);
 }
@@ -92,3 +102,15 @@ byId('testTrident').addEventListener('click', () => void test('trident'));
 byId('refreshRecent').addEventListener('click', () => void showRecent());
 byId('clearRecent').addEventListener('click', () => void ask({ type: 'clearRecent' }).then(showRecent));
 void load();
+
+// Turning the choice on asks the browser for the right to delete downloads (it has to be asked for from a click, so here); if it is refused, or this browser cannot, the choice stays off.
+field('deleteAfterSend').addEventListener('change', async (event) => {
+	const box = event.target as HTMLInputElement;
+	if (!box.checked) return;
+	try {
+		if (!(await browser.permissions.request({ permissions: ['downloads'] }))) throw new Error('refused');
+	} catch {
+		box.checked = false;
+		show('saved', 'The browser did not give the add-on the right to delete downloads, so this stays off.', true);
+	}
+});

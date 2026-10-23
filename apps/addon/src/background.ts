@@ -1,5 +1,6 @@
 import { handleHeaders, type StreamFilter } from './capture.ts';
 import { CaughtFiles } from './caught.ts';
+import { downloadToDelete } from './cleanup.ts';
 import { createController } from './controller.ts';
 import { diagnose } from './diagnostics.ts';
 import type { Request } from './messages.ts';
@@ -74,6 +75,18 @@ const handle = createController({
 	diagnose: () => diagnose({ browser: browser as unknown as Record<string, unknown>, userAgent: navigator.userAgent }),
 	onChange: showCount,
 	maxBytes: MAX_BYTES,
+	// the downloads API is there only where the browser has it and the right was given (it is asked for when the setting is turned on)
+	deleteDownload: async (file) => {
+		const downloads = (browser as { downloads?: typeof browser.downloads }).downloads;
+		if (typeof downloads?.search !== 'function')
+			throw new Error('this browser gives add-ons no way to delete downloads, or the permission was not given');
+		const items = await downloads.search({ state: 'complete', exists: true, orderBy: ['-startTime'], limit: 100 });
+		const id = downloadToDelete(items, file);
+		if (id === null) return 'Did not delete anything: no finished download matched this file';
+		await downloads.removeFile(id);
+		await downloads.erase({ id });
+		return 'Deleted the downloaded file';
+	},
 });
 
 // the browser's answer to a message is the promise this returns

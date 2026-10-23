@@ -7,9 +7,18 @@ export interface Settings {
 	showBanner: boolean;
 	/** Also show a notification from the browser when a file is caught (where it has them). */
 	showNotification: boolean;
+	/** Delete the file the browser saved once it has been sent (desktop Firefox only). */
+	deleteAfterSend: boolean;
 }
 
-export const EMPTY_SETTINGS: Settings = { holecraftUrl: '', tridentUrl: '', tridentKey: '', showBanner: true, showNotification: false };
+export const EMPTY_SETTINGS: Settings = {
+	holecraftUrl: '',
+	tridentUrl: '',
+	tridentKey: '',
+	showBanner: true,
+	showNotification: false,
+	deleteAfterSend: false,
+};
 
 /** An address as typed, made into one fit to use: http or https (http:// is added to a bare host), no login in it, no closing slash, no query. Null if it is not one. */
 export function normaliseUrl(text: string): string | null {
@@ -38,5 +47,6 @@ export function parseSettings(raw: unknown): Settings {
 		tridentKey: text(r.tridentKey),
 		showBanner: typeof r.showBanner === 'boolean' ? r.showBanner : true,
 		showNotification: typeof r.showNotification === 'boolean' ? r.showNotification : false,
+		deleteAfterSend: r.deleteAfterSend === true,
 	};
 }

@@ -43,6 +43,7 @@ describe('parseSettings', () => {
 			tridentKey: 'abc',
 			showBanner: true,
 			showNotification: false,
+			deleteAfterSend: false,
 		});
 	});
 
@@ -60,6 +61,13 @@ describe('parseSettings', () => {
 		expect([off.showBanner, off.showNotification]).toEqual([false, false]);
 		const both = parseSettings({ showBanner: true, showNotification: true });
 		expect([both.showBanner, both.showNotification]).toEqual([true, true]);
+	});
+
+	it('does not delete the downloaded file after sending unless that is chosen (and only a clear yes counts)', () => {
+		expect(EMPTY_SETTINGS.deleteAfterSend).toBe(false);
+		expect(parseSettings({ deleteAfterSend: true }).deleteAfterSend).toBe(true);
+		for (const odd of ['yes', 1, 'true', null, {}, [true]])
+			expect(parseSettings({ deleteAfterSend: odd }).deleteAfterSend, String(odd)).toBe(false);
 	});
 
 	it('takes anything that is not true or false to mean the usual', () => {

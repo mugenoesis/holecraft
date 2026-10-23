@@ -10,6 +10,7 @@ const manifest = JSON.parse(await readFile(path.join(here, 'static/manifest.json
 	name: string;
 	description: string;
 	permissions: string[];
+	optional_permissions?: string[];
 	background: { scripts: string[]; persistent: boolean };
 	browser_action: { default_popup: string };
 	options_ui: { page: string };
@@ -42,6 +43,11 @@ describe('the add-on manifest', () => {
 			'webRequest',
 			'webRequestBlocking',
 		]);
+	});
+
+	it('asks for the right to delete downloads only when that is turned on in the settings, not when it is installed', () => {
+		expect(manifest.optional_permissions).toEqual(['downloads']);
+		expect(manifest.permissions).not.toContain('downloads');
 	});
 
 	it('runs on Firefox for Android too', () => {

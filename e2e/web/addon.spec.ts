@@ -32,7 +32,13 @@ interface Harness {
 }
 
 /** Serves the built add-on pages from a made-up address and gives them the stand-in browser API. */
-async function openAddon(page: Page, baseURL: string, over: Partial<Settings> = {}): Promise<Harness> {
+async function openAddon(
+	page: Page,
+	baseURL: string,
+	over: Partial<Settings> = {},
+	/** `android`: a browser that cannot delete downloads; `grant`: whether it gives the add-on the right it asks for. */
+	browserOpts: { android?: boolean; grant?: boolean } = {},
+): Promise<Harness> {
 	const h: Harness = {
 		files: new CaughtFiles(),
 		log: new RecentLog(),
@@ -57,19 +63,21 @@ async function openAddon(page: Page, baseURL: string, over: Partial<Settings> = 
 					tabs: { create: () => {} },
 					browserAction: { setBadgeText: () => {} },
 					storage: { local: {} },
+					permissions: { request: () => {} },
 				},
-				userAgent: 'Firefox/140.0 test',
+				userAgent: browserOpts.android ? 'Mozilla/5.0 (Android 14; Mobile; rv:140.0) Gecko/140.0 Firefox/140.0' : 'Firefox/140.0 test',
 			}),
 		onChange: () => {},
 		maxBytes: 100 * 1024 * 1024,
 	});
 	await page.exposeFunction('__background', (request: unknown) => handle(request as never));
-	await page.addInitScript(() => {
+	await page.addInitScript((grant: boolean) => {
 		const w = window as unknown as {
 			__background: (r: unknown) => Promise<unknown>;
 			browser: unknown;
 			__optionsOpened?: boolean;
 			__deliver: (message: unknown) => void;
+			__requested?: unknown[];
 		};
 		// what a page's content script is given by the background page: it listens for messages, and the test sends one
 		const listeners: ((message: unknown) => void)[] = [];
@@ -84,8 +92,14 @@ async function openAddon(page: Page, baseURL: string, over: Partial<Settings> = 
 					w.__optionsOpened = true;
 				},
 			},
+			permissions: {
+				request: async (wanted: unknown) => {
+					w.__requested = [...(w.__requested ?? []), wanted];
+					return grant;
+				},
+			},
 		};
-	});
+	}, browserOpts.grant ?? true);
 	await page.route(`${ORIGIN}/**`, async (route) => {
 		if (new URL(route.request().url()).pathname === '/page.html') {
 			return route.fulfill({
@@ -388,5 +402,59 @@ test.describe('the settings page: telling you about a file', () => {
 		await page.reload();
 		await expect(page.getByLabel(/Show a banner on the page/)).not.toBeChecked();
 		await expect(page.getByLabel(/Also show a notification/)).toBeChecked();
+	});
+});
+
+test.describe('the settings page: deleting the downloaded file after sending', () => {
+	const box = (page: Page) => page.getByLabel(/Delete the file the browser saved/);
+
+	test('is off to start with', async ({ page, baseURL }) => {
+		await openAddon(page, baseURL!);
+		await page.goto(`${ORIGIN}/options.html`);
+		await expect(box(page)).not.toBeChecked();
+		await expect(box(page)).toBeEnabled();
+	});
+
+	test('asks the browser for the right to delete downloads when it is turned on, and keeps the choice', async ({ page, baseURL }) => {
+		const h = await openAddon(page, baseURL!);
+		await page.goto(`${ORIGIN}/options.html`);
+		await box(page).check();
+		expect(await page.evaluate(() => (window as unknown as { __requested: unknown[] }).__requested)).toEqual([
+			{ permissions: ['downloads'] },
+		]);
+		await expect(box(page)).toBeChecked();
+		await page.getByRole('button', { name: 'Save' }).click();
+		await expect(page.locator('#saved')).toHaveText('Saved');
+		expect(h.settings.deleteAfterSend).toBe(true);
+		await page.reload();
+		await expect(box(page)).toBeChecked();
+	});
+
+	test('stays off, and says why, when the browser does not give the right', async ({ page, baseURL }) => {
+		const h = await openAddon(page, baseURL!, {}, { grant: false });
+		await page.goto(`${ORIGIN}/options.html`);
+		// a click, not check(): the box turns itself off again at once, which check() would take for a click that did nothing
+		await box(page).click();
+		await expect(box(page)).not.toBeChecked();
+		await expect(page.getByRole('alert')).toContainText('right to delete downloads');
+		await page.getByRole('button', { name: 'Save' }).click();
+		expect(h.settings.deleteAfterSend).toBe(false);
+	});
+
+	test('does not ask for anything when it is turned off again', async ({ page, baseURL }) => {
+		await openAddon(page, baseURL!, { deleteAfterSend: true });
+		await page.goto(`${ORIGIN}/options.html`);
+		await expect(box(page)).toBeChecked();
+		await box(page).uncheck();
+		expect(await page.evaluate(() => (window as unknown as { __requested?: unknown[] }).__requested ?? [])).toEqual([]);
+	});
+
+	test('is off and cannot be turned on in Firefox for Android, which says so', async ({ page, baseURL }) => {
+		await openAddon(page, baseURL!, { deleteAfterSend: true }, { android: true });
+		await page.goto(`${ORIGIN}/options.html`);
+		await expect(box(page)).toBeDisabled();
+		await expect(box(page)).not.toBeChecked();
+		await expect(page.locator('#deleteNote')).toContainText('Android');
+		await expect(page.getByText('Not here: Delete downloaded files')).toBeVisible();
 	});
 });

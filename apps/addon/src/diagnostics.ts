@@ -19,10 +19,10 @@ export function diagnose(env: { browser: Record<string, unknown>; userAgent: str
 	const has = (object: Loose, name: string) => typeof object?.[name] !== 'undefined';
 	const manifest = (b.runtime as { getManifest?: () => { version?: string } } | undefined)?.getManifest?.();
 	const ua = /(Firefox\/[\d.]+)/.exec(env.userAgent)?.[1] ?? env.userAgent;
-	const android = /Android/.test(env.userAgent) ? ' on Android' : '';
+	const android = /Android/.test(env.userAgent);
 	return {
 		lines: [
-			{ label: 'Browser', ok: true, detail: `${ua}${android}` },
+			{ label: 'Browser', ok: true, detail: `${ua}${android ? ' on Android' : ''}` },
 			{ label: 'Add-on version', ok: true, detail: manifest?.version ?? 'unknown' },
 			{
 				label: 'Watch downloads',
@@ -47,6 +47,14 @@ export function diagnose(env: { browser: Record<string, unknown>; userAgent: str
 				label: 'Notifications',
 				ok: has(b.notifications as Loose, 'create'),
 				detail: 'Lets the browser tell you a file was caught (turn it on in the settings)',
+				required: false,
+			},
+			{
+				label: 'Delete downloaded files',
+				ok: has(b.permissions as Loose, 'request') && !android,
+				detail: android
+					? 'Firefox for Android gives add-ons no way to delete a download'
+					: 'Lets the add-on delete the file the browser saved once it has been sent (turn it on in the settings; it asks for permission)',
 				required: false,
 			},
 			{
