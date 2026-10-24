@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Bounds } from './camera.ts';
-import { zeroOffsets, zeroStrips } from './zeroPoint.ts';
+import { nextTurn, type ZeroTurns, zeroArms, zeroOffsets, zeroSign, zeroStrips } from './zeroPoint.ts';
 
 const box: Bounds = { min: [10, 20, 0], max: [30, 50, 15] };
 
@@ -28,5 +28,33 @@ describe('zeroStrips', () => {
 
 	it('leaves out an axis the object already covers', () => {
 		expect(zeroStrips([20, 0], box).map((s) => s.axis)).toEqual(['y']);
+	});
+});
+
+describe('the L at the zero point turns a quarter at a time', () => {
+	it('nextTurn goes 0, 1, 2, 3 and back', () => {
+		expect(([0, 1, 2, 3] as ZeroTurns[]).map(nextTurn)).toEqual([1, 2, 3, 0]);
+	});
+
+	it('arms point along +x and +y at first, then anticlockwise a quarter per turn', () => {
+		expect(zeroArms([5, 5], 0, 10)).toEqual([
+			[15, 5, 0],
+			[5, 15, 0],
+		]);
+		expect(zeroArms([5, 5], 1, 10)).toEqual([
+			[5, 15, 0],
+			[-5, 5, 0],
+		]);
+		expect(zeroArms([5, 5], 2, 10)).toEqual([
+			[-5, 5, 0],
+			[5, -5, 0],
+		]);
+	});
+});
+
+describe('readings follow the L', () => {
+	it('is +1 where an arm points along the world axis and -1 where it points against it', () => {
+		expect(([0, 1, 2, 3] as const).map((t: ZeroTurns) => zeroSign(t, 'x'))).toEqual([1, -1, -1, 1]);
+		expect(([0, 1, 2, 3] as const).map((t: ZeroTurns) => zeroSign(t, 'y'))).toEqual([1, 1, -1, -1]);
 	});
 });

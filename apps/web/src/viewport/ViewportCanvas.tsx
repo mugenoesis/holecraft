@@ -5,6 +5,7 @@ import {
 	hasThreads,
 	type MeshData,
 	type NodeId,
+	nextTurn,
 	type OrbitState,
 	type PaintFill,
 	type ShapeGeometry,
@@ -15,6 +16,7 @@ import {
 	type WorkPlane,
 	withSimpleThreads,
 	type ZeroPoint,
+	type ZeroTurns,
 } from '@holecraft/core';
 import { meshRefsIn, type Subtree } from '@holecraft/geometry';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -139,6 +141,7 @@ export function ViewportCanvas(props: Props) {
 	const [dimensionLabel, setDimensionLabel] = useState<string | null>(null);
 	// The zero point distances are measured from: view state, kept while the editor is open, not in the design
 	const [zero, setZero] = useState<ZeroPoint | null>(null);
+	const [zeroTurns, setZeroTurns] = useState<ZeroTurns>(0);
 	// The tool in use, and a shape armed to be put down: both own the left button, so choosing one lets go of the other.
 	const { tool, setTool, toggleTool } = useToolState(props.placing, props.onCancelPlacing);
 	// What the ghost of a shape being placed is while it is on show (read by the tests, like the camera).
@@ -453,6 +456,8 @@ export function ViewportCanvas(props: Props) {
 						selection={selection}
 						units={design.units}
 						zero={zero}
+						turns={zeroTurns}
+						onTurn={() => setZeroTurns(nextTurn)}
 						camera={camera}
 					/>
 					{tool === 'zero' && (

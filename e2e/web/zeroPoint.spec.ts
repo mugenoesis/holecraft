@@ -58,6 +58,24 @@ test.describe('zero point', () => {
 		await expect(page.getByTestId('zero-strip-x')).toHaveCount(0);
 	});
 
+	test('clicking the corner of the L turns it a quarter and the readings follow its arms', async ({ page }) => {
+		await dropShape(page, 'Box');
+		await topView(page);
+		await clickAt(page, 0); // selects the box
+		await page.keyboard.press('o');
+		await clickAt(page, -150, 100);
+		const lines = page.getByTestId('zero-point');
+		await expect(lines).toHaveAttribute('data-turns', '0');
+		const before = Number(await page.getByTestId('zero-strip-x').getAttribute('data-reading'));
+		expect(before).toBeGreaterThan(0);
+		await page.getByTestId('zero-ring').click();
+		await expect(lines).toHaveAttribute('data-turns', '1');
+		// the x arm now points against the world's x, so the box, which lies along +x, reads negative
+		await expect(page.getByTestId('zero-strip-x')).toHaveAttribute('data-reading', String(-before));
+		for (let i = 0; i < 3; i++) await page.getByTestId('zero-ring').click();
+		await expect(lines).toHaveAttribute('data-turns', '0');
+	});
+
 	test('the lift handle still reads Z while the zero point is set', async ({ page }) => {
 		await dropShape(page, 'Box');
 		await topView(page);

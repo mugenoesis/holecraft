@@ -2699,7 +2699,9 @@ button.primary:disabled {
 	stroke-linecap: round;
 }
 .zero-lines circle {
-	fill: none;
+	pointer-events: auto;
+	cursor: pointer;
+	fill: rgba(255, 255, 255, 0.01);
 	stroke: #1f9d55;
 	stroke-width: 3;
 }

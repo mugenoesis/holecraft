@@ -29,3 +29,34 @@ export function zeroStrips(origin: ZeroPoint, bounds: Bounds): ZeroStrip[] {
 	if (y !== 0) strips.push({ axis: 'y', from: [nearX, origin[1], 0], to: [nearX, nearY, 0], length: y });
 	return strips;
 }
+
+/** Quarter turns (0 to 3) the zero point's L has been turned anticlockwise; a click on its corner adds one. */
+export type ZeroTurns = 0 | 1 | 2 | 3;
+
+export const nextTurn = (turns: ZeroTurns): ZeroTurns => ((turns + 1) % 4) as ZeroTurns;
+
+const AXES: readonly (readonly [number, number])[] = [
+	[1, 0],
+	[0, 1],
+	[-1, 0],
+	[0, -1],
+];
+
+/** The ends of the L's two arms (its x arm, then its y arm) on the floor, `length` mm long. */
+export function zeroArms(origin: ZeroPoint, turns: ZeroTurns, length: number): [Vec3, Vec3] {
+	const end = (axis: number): Vec3 => {
+		const [dx, dy] = AXES[(axis + turns) % 4]!;
+		return [origin[0] + dx * length, origin[1] + dy * length, 0];
+	};
+	return [end(0), end(1)];
+}
+
+/** +1 when the L's arm along the world `axis` points the positive way, -1 when it points against it: the sign readings take. */
+export function zeroSign(turns: ZeroTurns, axis: 'x' | 'y'): 1 | -1 {
+	const i = axis === 'x' ? 0 : 1;
+	for (const arm of [0, 1]) {
+		const d = AXES[(arm + turns) % 4]![i]!;
+		if (d !== 0) return d as 1 | -1;
+	}
+	return 1;
+}
