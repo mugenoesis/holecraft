@@ -59,6 +59,9 @@ function armsOnScreen(viewport: Viewport, zero: ZeroPoint, turns: ZeroTurns, rin
 }
 
 const ARM_PX = 44;
+/** The readings stack above the L's corner, clear of the arms and of each other. */
+const LABEL_LIFT_PX = 18;
+const LABEL_LINE_PX = 16;
 
 /**
  * The zero point: an L on the floor that distances are measured from (clicking its corner turns it a quarter, so its arms say which way is positive) on the floor that distances are measured from. While the tool is on, a click on the floor (or a
@@ -74,15 +77,19 @@ export function ZeroPointOverlay({ getViewport, design, selection, units, zero, 
 	const arms = ring ? armsOnScreen(viewport, zero, turns, ring) : [];
 	return (
 		<svg className="zero-lines" aria-hidden="true" data-testid="zero-point" data-x={zero[0]} data-y={zero[1]} data-turns={turns}>
-			{strips.map((s) => {
+			{strips.map((s, i) => {
 				const a = viewport.project(s.from);
 				const b = viewport.project(s.to);
 				if (!a || !b) return null;
 				return (
 					<g key={s.axis} data-testid={`zero-strip-${s.axis}`} data-length={s.length} data-reading={s.length * zeroSign(turns, s.axis)}>
 						<line x1={a.x} y1={a.y} x2={b.x} y2={b.y} />
-						<text x={(a.x + b.x) / 2} y={(a.y + b.y) / 2 - 6} textAnchor="middle">
-							{formatLength(s.length * zeroSign(turns, s.axis), units)}
+						<text
+							x={ring ? ring.x : a.x}
+							y={(ring ? ring.y : a.y) - LABEL_LIFT_PX - (strips.length - 1 - i) * LABEL_LINE_PX}
+							textAnchor="middle"
+						>
+							{s.axis.toUpperCase()} {formatLength(s.length * zeroSign(turns, s.axis), units)}
 						</text>
 					</g>
 				);

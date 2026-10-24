@@ -2685,8 +2685,9 @@ button.primary:disabled {
 	flex-wrap: wrap;
 }
 
-/* Zero point: a ring on the floor and strips to the selection, labelled in the design's units */
+/* Zero point: an L on the floor and strips to the selection, labelled in the design's units */
 .zero-lines {
+	z-index: 6; /* above the handles, so the readings and the corner are never covered */
 	position: absolute;
 	inset: 0;
 	width: 100%;
@@ -2694,7 +2695,7 @@ button.primary:disabled {
 	pointer-events: none;
 }
 .zero-lines line {
-	stroke: #1f9d55;
+	stroke: rgba(70, 80, 92, 0.6);
 	stroke-width: 4;
 	stroke-linecap: round;
 }
@@ -2702,12 +2703,12 @@ button.primary:disabled {
 	pointer-events: auto;
 	cursor: pointer;
 	fill: rgba(255, 255, 255, 0.01);
-	stroke: #1f9d55;
+	stroke: rgba(70, 80, 92, 0.7);
 	stroke-width: 3;
 }
 .zero-lines text {
 	font: 600 12px sans-serif;
-	fill: #0b5a2c;
+	fill: #2e3742;
 	paint-order: stroke;
 	stroke: #fff;
 	stroke-width: 3px;
