@@ -34,6 +34,7 @@ describe('ViewToolbar', () => {
 			'Ortho (orthographic projection)',
 			'Select',
 			'Ruler',
+			'Zero point',
 			'Workplane',
 			'Edges',
 			'Paint',

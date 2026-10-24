@@ -14,6 +14,7 @@ import {
 	type Vec3,
 	type WorkPlane,
 	withSimpleThreads,
+	type ZeroPoint,
 } from '@holecraft/core';
 import { meshRefsIn, type Subtree } from '@holecraft/geometry';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -49,6 +50,7 @@ import { ViewToolbar } from './ViewToolbar.tsx';
 import { useViewKeys } from './viewKeys.ts';
 import { WorkplaneTool } from './WorkplaneTool.tsx';
 import { XrayBar } from './XrayBar.tsx';
+import { ZeroPointOverlay, ZeroPointTool } from './ZeroPointOverlay.tsx';
 
 interface Props {
 	design: Design;
@@ -135,6 +137,8 @@ export function ViewportCanvas(props: Props) {
 	const [failed, setFailed] = useState(false);
 	const [marquee, setMarquee] = useState<PixelRect | null>(null);
 	const [dimensionLabel, setDimensionLabel] = useState<string | null>(null);
+	// The zero point distances are measured from: view state, kept while the editor is open, not in the design
+	const [zero, setZero] = useState<ZeroPoint | null>(null);
 	// The tool in use, and a shape armed to be put down: both own the left button, so choosing one lets go of the other.
 	const { tool, setTool, toggleTool } = useToolState(props.placing, props.onCancelPlacing);
 	// What the ghost of a shape being placed is while it is on show (read by the tests, like the camera).
@@ -440,6 +444,24 @@ export function ViewportCanvas(props: Props) {
 							onStrokeEnd={() => latest.current.onPaintStrokeEnd()}
 							onGapFill={(ids, fill) => latest.current.onPaintGapFill(ids, fill)}
 							onEraseAll={(ids) => latest.current.onErasePaint(ids)}
+							onClose={() => setTool(null)}
+						/>
+					)}
+					<ZeroPointOverlay
+						getViewport={() => viewportRef.current}
+						design={design}
+						selection={selection}
+						units={design.units}
+						zero={zero}
+						camera={camera}
+					/>
+					{tool === 'zero' && (
+						<ZeroPointTool
+							getViewport={() => viewportRef.current}
+							snap={design.grid.snap}
+							zero={zero}
+							onZero={setZero}
+							onClear={() => setZero(null)}
 							onClose={() => setTool(null)}
 						/>
 					)}

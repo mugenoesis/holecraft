@@ -2684,3 +2684,33 @@ button.primary:disabled {
 	align-items: center;
 	flex-wrap: wrap;
 }
+
+/* Zero point: a ring on the floor and strips to the selection, labelled in the design's units */
+.zero-lines {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+.zero-lines line {
+	stroke: #1f9d55;
+	stroke-width: 4;
+	stroke-linecap: round;
+}
+.zero-lines circle {
+	fill: none;
+	stroke: #1f9d55;
+	stroke-width: 3;
+}
+.zero-lines text {
+	font: 600 12px sans-serif;
+	fill: #0b5a2c;
+	paint-order: stroke;
+	stroke: #fff;
+	stroke-width: 3px;
+}
+.zero-clear {
+	margin-top: 4px;
+	pointer-events: auto;
+}
