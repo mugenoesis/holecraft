@@ -30,8 +30,10 @@
 		"directories": {
 			"output": "release"
 		},
+		"afterPack": "dist/afterPack.cjs",
 		"files": [
 			"dist/**/*",
+			"!dist/afterPack.cjs*",
 			"package.json"
 		],
 		"extraResources": [

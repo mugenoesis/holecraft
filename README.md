@@ -273,6 +273,10 @@ scripts/package-desktop.sh
 
 The desktop app stores designs in `$XDG_DATA_HOME/holecraft` (usually `~/.local/share/holecraft`).
 
+**Running the AppImage:** it needs FUSE 2. Ubuntu 24.04 and newer do not install it, and the AppImage stops with
+`error loading libfuse.so.2`; install it with `sudo apt install libfuse2t64` (`libfuse2` on older releases). Without it,
+`./Holecraft-<version>-x86_64.AppImage --appimage-extract-and-run` starts the app, or install the .deb instead (it needs no FUSE).
+
 ## Develop
 
 Requirements: Node 22+, npm, and Docker (for integration tests and packaging).
@@ -314,6 +318,7 @@ scripts/        Repeatable dev/test/packaging tasks
 | `scripts/release-desktop.sh` | Build the AppImage and .deb for the release version, check them, write `SHA256SUMS.txt`, and attach them to the GitHub release with `UPLOAD=1` |
 | `scripts/package-addon.sh` | Build the Firefox add-on and the zip to have signed |
 | `scripts/package-desktop.sh` | Build the AppImage and .deb (in a Debian container) |
+| `scripts/lib/check-deb-modes.sh <deb>` | Fail if the .deb holds a file or folder that other users cannot read (what made 0.5.0 start only as root); `release-desktop.sh` runs it |
 | `npm run knip` | Unused files, exports and dependencies (fails the gate) |
 | `npm run coverage` | Unit tests with coverage; per-package floors in `vitest.config.ts` fail the gate, HTML report in `coverage/` |
 | `scripts/audit.sh` (`npm run audit:deps`) | Dependency vulnerabilities: anything that ships must be clean, build tools are only reported |

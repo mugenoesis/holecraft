@@ -42,6 +42,8 @@ done
 [[ "$(head -c 4 "$APPIMAGE" | od -An -tx1 | tr -d ' \n')" == "7f454c46" ]] || { echo "$APPIMAGE is not an executable (no ELF header)" >&2; exit 1; }
 [[ "$(head -c 7 "$DEB")" == '!<arch>' ]] || { echo "$DEB is not a .deb (no ar header)" >&2; exit 1; }
 [[ -x "$APPIMAGE" ]] || chmod +x "$APPIMAGE"
+# A .deb whose files only root can read installs fine and then cannot be started by anyone else (0.5.0).
+scripts/lib/check-deb-modes.sh "$DEB"
 
 (cd "$OUT" && sha256sum "$(basename "$APPIMAGE")" "$(basename "$DEB")" > SHA256SUMS.txt && cat SHA256SUMS.txt)
 
