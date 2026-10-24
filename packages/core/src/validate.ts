@@ -363,6 +363,8 @@ const MIGRATIONS: Record<number, (design: Record<string, unknown>) => Record<str
 	6: (design) => design,
 	// 7 -> 8: a design may carry support points for resin printing (`supports`). Nothing to change in older files.
 	7: (design) => design,
+	// 8 -> 9: a design may carry a zero point (`zero`). Nothing to change in older files.
+	8: (design) => design,
 };
 
 function migrate(raw: Record<string, unknown>): Record<string, unknown> {
@@ -416,6 +418,19 @@ function parseSupports(raw: unknown): SupportPlan | undefined {
 	return { points, key: str(raw.key, 'supports.key', MAX_STRING_PARAM) };
 }
 
+function parseZero(raw: unknown): Design['zero'] {
+	if (raw === undefined) return undefined;
+	if (!isRecord(raw)) fail('zero', 'must be an object');
+	const coord = (key: 'x' | 'y') => {
+		const v = raw[key];
+		if (!isFiniteNumber(v) || Math.abs(v) > MAX_COORDINATE) fail(`zero.${key}`, 'must be a number');
+		return v;
+	};
+	const turns = raw.turns;
+	if (turns !== 0 && turns !== 1 && turns !== 2 && turns !== 3) fail('zero.turns', 'must be 0, 1, 2 or 3');
+	return { x: coord('x'), y: coord('y'), turns };
+}
+
 function parsePalette(v: unknown): string[] {
 	if (!Array.isArray(v) || v.length < 1 || v.length > MAX_PALETTE_SIZE)
 		fail('palette', `must be a list of 1 to ${MAX_PALETTE_SIZE} colours`);
@@ -438,6 +453,7 @@ export function parseDesign(input: unknown): Design {
 	if (!isRecord(input)) fail('', 'a design must be an object');
 	const raw = migrate(input);
 	const supports = parseSupports(raw.supports);
+	const zero = parseZero(raw.zero);
 
 	const units = raw.units;
 	if (units !== 'mm' && units !== 'in') fail('units', 'must be "mm" or "in"');
@@ -481,6 +497,7 @@ export function parseDesign(input: unknown): Design {
 		nodes: reached,
 		roots: [...roots],
 		...(supports ? { supports } : {}),
+		...(zero ? { zero } : {}),
 		...(folder ? { folder } : {}),
 		createdAt: date(raw.createdAt),
 		updatedAt: date(raw.updatedAt),

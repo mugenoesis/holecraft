@@ -620,15 +620,22 @@ button.primary:disabled {
 }
 
 /* on a narrower screen the top bar keeps to one row by showing only the dot (the words are in its tooltip) */
-@media (max-width: 1100px) {
+/* the settings cog tipped a 1280 px bar into two rows, so these two labels go below 1300 px */
+@media (max-width: 1300px) {
 	.server-status .server-label,
 	.history-label {
 		display: none;
 	}
+}
+
+@media (max-width: 1100px) {
+	.topbar {
+		column-gap: 10px;
+	}
 
 	/* the name can be narrower: the History button needs the room */
 	.design-name-input {
-		min-width: 40px;
+		min-width: 24px;
 	}
 
 	/* the logo stays; its name makes room for the buttons in the top bar (Merge made it just too long for a 1024 px screen) */
@@ -1436,7 +1443,7 @@ button.primary:disabled {
 	width: 12px;
 	height: 12px;
 	padding: 0;
-	transform: translate(-50%, -50%);
+	transform: translate(-50%, -50%) scale(var(--handle-scale, 1));
 	background: #fff;
 	border: 2px solid var(--accent);
 	border-radius: 2px;
@@ -1500,7 +1507,7 @@ button.primary:disabled {
 	width: 14px;
 	height: 14px;
 	padding: 0;
-	transform: translate(-50%, -50%);
+	transform: translate(-50%, -50%) scale(var(--handle-scale, 1));
 	border: 2px solid #fff;
 	border-radius: 50%;
 	box-shadow: 0 0 0 1px rgb(0 0 0 / 35%);
@@ -2683,4 +2690,119 @@ button.primary:disabled {
 	justify-content: center;
 	align-items: center;
 	flex-wrap: wrap;
+}
+
+/* Zero point: an L on the floor and strips to the selection, labelled in the design's units */
+.zero-lines {
+	z-index: 6; /* above the handles, so the readings and the corner are never covered */
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+}
+.zero-lines line {
+	stroke: rgba(70, 80, 92, 0.6);
+	stroke-width: 4;
+	stroke-linecap: round;
+}
+.zero-lines circle {
+	pointer-events: auto;
+	cursor: pointer;
+	fill: rgba(255, 255, 255, 0.01);
+	stroke: rgba(70, 80, 92, 0.7);
+	stroke-width: 3;
+}
+.zero-clear {
+	margin-top: 4px;
+	pointer-events: auto;
+}
+
+.zero-readings {
+	position: absolute;
+	inset: 0;
+	z-index: 7;
+	pointer-events: none;
+}
+.zero-reading {
+	position: absolute;
+	transform: translate(-50%, -50%);
+	width: 64px;
+	padding: 2px 4px;
+	text-align: center;
+	font: 600 12px sans-serif;
+	color: #2e3742;
+	background: rgba(255, 255, 255, 0.85);
+	border: 1px solid rgba(70, 80, 92, 0.6);
+	border-radius: 4px;
+	pointer-events: auto;
+}
+
+/* The selection's size labels: on lines out from the box, well clear of the handles, in dark blue so they differ from the grey zero readings */
+.size-lines {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 6;
+	pointer-events: none;
+	overflow: visible;
+}
+.size-lines line {
+	stroke: rgba(30, 86, 160, 0.7);
+	stroke-width: 1.5;
+	stroke-dasharray: 3 3;
+}
+.size-labels {
+	position: absolute;
+	inset: 0;
+	z-index: 7;
+	pointer-events: none;
+}
+.size-label {
+	position: absolute;
+	transform: translate(-50%, -50%);
+	width: 60px;
+	padding: 2px 4px;
+	text-align: center;
+	font: 700 12px sans-serif;
+	color: #fff;
+	background: rgba(30, 86, 160, 0.92);
+	border: 1px solid #fff;
+	border-radius: 4px;
+	pointer-events: auto;
+}
+.size-label[readonly] {
+	background: rgba(30, 86, 160, 0.7);
+}
+
+.settings-panel {
+	min-width: 220px;
+	right: 0;
+	left: auto;
+}
+
+.settings-row {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 6px 10px;
+	font-size: 13px;
+}
+
+.settings-workplane {
+	border: 0;
+	border-top: 1px solid var(--border, #ccc);
+	margin: 4px 0 0;
+	padding: 6px 10px;
+	font-size: 13px;
+}
+
+.settings-reset {
+	margin: 0 10px 6px;
+}
+
+/* the cog is a small icon: the top bar has no room to spare at 1024 px */
+.export-menu.settings-menu > .settings-button {
+	padding: 4px 7px;
 }

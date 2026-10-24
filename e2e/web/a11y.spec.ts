@@ -67,6 +67,13 @@ test.describe('accessibility (axe, WCAG A and AA)', () => {
 		expect(await problems(page)).toEqual([]);
 	});
 
+	test('the settings panel', async ({ page }) => {
+		await newDesign(page);
+		await page.getByRole('button', { name: 'Settings' }).click();
+		await expect(page.getByRole('slider', { name: 'Handle size' })).toBeVisible();
+		expect(await problems(page)).toEqual([]);
+	});
+
 	test('the shortcut sheet', async ({ page }) => {
 		await newDesign(page);
 		await page.keyboard.press('?');
@@ -118,7 +125,7 @@ test.describe('accessibility (axe, WCAG A and AA)', () => {
 	test('the editor with each tool on', async ({ page }) => {
 		await newDesign(page);
 		await page.getByRole('button', { name: /^Box/ }).first().press('Enter');
-		for (const key of ['r', 'w', 'e', 'n', 'k']) {
+		for (const key of ['r', 'o', 'w', 'e', 'n', 'k']) {
 			await page.keyboard.press(key);
 			expect(await problems(page), key).toEqual([]);
 			await page.keyboard.press('Escape');

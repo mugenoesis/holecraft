@@ -55,6 +55,7 @@ function toggles(p: Props): Toggle[] {
 	});
 	const list: Toggle[] = [
 		tool('ruler', 'Ruler', 'Measure between two points (R)'),
+		tool('zero', 'Zero point', 'Drop a zero point on the floor: selected shapes then show how far x and y they are from it (O)'),
 		tool('workplane', 'Workplane', 'Build on a face: click a face to put new shapes on it (W)'),
 		tool('edges', 'Edges', 'Chamfer or round edges of the selected shape (E)'),
 		tool('paint', 'Paint', "Paint faces in the design's filament colours: click a face (N)"),

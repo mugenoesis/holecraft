@@ -151,6 +151,9 @@ test.describe('on a phone', () => {
 	});
 
 	test('the resize and rotate handles are big enough to grab', async ({ page }) => {
+		// the touch sizes are for a handle scale of 100%; the default is now 50%, which the user may leave or change
+		await page.evaluate(() => localStorage.setItem('holecraft.handleScale', '1'));
+		await page.reload();
 		await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 		await openPanel(page, 'Objects');
 		await page.getByTestId('object-list').getByRole('button', { name: /Box 1/ }).click();

@@ -6,6 +6,7 @@ import { ImportButton } from './ImportButton.tsx';
 import type { ImportedModel } from './importModel.ts';
 import { Link } from './Link.tsx';
 import { ServerStatus } from './ServerStatus.tsx';
+import { SettingsMenu } from './SettingsMenu.tsx';
 import type { SaveStatus } from './saveController.ts';
 import { useDraft } from './useDraft.ts';
 import type { MergeUi } from './useMerge.ts';
@@ -32,10 +33,25 @@ interface Props {
 	onHelp: () => void;
 	/** Opens the list of earlier versions of the design. */
 	onHistory: () => void;
+	/** The scale of the resize and rotate handles, and how it is changed. */
+	handleScale: number;
+	onHandleScale: (scale: number) => void;
 }
 
 /** The bar across the top of the editor: back link, undo/redo, group, name, import/export and save status. */
-export function TopBar({ state, dispatch, meshes, merge, onImported, save, compact, onHelp, onHistory }: Props) {
+export function TopBar({
+	state,
+	dispatch,
+	meshes,
+	merge,
+	onImported,
+	save,
+	compact,
+	onHelp,
+	onHistory,
+	handleScale,
+	onHandleScale,
+}: Props) {
 	const design = state.history.present;
 	const selection: readonly NodeId[] = state.selection;
 
@@ -109,6 +125,7 @@ export function TopBar({ state, dispatch, meshes, merge, onImported, save, compa
 				{STATUS_LABEL[save.status]}
 				{save.status === 'error' && save.problem ? `: ${save.problem}` : ''}
 			</span>
+			<SettingsMenu design={design} dispatch={dispatch} handleScale={handleScale} onHandleScale={onHandleScale} />
 			<button
 				type="button"
 				className="history-button"

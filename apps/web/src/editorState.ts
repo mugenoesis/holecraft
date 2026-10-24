@@ -18,6 +18,7 @@ import {
 	canUndo,
 	clearPaint,
 	clearSupportPoints,
+	clearZeroPoint,
 	createHistory,
 	type Design,
 	deleteNodes,
@@ -78,6 +79,7 @@ import {
 	setSupportRadius,
 	setTextWrap,
 	setWorkplaneSize,
+	setZeroPoint,
 	showAll,
 	standOnPlane,
 	suggestPaletteColor,
@@ -87,6 +89,8 @@ import {
 	ungroupNodes,
 	type Vec3,
 	type WorkPlane,
+	type ZeroPoint,
+	type ZeroTurns,
 } from '@holecraft/core';
 
 /** Where a duplicate lands relative to the original, in mm. */
@@ -161,6 +165,7 @@ export type EditorAction =
 	| { type: 'renameDesign'; name: string }
 	// The size of the workplane (the build plate) in mm, each side limited to 10 mm up to 100 cm.
 	| { type: 'setWorkplane'; width: number; depth: number }
+	| { type: 'setZero'; at: ZeroPoint | null; turns: ZeroTurns }
 	// Solid or hole, for everything selected.
 	| { type: 'setMode'; mode: SolidMode }
 	// An imported model is pointed at another stored mesh (its repaired copy).
@@ -531,6 +536,9 @@ function reduceEdit(state: EditorState, action: EditAction): EditorState {
 
 		case 'setWorkplane':
 			return commit(state, setWorkplaneSize(design, action.width, action.depth));
+
+		case 'setZero':
+			return commit(state, action.at ? setZeroPoint(design, action.at, action.turns) : clearZeroPoint(design));
 
 		case 'delete':
 			return commit(state, deleteNodes(design, state.selection), []);

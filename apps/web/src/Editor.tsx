@@ -7,6 +7,7 @@ import {
 	type Vec3,
 	type WorkPlane,
 } from '@holecraft/core';
+import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useReducer, useState } from 'react';
 import { ArrangePanel } from './ArrangePanel.tsx';
 import { ConflictHost } from './ConflictDialog.tsx';
@@ -14,6 +15,8 @@ import { type PanelTab, useCompactLayout, usePanelTab } from './compactLayout.ts
 import { ApiError, getDesign, uploadThumbnail } from './designsApi.ts';
 import { useEditorShortcuts } from './editorShortcuts.ts';
 import { createEditorState, editorReducer } from './editorState.ts';
+import { clampHandleScale, readHandleScale, writeHandleScale } from './handleScale.ts';
+import { browserStorage } from './importUpAxis.ts';
 import { ModelCheckPanel } from './ModelCheckPanel.tsx';
 import { NotFound } from './NotFound.tsx';
 import { PalettePanel } from './PalettePanel.tsx';
@@ -38,7 +41,6 @@ import { useVersionHistory } from './useVersionHistory.ts';
 import { VersionHistoryHost } from './VersionHistoryHost.tsx';
 import type { SupportsView } from './viewport/supportsView.ts';
 import { ViewportCanvas } from './viewport/ViewportCanvas.tsx';
-import { WorkplanePanel } from './WorkplanePanel.tsx';
 
 type Load = { kind: 'loading' } | { kind: 'ready'; design: Design } | { kind: 'missing' } | { kind: 'failed'; message: string };
 
@@ -158,11 +160,17 @@ function EditorView({ initial }: { initial: Design }) {
 	// Phones, folding phones and tablets: one panel tab at a time, and the selection's edits as buttons over the view.
 	const compact = useCompactLayout();
 	const panelLayout = usePanelLayout(compact);
+	const [handleScale, setHandleScale] = useState(() => readHandleScale(browserStorage()));
+	const changeHandleScale = (scale: number) => {
+		const next = clampHandleScale(scale);
+		setHandleScale(next);
+		writeHandleScale(browserStorage(), next);
+	};
 	const [tab, setTab] = usePanelTab(state.selection.length);
 	const shown = (t: PanelTab) => !compact || tab === t;
 
 	return (
-		<div className={compact ? 'app compact' : 'app'}>
+		<div className={compact ? 'app compact' : 'app'} style={{ '--handle-scale': handleScale } as CSSProperties}>
 			<TopBar
 				compact={compact}
 				state={state}
@@ -172,6 +180,8 @@ function EditorView({ initial }: { initial: Design }) {
 				merge={merge}
 				onHelp={openHelp}
 				onHistory={history.show}
+				handleScale={handleScale}
+				onHandleScale={changeHandleScale}
 				onImported={({ items }) => {
 					for (const item of items) addMesh(item.input.ref, item.mesh);
 					dispatch({ type: 'addMeshes', items: items.map(({ input, at, lift }) => ({ input, at, lift })) });
@@ -201,6 +211,8 @@ function EditorView({ initial }: { initial: Design }) {
 					onMoveEnd={() => dispatch({ type: 'moveEnd' })}
 					onMarquee={(ids, additive) => dispatch({ type: 'marquee', ids, additive })}
 					onNudge={(delta) => dispatch({ type: 'nudge', delta })}
+					onSize={(id, group, size) => dispatch({ type: group ? 'setGroupSize' : 'setSize', id, size })}
+					onZero={(at, turns) => dispatch({ type: 'setZero', at, turns })}
 					onGeometry={(id, geometry) => dispatch({ type: 'setGeometry', id, geometry })}
 					onRotation={(id, rotation) => dispatch({ type: 'setRotation', id, rotation })}
 					onRemoveEdges={(id, ids) => dispatch({ type: 'removeEdges', id, ids })}
@@ -273,7 +285,6 @@ function EditorView({ initial }: { initial: Design }) {
 								supportsUi={supportsUi}
 							/>
 							<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
-							<WorkplanePanel design={design} dispatch={dispatch} />
 						</div>
 						<div className="panel-tab" hidden={!shown('colours')}>
 							<PalettePanel design={design} selection={state.selection} dispatch={dispatch} />
