@@ -11,6 +11,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# What goes into the packages keeps the modes it has here, and the .deb installs them as they are: with a restrictive umask
+# (007, 027) or checkout, /opt/Holecraft came out root-only and nobody else could start the app (0.5.0). The app's own folder is
+# fixed by the afterPack hook (apps/desktop/src/afterPack.ts); this covers the icon that is copied in, and what LOCAL=1 creates.
+umask 022
+chmod -R a+rX apps/desktop/build
+
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
   npm run build:desktop
 fi

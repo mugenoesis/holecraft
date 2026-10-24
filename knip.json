@@ -32,6 +32,7 @@
 			"project": ["src/**/*.{ts,tsx}"]
 		},
 		"apps/desktop": {
+			"entry": ["src/main.ts", "src/afterPack.ts"],
 			"project": ["src/**/*.ts"]
 		},
 		"apps/addon": {
