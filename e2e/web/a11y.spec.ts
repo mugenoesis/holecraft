@@ -67,6 +67,13 @@ test.describe('accessibility (axe, WCAG A and AA)', () => {
 		expect(await problems(page)).toEqual([]);
 	});
 
+	test('the settings panel', async ({ page }) => {
+		await newDesign(page);
+		await page.getByRole('button', { name: 'Settings' }).click();
+		await expect(page.getByRole('slider', { name: 'Handle size' })).toBeVisible();
+		expect(await problems(page)).toEqual([]);
+	});
+
 	test('the shortcut sheet', async ({ page }) => {
 		await newDesign(page);
 		await page.keyboard.press('?');

@@ -621,6 +621,10 @@ button.primary:disabled {
 
 /* on a narrower screen the top bar keeps to one row by showing only the dot (the words are in its tooltip) */
 @media (max-width: 1100px) {
+	.topbar {
+		column-gap: 10px;
+	}
+
 	.server-status .server-label,
 	.history-label {
 		display: none;
@@ -628,7 +632,7 @@ button.primary:disabled {
 
 	/* the name can be narrower: the History button needs the room */
 	.design-name-input {
-		min-width: 40px;
+		min-width: 24px;
 	}
 
 	/* the logo stays; its name makes room for the buttons in the top bar (Merge made it just too long for a 1024 px screen) */
@@ -1436,7 +1440,7 @@ button.primary:disabled {
 	width: 12px;
 	height: 12px;
 	padding: 0;
-	transform: translate(-50%, -50%);
+	transform: translate(-50%, -50%) scale(var(--handle-scale, 1));
 	background: #fff;
 	border: 2px solid var(--accent);
 	border-radius: 2px;
@@ -1500,7 +1504,7 @@ button.primary:disabled {
 	width: 14px;
 	height: 14px;
 	padding: 0;
-	transform: translate(-50%, -50%);
+	transform: translate(-50%, -50%) scale(var(--handle-scale, 1));
 	border: 2px solid #fff;
 	border-radius: 50%;
 	box-shadow: 0 0 0 1px rgb(0 0 0 / 35%);
@@ -2767,4 +2771,27 @@ button.primary:disabled {
 }
 .size-label[readonly] {
 	background: rgba(30, 86, 160, 0.7);
+}
+
+.settings-panel {
+	min-width: 220px;
+	right: 0;
+	left: auto;
+}
+
+.settings-row {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 6px 10px;
+	font-size: 13px;
+}
+
+.settings-reset {
+	margin: 0 10px 6px;
+}
+
+/* the cog is a small icon: the top bar has no room to spare at 1024 px */
+.export-menu.settings-menu > .settings-button {
+	padding: 4px 7px;
 }
