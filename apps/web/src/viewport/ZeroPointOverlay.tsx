@@ -1,18 +1,21 @@
 import {
 	type Bounds,
 	type Design,
-	formatLength,
+	mmToUnits,
 	type NodeId,
 	nodeBoundsIn,
 	snapMeasuredPoint,
 	type Units,
+	unitsToMm,
 	type Vec3,
 	type ZeroPoint,
 	type ZeroTurns,
 	zeroArms,
+	zeroMoveDelta,
 	zeroSign,
 	zeroStrips,
 } from '@holecraft/core';
+import { useDraft } from '../useDraft.ts';
 import { useSurfaceTool } from './useSurfaceTool.ts';
 import type { Viewport } from './Viewport.ts';
 
@@ -25,6 +28,8 @@ interface Props {
 	/** Quarter turns of the L (which way its arms point); a click on its corner asks for the next. */
 	turns: ZeroTurns;
 	onTurn: () => void;
+	/** Moves the selection by this much along x and y (typing a reading). */
+	onMove: (delta: [number, number]) => void;
 	/** Changes whenever the camera does, so the strips are redrawn where they now are. */
 	camera: unknown;
 }
@@ -59,63 +64,112 @@ function armsOnScreen(viewport: Viewport, zero: ZeroPoint, turns: ZeroTurns, rin
 }
 
 const ARM_PX = 44;
-/** The readings stack above the L's corner, clear of the arms and of each other. */
-const LABEL_LIFT_PX = 18;
-const LABEL_LINE_PX = 16;
+
+interface ReadingProps {
+	axis: 'x' | 'y';
+	at: { x: number; y: number };
+	reading: number;
+	units: Units;
+	onType: (reading: number) => void;
+}
+
+/** A strip's reading, a box on the strip at the object: typing a distance moves the selection to it. */
+function ZeroReading({ axis, at, reading, units, onType }: ReadingProps) {
+	const shown = String(Number(mmToUnits(reading, units).toFixed(2)));
+	const draft = useDraft(shown, (typed) => {
+		const n = Number(typed);
+		if (typed.trim() !== '' && Number.isFinite(n)) onType(unitsToMm(n, units));
+	});
+	return (
+		<input
+			className="zero-reading"
+			data-testid={`zero-input-${axis}`}
+			aria-label={`${axis.toUpperCase()} distance from the zero point (${units})`}
+			inputMode="decimal"
+			style={{ left: at.x, top: at.y }}
+			value={draft.value}
+			onChange={(e) => draft.onChange(e.target.value)}
+			onBlur={draft.onBlur}
+			onKeyDown={(e) => {
+				// the editor's shortcuts must not see typing
+				e.stopPropagation();
+				draft.onKeyDown(e);
+			}}
+			onFocus={(e) => e.currentTarget.select()}
+		/>
+	);
+}
 
 /**
- * The zero point: an L on the floor that distances are measured from (clicking its corner turns it a quarter, so its arms say which way is positive) on the floor that distances are measured from. While the tool is on, a click on the floor (or a
- * shape's face, dropped to the floor under it) puts it down; with it set and something selected, green strips on the floor
- * show how far x and y the selection is from it. View state only: nothing is saved or put in the undo history.
+ * The zero point: an L on the floor that distances are measured from (clicking its corner turns it a quarter, so its arms say which way is positive) While the tool is on, a click on the floor (or a
+ * shape's face, dropped to the floor under it) puts it down; with it set and something selected, grey strips on the floor
+ * show how far x and y the selection is from it, each with a box on the strip where a typed distance moves the selection there. View state only: nothing is saved or put in the undo history.
  */
-export function ZeroPointOverlay({ getViewport, design, selection, units, zero, turns, onTurn, camera: _camera }: Props) {
+export function ZeroPointOverlay({ getViewport, design, selection, units, zero, turns, onTurn, onMove, camera: _camera }: Props) {
 	const viewport = getViewport();
 	if (!zero || !viewport) return null;
 	const ring = viewport.project([zero[0], zero[1], 0]);
 	const bounds = selectionBounds(design, selection);
 	const strips = bounds ? zeroStrips(zero, bounds) : [];
 	const arms = ring ? armsOnScreen(viewport, zero, turns, ring) : [];
+	const moveTo = (axis: 'x' | 'y', reading: number) => {
+		if (!bounds) return;
+		const d = zeroMoveDelta(zero, bounds, axis, reading, turns);
+		if (d !== 0) onMove(axis === 'x' ? [d, 0] : [0, d]);
+	};
 	return (
-		<svg className="zero-lines" aria-hidden="true" data-testid="zero-point" data-x={zero[0]} data-y={zero[1]} data-turns={turns}>
-			{strips.map((s, i) => {
-				const a = viewport.project(s.from);
-				const b = viewport.project(s.to);
-				if (!a || !b) return null;
-				return (
-					<g key={s.axis} data-testid={`zero-strip-${s.axis}`} data-length={s.length} data-reading={s.length * zeroSign(turns, s.axis)}>
-						<line x1={a.x} y1={a.y} x2={b.x} y2={b.y} />
-						<text
-							x={ring ? ring.x : a.x}
-							y={(ring ? ring.y : a.y) - LABEL_LIFT_PX - (strips.length - 1 - i) * LABEL_LINE_PX}
-							textAnchor="middle"
-						>
-							{s.axis.toUpperCase()} {formatLength(s.length * zeroSign(turns, s.axis), units)}
-						</text>
-					</g>
-				);
-			})}
-			{arms.map((a, i) => (
-				<line key={i === 0 ? 'arm-x' : 'arm-y'} className="zero-arm" x1={ring!.x} y1={ring!.y} x2={a.x} y2={a.y} />
-			))}
-			{ring && (
-				<circle
-					cx={ring.x}
-					cy={ring.y}
-					r={9}
-					data-testid="zero-ring"
-					role="button"
-					tabIndex={0}
-					aria-label="Turn the zero point a quarter"
-					onClick={onTurn}
-					onKeyDown={(e) => {
-						if (e.key === 'Enter' || e.key === ' ') {
-							e.preventDefault();
-							onTurn();
-						}
-					}}
-				/>
-			)}
-		</svg>
+		<>
+			<svg className="zero-lines" aria-hidden="true" data-testid="zero-point" data-x={zero[0]} data-y={zero[1]} data-turns={turns}>
+				{strips.map((s) => {
+					const a = viewport.project(s.from);
+					const b = viewport.project(s.to);
+					if (!a || !b) return null;
+					return (
+						<g key={s.axis} data-testid={`zero-strip-${s.axis}`} data-length={s.length} data-reading={s.length * zeroSign(turns, s.axis)}>
+							<line x1={a.x} y1={a.y} x2={b.x} y2={b.y} />
+						</g>
+					);
+				})}
+				{arms.map((a, i) => (
+					<line key={i === 0 ? 'arm-x' : 'arm-y'} className="zero-arm" x1={ring!.x} y1={ring!.y} x2={a.x} y2={a.y} />
+				))}
+				{ring && (
+					<circle
+						cx={ring.x}
+						cy={ring.y}
+						r={9}
+						data-testid="zero-ring"
+						role="button"
+						tabIndex={0}
+						aria-label="Turn the zero point a quarter"
+						onClick={onTurn}
+						onKeyDown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								onTurn();
+							}
+						}}
+					/>
+				)}
+			</svg>
+			<div className="zero-readings">
+				{strips.map((s) => {
+					const a = viewport.project(s.from);
+					const b = viewport.project(s.to);
+					if (!a || !b) return null;
+					return (
+						<ZeroReading
+							key={s.axis}
+							axis={s.axis}
+							at={{ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }}
+							reading={s.length * zeroSign(turns, s.axis)}
+							units={units}
+							onType={(r) => moveTo(s.axis, r)}
+						/>
+					);
+				})}
+			</div>
+		</>
 	);
 }
 

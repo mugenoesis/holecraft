@@ -39,11 +39,30 @@ test.describe('zero point', () => {
 		// the box (selected after the drop) is about 55 mm right of and 37 mm above the point: 150 px and 100 px less its half size
 		const x = page.getByTestId('zero-strip-x');
 		const y = page.getByTestId('zero-strip-y');
-		await expect(x).toBeVisible();
-		await expect(y).toBeVisible();
+		await expect(x).toBeAttached();
+		await expect(y).toBeAttached();
 		expect(Math.abs(Number(await x.getAttribute('data-length')))).toBeGreaterThan(30);
 		expect(Math.abs(Number(await y.getAttribute('data-length')))).toBeGreaterThan(15);
-		await expect(x.locator('text')).toHaveText(/mm$/);
+		await expect(page.getByTestId('zero-input-x')).toBeVisible();
+	});
+
+	test('typing a distance in a reading moves the selection there, and undo puts it back', async ({ page }) => {
+		await dropShape(page, 'Box');
+		await topView(page);
+		await clickAt(page, 0);
+		await zeroButton(page).click();
+		await clickAt(page, -150, 100);
+		const x = page.getByTestId('zero-strip-x');
+		const input = page.getByTestId('zero-input-x');
+		const before = Number(await x.getAttribute('data-reading'));
+		await input.fill('20');
+		await input.press('Enter');
+		await expect(x).toHaveAttribute('data-reading', '20');
+		await expect(input).toHaveValue('20');
+		await page.keyboard.press('Escape');
+		await page.locator('body').click({ position: { x: 5, y: 5 } });
+		await page.keyboard.press('Control+z');
+		await expect(x).toHaveAttribute('data-reading', String(before));
 	});
 
 	test('Clear zero point removes the ring and the strips', async ({ page }) => {

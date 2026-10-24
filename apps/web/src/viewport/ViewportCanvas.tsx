@@ -458,6 +458,7 @@ export function ViewportCanvas(props: Props) {
 						zero={zero}
 						turns={zeroTurns}
 						onTurn={() => setZeroTurns(nextTurn)}
+						onMove={props.onNudge}
 						camera={camera}
 					/>
 					{tool === 'zero' && (

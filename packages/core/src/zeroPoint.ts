@@ -60,3 +60,14 @@ export function zeroSign(turns: ZeroTurns, axis: 'x' | 'y'): 1 | -1 {
 	}
 	return 1;
 }
+
+/**
+ * How far to move an object along the world `axis` so that its reading there is `reading` (what was typed, in mm, as the L
+ * reads it): the face nearest the point goes to that distance on the side the L's arm points, so a positive reading lies along the arm.
+ */
+export function zeroMoveDelta(origin: ZeroPoint, bounds: Bounds, axis: 'x' | 'y', reading: number, turns: ZeroTurns): number {
+	const i = axis === 'x' ? 0 : 1;
+	const target = reading * zeroSign(turns, axis);
+	const at = origin[i]! + target;
+	return target >= 0 ? at - bounds.min[i]! : at - bounds.max[i]!;
+}
