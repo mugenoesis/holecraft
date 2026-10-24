@@ -14,6 +14,8 @@ import {
 	type Vec3,
 	type WorkPlane,
 	withSimpleThreads,
+	type ZeroPoint,
+	type ZeroTurns,
 } from '@holecraft/core';
 import { meshRefsIn, type Subtree } from '@holecraft/geometry';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -28,6 +30,7 @@ import { EdgeTool } from './EdgeTool.tsx';
 import { EngraveHost } from './EngraveTool.tsx';
 import { editedNodeIds, withoutNodes } from './editedNodes.ts';
 import { HandlesOverlay } from './HandlesOverlay.tsx';
+import { MeasureLayers } from './MeasureLayers.tsx';
 import { PaintTool } from './PaintTool.tsx';
 import { PlaceLayer, useToolState } from './PlaceTool.tsx';
 import type { PlacementTarget } from './placement.ts';
@@ -76,6 +79,10 @@ interface Props {
 	onMoveEnd: () => void;
 	onMarquee: (ids: NodeId[], additive: boolean) => void;
 	onNudge: (delta: [number, number]) => void;
+	/** Types a size (mm) for the one selected shape or group. */
+	onSize: (id: string, group: boolean, size: Partial<Record<'width' | 'depth' | 'height', number>>) => void;
+	/** Puts the zero point at a spot with the L's quarter turns, or takes it away (null). */
+	onZero: (at: ZeroPoint | null, turns: ZeroTurns) => void;
 	/** True while the design is saved, so a picture of it can be taken for the designs list. */
 	thumbnailReady: boolean;
 	/** Receives that picture (a small PNG). */
@@ -443,6 +450,18 @@ export function ViewportCanvas(props: Props) {
 							onClose={() => setTool(null)}
 						/>
 					)}
+					<MeasureLayers
+						getViewport={() => viewportRef.current}
+						design={design}
+						selection={selection}
+						camera={camera}
+						zeroTool={tool === 'zero'}
+						noTool={tool === null}
+						onNudge={props.onNudge}
+						onSize={props.onSize}
+						onZero={props.onZero}
+						onCloseTool={() => setTool(null)}
+					/>
 					{tool === 'ruler' && (
 						<RulerOverlay
 							getViewport={() => viewportRef.current}

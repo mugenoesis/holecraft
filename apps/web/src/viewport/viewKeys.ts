@@ -44,6 +44,7 @@ export function viewKeyCommand(
 		home: () => viewport?.home(),
 		f: () => viewport?.fitAll(),
 		r: () => onToggleTool('ruler'),
+		o: () => onToggleTool('zero'),
 		w: () => onToggleTool('workplane'),
 		e: () => onToggleTool('edges'),
 		n: () => onToggleTool('paint'),

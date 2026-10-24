@@ -6,7 +6,7 @@ import type { Sketch } from './sketch.ts';
 import type { Units } from './units.ts';
 
 /** Bump when the on-disk design format changes, and add a migration. */
-export const DESIGN_FORMAT_VERSION = 8;
+export const DESIGN_FORMAT_VERSION = 9;
 
 /** What the designs list shows about each saved design. */
 export interface DesignSummary {
@@ -179,6 +179,8 @@ export interface Design {
 	roots: NodeId[];
 	/** Support points for resin printing, once they have been made or added to (see supportPoints.ts). */
 	supports?: SupportPlan;
+	/** The zero point distances are measured from: a spot on the floor (mm) and the quarter turns of its L. Absent when none is set. */
+	zero?: { x: number; y: number; turns: 0 | 1 | 2 | 3 };
 	/** The folder the design is in on the designs list (one level); the server owns it, so a save never changes it. */
 	folder?: string;
 	createdAt: string;

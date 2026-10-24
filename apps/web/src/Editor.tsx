@@ -201,6 +201,8 @@ function EditorView({ initial }: { initial: Design }) {
 					onMoveEnd={() => dispatch({ type: 'moveEnd' })}
 					onMarquee={(ids, additive) => dispatch({ type: 'marquee', ids, additive })}
 					onNudge={(delta) => dispatch({ type: 'nudge', delta })}
+					onSize={(id, group, size) => dispatch({ type: group ? 'setGroupSize' : 'setSize', id, size })}
+					onZero={(at, turns) => dispatch({ type: 'setZero', at, turns })}
 					onGeometry={(id, geometry) => dispatch({ type: 'setGeometry', id, geometry })}
 					onRotation={(id, rotation) => dispatch({ type: 'setRotation', id, rotation })}
 					onRemoveEdges={(id, ids) => dispatch({ type: 'removeEdges', id, ids })}
