@@ -620,14 +620,17 @@ button.primary:disabled {
 }
 
 /* on a narrower screen the top bar keeps to one row by showing only the dot (the words are in its tooltip) */
-@media (max-width: 1100px) {
-	.topbar {
-		column-gap: 10px;
-	}
-
+/* the settings cog tipped a 1280 px bar into two rows, so these two labels go below 1300 px */
+@media (max-width: 1300px) {
 	.server-status .server-label,
 	.history-label {
 		display: none;
+	}
+}
+
+@media (max-width: 1100px) {
+	.topbar {
+		column-gap: 10px;
 	}
 
 	/* the name can be narrower: the History button needs the room */
