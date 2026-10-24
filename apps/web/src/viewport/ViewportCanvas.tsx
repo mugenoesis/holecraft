@@ -5,7 +5,6 @@ import {
 	hasThreads,
 	type MeshData,
 	type NodeId,
-	nextTurn,
 	type OrbitState,
 	type PaintFill,
 	type ShapeGeometry,
@@ -31,6 +30,7 @@ import { EdgeTool } from './EdgeTool.tsx';
 import { EngraveHost } from './EngraveTool.tsx';
 import { editedNodeIds, withoutNodes } from './editedNodes.ts';
 import { HandlesOverlay } from './HandlesOverlay.tsx';
+import { MeasureLayers } from './MeasureLayers.tsx';
 import { PaintTool } from './PaintTool.tsx';
 import { PlaceLayer, useToolState } from './PlaceTool.tsx';
 import type { PlacementTarget } from './placement.ts';
@@ -52,7 +52,6 @@ import { ViewToolbar } from './ViewToolbar.tsx';
 import { useViewKeys } from './viewKeys.ts';
 import { WorkplaneTool } from './WorkplaneTool.tsx';
 import { XrayBar } from './XrayBar.tsx';
-import { ZeroPointOverlay, ZeroPointTool } from './ZeroPointOverlay.tsx';
 
 interface Props {
 	design: Design;
@@ -80,6 +79,10 @@ interface Props {
 	onMoveEnd: () => void;
 	onMarquee: (ids: NodeId[], additive: boolean) => void;
 	onNudge: (delta: [number, number]) => void;
+	/** Types a size (mm) for the one selected shape or group. */
+	onSize: (id: string, group: boolean, size: Partial<Record<'width' | 'depth' | 'height', number>>) => void;
+	/** Puts the zero point at a spot with the L's quarter turns, or takes it away (null). */
+	onZero: (at: ZeroPoint | null, turns: ZeroTurns) => void;
 	/** True while the design is saved, so a picture of it can be taken for the designs list. */
 	thumbnailReady: boolean;
 	/** Receives that picture (a small PNG). */
@@ -139,9 +142,6 @@ export function ViewportCanvas(props: Props) {
 	const [failed, setFailed] = useState(false);
 	const [marquee, setMarquee] = useState<PixelRect | null>(null);
 	const [dimensionLabel, setDimensionLabel] = useState<string | null>(null);
-	// The zero point distances are measured from: view state, kept while the editor is open, not in the design
-	const [zero, setZero] = useState<ZeroPoint | null>(null);
-	const [zeroTurns, setZeroTurns] = useState<ZeroTurns>(0);
 	// The tool in use, and a shape armed to be put down: both own the left button, so choosing one lets go of the other.
 	const { tool, setTool, toggleTool } = useToolState(props.placing, props.onCancelPlacing);
 	// What the ghost of a shape being placed is while it is on show (read by the tests, like the camera).
@@ -450,27 +450,18 @@ export function ViewportCanvas(props: Props) {
 							onClose={() => setTool(null)}
 						/>
 					)}
-					<ZeroPointOverlay
+					<MeasureLayers
 						getViewport={() => viewportRef.current}
 						design={design}
 						selection={selection}
-						units={design.units}
-						zero={zero}
-						turns={zeroTurns}
-						onTurn={() => setZeroTurns(nextTurn)}
-						onMove={props.onNudge}
 						camera={camera}
+						zeroTool={tool === 'zero'}
+						noTool={tool === null}
+						onNudge={props.onNudge}
+						onSize={props.onSize}
+						onZero={props.onZero}
+						onCloseTool={() => setTool(null)}
 					/>
-					{tool === 'zero' && (
-						<ZeroPointTool
-							getViewport={() => viewportRef.current}
-							snap={design.grid.snap}
-							zero={zero}
-							onZero={setZero}
-							onClear={() => setZero(null)}
-							onClose={() => setTool(null)}
-						/>
-					)}
 					{tool === 'ruler' && (
 						<RulerOverlay
 							getViewport={() => viewportRef.current}

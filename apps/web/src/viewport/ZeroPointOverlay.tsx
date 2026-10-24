@@ -1,12 +1,10 @@
 import {
 	type Bounds,
 	type Design,
-	mmToUnits,
 	type NodeId,
 	nodeBoundsIn,
 	snapMeasuredPoint,
 	type Units,
-	unitsToMm,
 	type Vec3,
 	type ZeroPoint,
 	type ZeroTurns,
@@ -15,7 +13,7 @@ import {
 	zeroSign,
 	zeroStrips,
 } from '@holecraft/core';
-import { useDraft } from '../useDraft.ts';
+import { ReadingBox } from './ReadingBox.tsx';
 import { useSurfaceTool } from './useSurfaceTool.ts';
 import type { Viewport } from './Viewport.ts';
 
@@ -35,7 +33,7 @@ interface Props {
 }
 
 /** The bounds of everything selected (hidden ones have none), or null. */
-function selectionBounds(design: Design, selection: readonly NodeId[]): Bounds | null {
+export function selectionBounds(design: Design, selection: readonly NodeId[]): Bounds | null {
 	let all: Bounds | null = null;
 	for (const id of selection) {
 		const b = nodeBoundsIn(design, id);
@@ -65,37 +63,29 @@ function armsOnScreen(viewport: Viewport, zero: ZeroPoint, turns: ZeroTurns, rin
 
 const ARM_PX = 44;
 
-interface ReadingProps {
+/** A strip's reading, a box on the strip at the object: typing a distance moves the selection to it. */
+function ZeroReading({
+	axis,
+	at,
+	reading,
+	units,
+	onType,
+}: {
 	axis: 'x' | 'y';
 	at: { x: number; y: number };
 	reading: number;
 	units: Units;
-	onType: (reading: number) => void;
-}
-
-/** A strip's reading, a box on the strip at the object: typing a distance moves the selection to it. */
-function ZeroReading({ axis, at, reading, units, onType }: ReadingProps) {
-	const shown = String(Number(mmToUnits(reading, units).toFixed(2)));
-	const draft = useDraft(shown, (typed) => {
-		const n = Number(typed);
-		if (typed.trim() !== '' && Number.isFinite(n)) onType(unitsToMm(n, units));
-	});
+	onType: (mm: number) => void;
+}) {
 	return (
-		<input
+		<ReadingBox
 			className="zero-reading"
-			data-testid={`zero-input-${axis}`}
-			aria-label={`${axis.toUpperCase()} distance from the zero point (${units})`}
-			inputMode="decimal"
-			style={{ left: at.x, top: at.y }}
-			value={draft.value}
-			onChange={(e) => draft.onChange(e.target.value)}
-			onBlur={draft.onBlur}
-			onKeyDown={(e) => {
-				// the editor's shortcuts must not see typing
-				e.stopPropagation();
-				draft.onKeyDown(e);
-			}}
-			onFocus={(e) => e.currentTarget.select()}
+			testId={`zero-input-${axis}`}
+			label={`${axis.toUpperCase()} distance from the zero point (${units})`}
+			at={at}
+			mm={reading}
+			units={units}
+			onType={onType}
 		/>
 	);
 }

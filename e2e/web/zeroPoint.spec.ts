@@ -103,4 +103,45 @@ test.describe('zero point', () => {
 		await clickAt(page, -150, 100);
 		await expect(page.getByTestId('handle-lift')).toBeVisible();
 	});
+
+	test('the zero point and its turn are saved with the design and come back after a reload', async ({ page }) => {
+		await dropShape(page, 'Box');
+		await topView(page);
+		await clickAt(page, 0);
+		await page.keyboard.press('o');
+		await clickAt(page, -150, 100);
+		await page.getByTestId('zero-ring').click();
+		const lines = page.getByTestId('zero-point');
+		await expect(lines).toHaveAttribute('data-turns', '1');
+		const x = await lines.getAttribute('data-x');
+		const y = await lines.getAttribute('data-y');
+		const id = page.url().split('/design/')[1]!;
+		await expect.poll(async () => (await (await page.request.get(`/api/designs/${id}`)).json()).zero?.turns).toBe(1);
+		await page.reload();
+		await expect(page.getByTestId('zero-point')).toHaveAttribute('data-turns', '1');
+		await expect(page.getByTestId('zero-point')).toHaveAttribute('data-x', x!);
+		await expect(page.getByTestId('zero-point')).toHaveAttribute('data-y', y!);
+	});
+
+	test('a selected shape shows its width, depth and height clear of the handles, and typing one resizes it', async ({ page }) => {
+		await dropShape(page, 'Box');
+		await clickAt(page, 0);
+		const w = page.getByTestId('size-x');
+		await expect(w).toBeVisible();
+		await expect(page.getByTestId('size-y')).toBeVisible();
+		await expect(page.getByTestId('size-z')).toBeVisible();
+		await expect(w).toHaveValue('20');
+		// no label sits on a handle
+		const box = await w.boundingBox();
+		for (const h of await page.locator('[data-testid^="handle-"]').all()) {
+			const hb = await h.boundingBox();
+			if (!hb || !box) continue;
+			const overlap = box.x < hb.x + hb.width && hb.x < box.x + box.width && box.y < hb.y + hb.height && hb.y < box.y + box.height;
+			expect(overlap).toBe(false);
+		}
+		await w.fill('35');
+		await w.press('Enter');
+		await expect(w).toHaveValue('35');
+		await expect(page.getByLabel('Width', { exact: true }).first()).toHaveValue('35');
+	});
 });

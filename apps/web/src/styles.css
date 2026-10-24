@@ -2730,3 +2730,41 @@ button.primary:disabled {
 	border-radius: 4px;
 	pointer-events: auto;
 }
+
+/* The selection's size labels: on lines out from the box, well clear of the handles, in dark blue so they differ from the grey zero readings */
+.size-lines {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 6;
+	pointer-events: none;
+	overflow: visible;
+}
+.size-lines line {
+	stroke: rgba(30, 86, 160, 0.7);
+	stroke-width: 1.5;
+	stroke-dasharray: 3 3;
+}
+.size-labels {
+	position: absolute;
+	inset: 0;
+	z-index: 7;
+	pointer-events: none;
+}
+.size-label {
+	position: absolute;
+	transform: translate(-50%, -50%);
+	width: 60px;
+	padding: 2px 4px;
+	text-align: center;
+	font: 700 12px sans-serif;
+	color: #fff;
+	background: rgba(30, 86, 160, 0.92);
+	border: 1px solid #fff;
+	border-radius: 4px;
+	pointer-events: auto;
+}
+.size-label[readonly] {
+	background: rgba(30, 86, 160, 0.7);
+}
