@@ -125,7 +125,7 @@ export function TopBar({
 				{STATUS_LABEL[save.status]}
 				{save.status === 'error' && save.problem ? `: ${save.problem}` : ''}
 			</span>
-			<SettingsMenu handleScale={handleScale} onHandleScale={onHandleScale} />
+			<SettingsMenu design={design} dispatch={dispatch} handleScale={handleScale} onHandleScale={onHandleScale} />
 			<button
 				type="button"
 				className="history-button"

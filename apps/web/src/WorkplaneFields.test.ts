@@ -2,17 +2,18 @@ import { createEmptyDesign } from '@holecraft/core';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { WorkplanePanel } from './WorkplanePanel.tsx';
+import { WorkplaneFields } from './WorkplaneFields.tsx';
 
 const render = (size: [number, number] = [200, 200]) => {
 	const design = createEmptyDesign('d');
-	return renderToStaticMarkup(createElement(WorkplanePanel, { design: { ...design, grid: { ...design.grid, size } }, dispatch: () => {} }));
+	return renderToStaticMarkup(
+		createElement(WorkplaneFields, { design: { ...design, grid: { ...design.grid, size } }, dispatch: () => {} }),
+	);
 };
 
-describe('WorkplanePanel', () => {
-	it('is a section called Workplane with a Width and a Depth, showing the size now', () => {
+describe('WorkplaneFields', () => {
+	it('is a Width and a Depth, showing the size now', () => {
 		const html = render([350, 120.5]);
-		expect(html).toContain('aria-label="Workplane"');
 		expect(html).toContain('>Width<');
 		expect(html).toContain('>Depth<');
 		expect(html).toContain('value="350"');

@@ -25,6 +25,15 @@ test.describe('settings cog', () => {
 		await expect.poll(async () => (await page.getByTestId('handle-height').boundingBox())?.width ?? 0).toBeGreaterThan(before * 1.7);
 	});
 
+	test('starts at 50% and runs from 10% to 200%', async ({ page }) => {
+		await page.getByRole('button', { name: 'Settings' }).click();
+		const slider = page.getByRole('slider', { name: 'Handle size' });
+		await expect(slider).toHaveValue('0.5');
+		await expect(slider).toHaveAttribute('min', '0.1');
+		await expect(slider).toHaveAttribute('max', '2');
+		await expect(page.getByText('Handle size (50%)')).toBeVisible();
+	});
+
 	test('Escape closes the panel', async ({ page }) => {
 		await page.getByRole('button', { name: 'Settings' }).click();
 		await expect(page.getByRole('slider', { name: 'Handle size' })).toBeVisible();

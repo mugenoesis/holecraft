@@ -2790,6 +2790,14 @@ button.primary:disabled {
 	font-size: 13px;
 }
 
+.settings-workplane {
+	border: 0;
+	border-top: 1px solid var(--border, #ccc);
+	margin: 4px 0 0;
+	padding: 6px 10px;
+	font-size: 13px;
+}
+
 .settings-reset {
 	margin: 0 10px 6px;
 }

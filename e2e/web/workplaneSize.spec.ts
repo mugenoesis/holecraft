@@ -3,16 +3,22 @@ import { expect, type Page, test } from '@playwright/test';
 import { camera, cameraSettled, center, newDesign, selectView, viewport } from './helpers.ts';
 
 /*
- * The size of the workplane (the build plate): Width and Depth in the side panel, from 10 mm up to 100 cm. The plate is drawn at the new size in
+ * The size of the workplane (the build plate): Width and Depth in the settings cog, from 10 mm up to 100 cm. The plate is drawn at the new size in
  * the open view, the camera backs off to suit it, and the size is saved with the design.
  */
 
-const section = (page: Page) => page.getByRole('region', { name: 'Workplane' });
+const section = (page: Page) => page.getByRole('group', { name: 'Workplane' });
+
+/** Opens the cog's panel (where the size lives) unless it is already open. */
+async function openSettings(page: Page) {
+	if (!(await section(page).isVisible())) await page.getByRole('button', { name: 'Settings' }).click();
+}
 const width = (page: Page) => section(page).getByLabel('Width', { exact: true });
 const depth = (page: Page) => section(page).getByLabel('Depth', { exact: true });
 const statusBar = (page: Page) => page.locator('footer.statusbar');
 
 async function setSize(page: Page, w: string, d: string) {
+	await openSettings(page);
 	await width(page).fill(w);
 	await width(page).press('Enter');
 	await depth(page).fill(d);
@@ -66,11 +72,15 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe('the size of the workplane', () => {
-	test('starts at 200 × 200 mm, in a Workplane section of the side panel', async ({ page }) => {
+	test('starts at 200 × 200 mm, in the Workplane group of the settings cog', async ({ page }) => {
+		await openSettings(page);
 		await expect(section(page)).toBeVisible();
+		await openSettings(page);
 		await expect(width(page)).toHaveValue('200');
+		await openSettings(page);
 		await expect(depth(page)).toHaveValue('200');
 		await expect(statusBar(page)).toContainText('Workplane 200 × 200');
+		await openSettings(page);
 		await expect(section(page)).toContainText('1000 mm (100 cm)');
 	});
 
@@ -84,7 +94,9 @@ test.describe('the size of the workplane', () => {
 
 	test('is kept between 10 mm and 1000 mm (100 cm): a number outside is brought back', async ({ page }) => {
 		await setSize(page, '5000', '1');
+		await openSettings(page);
 		await expect(width(page)).toHaveValue('1000');
+		await openSettings(page);
 		await expect(depth(page)).toHaveValue('10');
 		await expect(statusBar(page)).toContainText('Workplane 1000 × 10');
 	});
@@ -96,7 +108,9 @@ test.describe('the size of the workplane', () => {
 			.poll(async () => JSON.stringify(((await (await page.request.get(`/api/designs/${id}`)).json()) as { grid: unknown }).grid))
 			.toContain('640');
 		await page.reload();
+		await openSettings(page);
 		await expect(width(page)).toHaveValue('640');
+		await openSettings(page);
 		await expect(depth(page)).toHaveValue('480');
 		await expect(viewport(page)).toHaveAttribute('data-workplane', '640x480');
 	});
@@ -104,9 +118,12 @@ test.describe('the size of the workplane', () => {
 	test('is one undo step for each of Width and Depth', async ({ page }) => {
 		await setSize(page, '500', '400');
 		await page.keyboard.press('Control+z');
+		await openSettings(page);
 		await expect(depth(page)).toHaveValue('200');
+		await openSettings(page);
 		await expect(width(page)).toHaveValue('500');
 		await page.keyboard.press('Control+z');
+		await openSettings(page);
 		await expect(width(page)).toHaveValue('200');
 		await expect(statusBar(page)).toContainText('Workplane 200 × 200');
 	});
@@ -140,9 +157,10 @@ test.describe('the size of the workplane', () => {
 	});
 
 	test('passes the accessibility scan', async ({ page }) => {
+		await openSettings(page);
 		await expect(section(page)).toBeVisible();
-		expect(
-			(await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).include('[aria-label="Workplane"]').analyze()).violations,
-		).toEqual([]);
+		expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).include('.settings-workplane').analyze()).violations).toEqual(
+			[],
+		);
 	});
 });
