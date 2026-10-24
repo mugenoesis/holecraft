@@ -590,3 +590,38 @@ describe('bending sides and smoothing', () => {
 		expect(make(['line', 'line', 'line', 'line']).outlines[0]!.segments).toBeUndefined();
 	});
 });
+
+describe('rounding corners (Fillet)', () => {
+	const fillet = (radius: number): SketchAction => ({ type: 'fillet', radius });
+	const withSquare = () => start({ outlines: [square(0, 0, 10)] });
+
+	it('rounds the selected corner only, as one undo step, and leaves the outline selected', () => {
+		const state = run(withSquare(), ...click([0, 0]), fillet(2));
+		expect(state.selected).toEqual({ outline: 0 });
+		expect(state.outlines[0]!.points).toHaveLength(5);
+		expect(state.past).toHaveLength(1);
+		expect(run(state, { type: 'undo' }).outlines[0]!.points).toHaveLength(4);
+	});
+
+	it('rounds every corner of the selected outline when only the outline is selected', () => {
+		const state = run(withSquare(), ...click([5, 5]), fillet(2));
+		expect(state.outlines[0]!.points).toHaveLength(8);
+		expect(state.past).toHaveLength(1);
+	});
+
+	it('does nothing with nothing selected, a radius that is no use, or a drawing in progress', () => {
+		const idle = withSquare();
+		expect(run(idle, fillet(2))).toBe(idle);
+		const selected = run(idle, ...click([5, 5]));
+		for (const radius of [0, -3, Number.NaN]) expect(run(selected, fillet(radius))).toBe(selected);
+		const drawing = run(start({ tool: 'line' }), ...click([0, 0]));
+		expect(run(drawing, fillet(2))).toBe(drawing);
+	});
+
+	it('does nothing, with no undo step, when the selected corner has a curved side', () => {
+		const curved: SketchOutline = { points: square(0, 0, 10).points, segments: [0.5, 'line', 'line', 'line'] };
+		const selected = run(start({ outlines: [curved] }), ...click([0, 0]));
+		expect(selected.selected?.point).toBe(0);
+		expect(run(selected, fillet(2))).toBe(selected);
+	});
+});

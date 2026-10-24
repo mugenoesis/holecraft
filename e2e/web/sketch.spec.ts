@@ -353,6 +353,45 @@ test.describe('exporting a sketch', () => {
 	});
 });
 
+test.describe('rounding corners', () => {
+	test('Round corners takes the same four corner pieces off the exported solid as the radius says, and leaves the size alone', async ({
+		page,
+	}) => {
+		await sketchButton(page).click();
+		await cameraSettled(page);
+		await drag(page, [-70, -70], [70, 70]);
+		await tool(page, 'Select').click();
+		await clickAt(page, 0, 0);
+		await bar(page).getByLabel('Corner radius').fill('2');
+		await bar(page).getByRole('button', { name: 'Round corners' }).click();
+		await finishSketch(page);
+		const [w, d, h] = [await number(page, 'Width'), await number(page, 'Depth'), await number(page, 'Height')];
+		await page.getByRole('button', { name: 'Export', exact: true }).click();
+		const [download] = await Promise.all([
+			page.waitForEvent('download', { timeout: 30_000 }),
+			page.getByRole('menuitem', { name: /as STL$/ }).click(),
+		]);
+		const stl = parseStl(await readFile(await download.path()));
+		expect(stl.max[0]! - stl.min[0]!).toBeCloseTo(w, 1);
+		expect(stl.max[1]! - stl.min[1]!).toBeCloseTo(d, 1);
+		const removed = w * d * h - stl.volume;
+		const want = (4 - Math.PI) * 4 * h; // four corners of a 2 mm radius, each (1 - pi/4) r^2 of area
+		expect(removed).toBeGreaterThan(want * 0.9);
+		expect(removed).toBeLessThan(want * 1.1);
+	});
+
+	test('a radius that is not a number says so and changes nothing', async ({ page }) => {
+		await sketchButton(page).click();
+		await cameraSettled(page);
+		await drag(page, [-70, -70], [70, 70]);
+		await tool(page, 'Select').click();
+		await clickAt(page, 0, 0);
+		await bar(page).getByLabel('Corner radius').fill('abc');
+		await bar(page).getByRole('button', { name: 'Round corners' }).click();
+		await expect(bar(page)).toContainText('The corner radius must be a number');
+	});
+});
+
 test.describe('Edit sketch', () => {
 	async function drawSlab(page: Page) {
 		await sketchButton(page).click();

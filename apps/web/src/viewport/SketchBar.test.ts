@@ -11,6 +11,7 @@ const render = (over: Partial<Parameters<typeof SketchBar>[0]> = {}) =>
 			sides: 6,
 			snap: 1,
 			height: '10',
+			radius: '2',
 			hint: 'Drag from one corner to the opposite one',
 			canFinish: true,
 			canDelete: false,
@@ -23,6 +24,8 @@ const render = (over: Partial<Parameters<typeof SketchBar>[0]> = {}) =>
 			onDelete: noop,
 			onStraighten: noop,
 			onSmooth: noop,
+			onRadius: noop,
+			onRound: noop,
 			onCancel: noop,
 			onFinish: noop,
 			...over,
@@ -83,5 +86,15 @@ describe('the Sketch bar with curves', () => {
 		const html = render({ canReshape: true });
 		expect(html).toMatch(/<button[^>]*>Straighten sides<\/button>/);
 		expect(html).toMatch(/<button[^>]*>Smooth corners<\/button>/);
+	});
+});
+
+describe('the Sketch bar with rounded corners', () => {
+	it('has the corner radius as typed and Round corners only when an outline is selected', () => {
+		expect(render({ canReshape: false })).not.toContain('Round corners');
+		expect(render({ canReshape: false })).not.toContain('Corner radius');
+		const html = render({ canReshape: true, radius: '3.5' });
+		expect(html).toMatch(/<input[^>]*aria-label="Corner radius"[^>]*value="3.5"/);
+		expect(html).toMatch(/<button[^>]*>Round corners<\/button>/);
 	});
 });

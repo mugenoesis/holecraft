@@ -12,6 +12,7 @@ import {
 	sketchHits,
 } from './sketch.ts';
 import { bulgeThrough, flattenPath, segmentMidpoint } from './sketchCurves.ts';
+import { filletCorners } from './sketchFillet.ts';
 import { hasCurves, sideOf, smoothed, straightened, withoutPoint, withSide, withSides } from './sketchSides.ts';
 
 /**
@@ -71,7 +72,9 @@ export type SketchAction =
 	| { type: 'redo' }
 	// the selected outline: every side a line, or every side a smooth curve
 	| { type: 'straighten' }
-	| { type: 'smooth' };
+	| { type: 'smooth' }
+	// round the selected corner, or every corner of the selected outline, to this radius (mm)
+	| { type: 'fillet'; radius: number };
 
 export function createSketchEditor(outlines: readonly SketchOutline[] = []): SketchEditorState {
 	return {
@@ -339,6 +342,15 @@ function reshape(state: SketchEditorState, change: (o: SketchOutline) => SketchO
 	return state.selected && outline && !state.draft ? replaceSelected(state, change(outline), { outline: state.selected.outline }) : state;
 }
 
+/** Fillet: the selected corner rounded to `radius`, or all the corners of the selected outline when no single corner is selected. */
+function fillet(state: SketchEditorState, radius: number): SketchEditorState {
+	const sel = state.selected;
+	const outline = sel ? state.outlines[sel.outline] : undefined;
+	if (!sel || !outline || state.draft) return state;
+	const corners = sel.point === undefined ? outline.points.map((_, k) => k) : [sel.point];
+	return replaceSelected(state, filletCorners(outline, radius, corners), { outline: sel.outline });
+}
+
 function undo(state: SketchEditorState): SketchEditorState {
 	const before = state.past[state.past.length - 1];
 	if (!before) return state;
@@ -428,5 +440,7 @@ export function sketchReducer(state: SketchEditorState, action: SketchAction): S
 			return reshape(state, straightened);
 		case 'smooth':
 			return reshape(state, smoothed);
+		case 'fillet':
+			return fillet(state, action.radius);
 	}
 }
