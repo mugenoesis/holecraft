@@ -29,6 +29,7 @@ import { ObjectList, ShapesPanel } from './ShapesPanel.tsx';
 import { ShortcutSheet } from './ShortcutSheet.tsx';
 import { TopBar } from './TopBar.tsx';
 import { useAutosave } from './useAutosave.ts';
+import { useCavityUi } from './useCavityUi.ts';
 import { useEngrave } from './useEngrave.ts';
 import { useLibrary } from './useLibrary.ts';
 import { useMerge } from './useMerge.ts';
@@ -96,6 +97,7 @@ function EditorView({ initial }: { initial: Design }) {
 	const design = state.history.present;
 	const { meshes, add: addMesh } = useMeshes(design);
 	const supportsUi = useSupportsUi(design);
+	const cavityUi = useCavityUi(design, state.selection, meshes, addMesh, dispatch);
 	const merge = useMerge(design, state.selection, meshes, addMesh, dispatch);
 	const engrave = useEngrave(design, meshes, addMesh, dispatch);
 	const modelCheck = useModelCheck(design, state.selection, meshes, addMesh, dispatch);
@@ -239,6 +241,7 @@ function EditorView({ initial }: { initial: Design }) {
 						)
 					}
 					supports={supportsView}
+					cavities={cavityUi.show ? { list: cavityUi.cavities, selected: cavityUi.selected, onSelect: cavityUi.setSelected } : undefined}
 					compact={compact}
 					selectionBar={compact && <SelectionBar design={design} selection={state.selection} dispatch={dispatch} merge={merge} />}
 				/>
@@ -283,6 +286,7 @@ function EditorView({ initial }: { initial: Design }) {
 								meshes={meshes}
 								onMeshAdded={addMesh}
 								supportsUi={supportsUi}
+								cavityUi={cavityUi}
 							/>
 							<ArrangePanel design={design} selection={state.selection} plane={plane} dispatch={dispatch} />
 						</div>

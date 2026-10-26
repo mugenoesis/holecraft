@@ -26,6 +26,7 @@ import type { Placing } from '../placing.ts';
 import { ThumbnailScheduler } from '../thumbnailScheduler.ts';
 import type { EngraveEditJob } from '../useEngrave.ts';
 import type { Projection } from './CameraRig.ts';
+import type { CavityShape } from './cavityMarkers.ts';
 import { EdgeTool } from './EdgeTool.tsx';
 import { EngraveHost } from './EngraveTool.tsx';
 import { editedNodeIds, withoutNodes } from './editedNodes.ts';
@@ -115,6 +116,8 @@ interface Props {
 	/** The sketch shape being redrawn (set by its Edit sketch button), or null; the tool tells when it is done. */
 	/** The support points to show and edit over the model, when the design has any (or Add point is on). */
 	supports?: SupportsView;
+	/** The closed cavities to draw in the model (none to hide them), the chosen one, and what a click through one does. */
+	cavities?: { list: readonly CavityShape[]; selected: number | null; onSelect: (id: number) => void } | undefined;
 	sketchEdit: NodeId | null;
 	onSketchEditChange: (id: NodeId | null) => void;
 	/** A drawing is finished: make a new Sketch shape on the frame's plane, or redraw `editId`. */
@@ -180,6 +183,7 @@ export function ViewportCanvas(props: Props) {
 				workplaneDepth: depth,
 				onCameraChange: (state, projection) => setCamera({ state, projection }),
 				onPick: (...a) => latest.current.onPick(...a),
+				onCavityPick: (id) => latest.current.cavities?.onSelect(id),
 				onMoveStart: () => latest.current.onMoveStart(),
 				onMove: (d) => latest.current.onMove(d),
 				onMoveEnd: () => latest.current.onMoveEnd(),
@@ -228,6 +232,12 @@ export function ViewportCanvas(props: Props) {
 		service?.update(drawn, meshes);
 		viewportRef.current?.setDesign(drawn, service?.results(), service?.failed(), meshes);
 	}, [drawn, meshes, resultVersion]);
+
+	const cavityList = props.cavities?.list;
+	const cavitySelected = props.cavities?.selected ?? null;
+	useEffect(() => {
+		viewportRef.current?.setCavityMarkers(cavityList ?? null, cavitySelected);
+	}, [cavityList, cavitySelected]);
 
 	// X-ray changes only how the view is drawn
 	useEffect(() => {

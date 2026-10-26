@@ -10,32 +10,31 @@ const SETTLE_MS = 400;
 let worker: WorkerEvaluator | null = null;
 
 /** The one selected solid top-level shape or group worth checking, or null. */
-function cavityTarget(design: Design, selection: readonly NodeId[]): NodeId | null {
+export function cavityTarget(design: Design, selection: readonly NodeId[]): NodeId | null {
 	const id = selection.length === 1 ? selection[0]! : null;
 	const node = id ? design.nodes[id] : undefined;
 	return id && node && design.roots.includes(id) && node.mode === 'solid' && !node.hidden ? id : null;
 }
 
 /**
- * The largest closed cavity of the selected shape (see `findClosedCavity`), worked out in a geometry worker of its own once the shape
- * has stopped changing. Null while there is none, while it is being worked out, or if it cannot be (a check that fails is not worth a message).
+ * The closed cavities of the selected shape, largest first (see `findClosedCavities`), worked out in a geometry worker of its own once the shape
+ * has stopped changing. Empty while there are none, while it is being worked out, or if it cannot be (a check that fails is not worth a message).
  */
-export function useClosedCavity(design: Design, selection: readonly NodeId[], meshes: ReadonlyMap<string, MeshData>): ClosedCavity | null {
-	const [cavity, setCavity] = useState<ClosedCavity | null>(null);
+export function useClosedCavity(design: Design, selection: readonly NodeId[], meshes: ReadonlyMap<string, MeshData>): ClosedCavity[] {
+	const [cavities, setCavities] = useState<ClosedCavity[]>([]);
 	const target = cavityTarget(design, selection);
 
 	useEffect(() => {
-		if (!target) {
-			setCavity(null);
-			return;
-		}
+		// what was found belongs to the shape as it was: a list that is no longer true must not be filled from
+		setCavities([]);
+		if (!target) return;
 		let current = true;
 		const timer = setTimeout(() => {
 			worker ??= createWorkerEvaluator();
 			worker
-				.cavity(onlySelected(design, [target]), target, meshes)
-				.then((found) => current && setCavity(found))
-				.catch(() => current && setCavity(null));
+				.cavities(onlySelected(design, [target]), target, meshes)
+				.then((found) => current && setCavities(found))
+				.catch(() => current && setCavities([]));
 		}, SETTLE_MS);
 		return () => {
 			current = false;
@@ -43,5 +42,5 @@ export function useClosedCavity(design: Design, selection: readonly NodeId[], me
 		};
 	}, [design, target, meshes]);
 
-	return cavity;
+	return cavities;
 }

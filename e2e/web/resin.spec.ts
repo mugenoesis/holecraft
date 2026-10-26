@@ -277,8 +277,8 @@ test('a button that is off says why, in plain text beside it', async ({ page }) 
 	await expect(resin(page).getByTestId('resin-hole-why')).toHaveCount(0);
 });
 
-test('a pocket the resin cannot reach is warned about, and a drain hole from the base clears the warning', async ({ page }) => {
-	// a second box, turned into an 8 x 8 x 10 mm hole 3 mm up: a sealed void in the cube, 3 mm above the base (a drain is 5 mm deep)
+/** A second box, turned into an 8 x 8 x 10 mm hole 3 mm up and grouped with the cube: a sealed void 3 mm above its base (a drain is 5 mm deep). */
+async function sealVoid(page: Page) {
 	await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
 	for (const [name, value] of [
 		['Width', '8'],
@@ -294,10 +294,35 @@ test('a pocket the resin cannot reach is warned about, and a drain hole from the
 	await page.keyboard.press('Control+a');
 	await page.getByRole('button', { name: 'Group', exact: true }).click();
 	await openPanel(page, 'Edit');
+}
 
-	await expect(resin(page).getByTestId('resin-cavity-why')).toContainText('Closed cavity: about 64 mm²');
-	await resin(page).getByRole('button', { name: 'Add drain hole' }).first().click();
-	await expect(resin(page).getByTestId('resin-cavity-why')).toHaveText(/No closed cavity/);
+test('a pocket the resin cannot reach is listed, and a drain hole from the base clears it', async ({ page }) => {
+	await sealVoid(page);
+	await expect(resin(page).getByTestId('resin-cavity-why')).toContainText('1 closed cavity');
+	await expect(resin(page).getByRole('button', { name: /Cavity 1/ })).toContainText('64 mm²');
+	await resin(page).getByRole('button', { name: 'Add drain hole' }).click();
+	await expect(resin(page).getByTestId('resin-cavity')).toHaveCount(0);
+});
+
+test('a chosen cavity is filled with a solid shape in one step, and undo brings the cavity back', async ({ page }) => {
+	await sealVoid(page);
+	const fillSelected = resin(page).getByRole('button', { name: 'Fill selected cavity' });
+	await expect(fillSelected).toBeDisabled();
+	await resin(page)
+		.getByRole('button', { name: /Cavity 1/ })
+		.click();
+	await fillSelected.click();
+	await expect(resin(page).getByTestId('resin-cavity-why')).toHaveText('No closed cavities left.');
+	await page.getByRole('button', { name: 'Undo' }).click();
+	await page.getByRole('heading', { name: 'Objects' }).click();
+	await page.keyboard.press('Control+a');
+	await expect(resin(page).getByTestId('resin-cavity-why')).toContainText('1 closed cavity');
+});
+
+test('fill all plugs every cavity', async ({ page }) => {
+	await sealVoid(page);
+	await resin(page).getByRole('button', { name: 'Fill all' }).click();
+	await expect(resin(page).getByTestId('resin-cavity-why')).toHaveText('No closed cavities left.');
 });
 
 test('a solid shape has no cavity note', async ({ page }) => {
