@@ -8,10 +8,12 @@ import {
 	whyNotResinHole,
 	whyNotTilt,
 } from '@holecraft/core';
-import { type Dispatch, useState } from 'react';
+import { type Dispatch, useEffect, useState } from 'react';
+import { CavityNote } from './CavityNote.tsx';
 import type { EditorAction } from './editorState.ts';
 import { PanelSection } from './PanelSection.tsx';
 import { SupportsGroup } from './SupportsGroup.tsx';
+import { useClosedCavity } from './useClosedCavity.ts';
 import { type Accuracy, MAX_WALL, MIN_WALL, useHollow } from './useHollow.ts';
 import type { SupportsUi } from './useSupportsUi.ts';
 
@@ -98,9 +100,24 @@ export function ResinPanel({ design, selection, dispatch, meshes, onMeshAdded, s
 	const canHole = holeWhy === null;
 	const tiltWhy = whyNotTilt(design, selection);
 	const tilt = tiltWhy === null;
+	const cavity = useClosedCavity(design, selection, meshes);
+	const [drained, setDrained] = useState(false);
+	// a cavity found again ends the "now open" news
+	useEffect(() => {
+		if (cavity) setDrained(false);
+	}, [cavity]);
 
 	return (
 		<PanelSection title="Resin">
+			<CavityNote
+				cavity={cavity}
+				drained={drained}
+				canDrain={canHole}
+				onDrain={() => {
+					dispatch({ type: 'resinHole', kind: 'drain', diameter: value });
+					setDrained(true);
+				}}
+			/>
 			<HollowGroup design={design} selection={selection} dispatch={dispatch} meshes={meshes} onMeshAdded={onMeshAdded} />
 			<div className="resin-group" role="group" aria-label="Drain holes">
 				<h3>Drain holes</h3>

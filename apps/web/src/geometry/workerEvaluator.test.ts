@@ -57,6 +57,17 @@ describe('the geometry worker client', () => {
 		await expect(solid).resolves.toBe(mesh);
 	});
 
+	it('asks the worker for the closed cavity of a shape, and gives back what it finds', async () => {
+		const client = createWorkerEvaluator();
+		const design = { nodes: {}, roots: [] };
+		const found = client.cavity(design, 'a', NONE);
+		const worker = FakeWorker.made[0]!;
+		expect(worker.sent[0]).toMatchObject({ kind: 'cavity', targetId: 'a' });
+		const cavity = { layer: 3, z: 1.75, areaMm2: 256 };
+		worker.reply({ id: worker.sent[0]!.id, cavity });
+		await expect(found).resolves.toBe(cavity);
+	});
+
 	it('turns an error reply, or the wrong kind of reply, into a failure', async () => {
 		const client = createWorkerEvaluator();
 		const failed = client.edges(subtree, NONE);

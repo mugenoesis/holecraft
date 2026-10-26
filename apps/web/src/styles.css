@@ -2806,3 +2806,6 @@ button.primary:disabled {
 .export-menu.settings-menu > .settings-button {
 	padding: 4px 7px;
 }
+.resin-why-ok {
+	border-left-color: var(--ok-text);
+}

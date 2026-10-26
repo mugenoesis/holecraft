@@ -152,6 +152,11 @@ The **Resin** section of the side panel (under Properties) has tools for printin
   and a second hole joins the same group. It goes a quarter of the height in (3 to 15 mm, never past the shape) and starts 1 mm outside the face so it cuts clean
   through. Holes only help a model that is hollow: make the cavity yourself with a hole shape inside the model (a partial hollow, a different inner shape and ribs
   are all just shapes), then add the holes. Each press is one undo step.
+- **Closed cavity warning.** With one solid shape or group selected, the panel slices it in the background (about every half millimetre, once you stop moving it)
+  and looks for a cavity no resin can flow into: a void inside the model, or a pocket in its top, of at least 25 mm². Such a cavity sucks on the film as each
+  layer peels (cupping). The note says how big it is and how high it begins, with an **Add drain hole** button; once the cavity is open to the outside the note
+  says so. It is a warning only and never changes the model. The check takes the model to stand on supports, clear of the plate, so a pocket open at its base is
+  not reported. A channel only opens a cavity from the layer it starts at, so a drain must reach the cavity's floor, and a hole from the top does not help.
 - **Orientation.** **Tilt 15°, 30° or 45°** turns the selection about the X axis (on top of any turn it has), about its middle, and sets it back on the plane.
   A model laid on a slant is peeled from the film a thin line at a time instead of all at once, which is gentler on the print and the film. Press again to tilt further.
 - **Supports.** Choose the resin printer you will print on (the list comes from your Trident) and press **Generate support points**: Trident's slicer works out where

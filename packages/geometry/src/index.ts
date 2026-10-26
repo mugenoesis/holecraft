@@ -1,3 +1,4 @@
+export * from './cavities.ts';
 export * from './conformText.ts';
 export * from './evaluate.ts';
 export * from './export.ts';
