@@ -97,13 +97,26 @@ describe('findClosedCavities', () => {
 		expect(findClosedCavities(M, block(cuts))).toHaveLength(1);
 	});
 
-	it('gives the solid that fills a cavity: its size, a little over', () => {
+	it('gives the solid that fills a cavity: just its size', () => {
 		const [cavity] = findClosedCavities(M, block([VOID]));
 		const { positions } = cavity!.fill;
 		const z = Array.from({ length: positions.length / 3 }, (_, i) => positions[i * 3 + 2]!);
-		expect(Math.min(...z)).toBeCloseTo(4.98, 1);
-		expect(Math.max(...z)).toBeCloseTo(15.02, 1);
-		expect(signedVolume(cavity!.fill)).toBeGreaterThan(2560);
-		expect(signedVolume(cavity!.fill)).toBeLessThan(2560 * 1.02);
+		expect(Math.min(...z)).toBeCloseTo(5, 2);
+		expect(Math.max(...z)).toBeCloseTo(15, 2);
+		expect(signedVolume(cavity!.fill)).toBeCloseTo(2560, 0);
+	});
+
+	it('fills a round cavity to its wall, with no sliver left between the steps', () => {
+		const ball = M.Manifold.sphere(8, 64).translate([15, 15, 10]);
+		const m = M.Manifold.cube([30, 30, 20]).subtract(ball).getMesh();
+		const positions = new Float32Array((m.vertProperties.length / m.numProp) * 3);
+		for (let i = 0; i < positions.length / 3; i++) {
+			for (let k = 0; k < 3; k++) positions[i * 3 + k] = m.vertProperties[i * m.numProp + k]!;
+		}
+		const [cavity] = findClosedCavities(M, { positions, indices: new Uint32Array(m.triVerts) });
+		expect(Math.abs(signedVolume(cavity!.fill) - ball.volume()) / ball.volume()).toBeLessThan(0.002);
+		// joined to the shape (as the exporter will) nothing is left inside it
+		const plug = new M.Manifold(new M.Mesh({ numProp: 3, vertProperties: cavity!.fill.positions, triVerts: cavity!.fill.indices }));
+		expect(new M.Manifold(m).add(plug).volume()).toBeCloseTo(18000, -1);
 	});
 });

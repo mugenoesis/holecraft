@@ -13,7 +13,7 @@ const FRAME_MARGIN_MM = 1;
 /** Below this area (mm²) two regions are only touching, not overlapping. */
 const TOUCH_MM2 = 1e-4;
 
-/** How far (mm) the solid that fills a cavity reaches into the walls around it, so it joins them cleanly. */
+/** How far (mm) the envelope a cavity is filled within is widened, so the sloping walls are inside it. */
 const FILL_OVERLAP_MM = 0.02;
 
 export interface ClosedCavity {
@@ -55,8 +55,8 @@ export function findClosedCavities(M: ManifoldToplevel, mesh: GroupMesh): Closed
 		return thing;
 	};
 	try {
-		const pieces = closedPieces(M, mesh, own);
-		return cavitiesOf(M, pieces, own);
+		const solid = own(new M.Manifold(new M.Mesh({ numProp: 3, vertProperties: mesh.positions, triVerts: mesh.indices })));
+		return cavitiesOf(M, solid, closedPieces(M, solid, own), own);
 	} finally {
 		for (const thing of owned) thing.delete();
 	}
@@ -70,9 +70,8 @@ const overlaps = (a: CrossSection, b: CrossSection): boolean => {
 };
 
 /** The closed holes of every layer, each tagged with the cavity it is part of (joined when a piece touches several). */
-function closedPieces(M: ManifoldToplevel, mesh: GroupMesh, own: <T extends Deletable>(thing: T) => T): Piece[] {
-	const { CrossSection, Manifold, Mesh } = M;
-	const solid = own(new Manifold(new Mesh({ numProp: 3, vertProperties: mesh.positions, triVerts: mesh.indices })));
+function closedPieces(M: ManifoldToplevel, solid: Manifold, own: <T extends Deletable>(thing: T) => T): Piece[] {
+	const { CrossSection } = M;
 	const box = solid.boundingBox();
 	const base = Math.max(0, box.min[2]!);
 	const frame = own(
@@ -113,26 +112,35 @@ function closedPieces(M: ManifoldToplevel, mesh: GroupMesh, own: <T extends Dele
 	return all;
 }
 
-/** The pieces gathered by cavity, as cavities big enough to report, largest first. */
-function cavitiesOf(M: ManifoldToplevel, pieces: Piece[], own: <T extends Deletable>(thing: T) => T): ClosedCavity[] {
+/**
+ * The pieces gathered by cavity, as cavities big enough to report, largest first. A cavity's fill is the empty space of the shape inside an
+ * envelope of its pieces (each widened to the pieces a layer either side, so a sloping wall is inside it), which is the cavity to the wall.
+ */
+function cavitiesOf(M: ManifoldToplevel, solid: Manifold, pieces: Piece[], own: <T extends Deletable>(thing: T) => T): ClosedCavity[] {
 	const byCavity = new Map<number, Piece[]>();
 	for (const p of pieces) byCavity.set(p.cavity, [...(byCavity.get(p.cavity) ?? []), p]);
+	const box = solid.boundingBox();
 	const found: Omit<ClosedCavity, 'id'>[] = [];
 	for (const group of byCavity.values()) {
 		const widest = group.reduce((best, p) => (p.area.area() > best.area.area() ? p : best));
 		const areaMm2 = widest.area.area();
 		if (areaMm2 < MIN_AREA_MM2) continue;
-		const slabs = group.map((p) =>
-			own(
-				own(p.area.offset(FILL_OVERLAP_MM, 'Square'))
-					.extrude(LAYER_MM + 2 * FILL_OVERLAP_MM)
-					.translate([0, 0, p.z0 - FILL_OVERLAP_MM]),
-			),
-		);
-		found.push({ layer: group[0]!.layer, z: group[0]!.z0 + LAYER_MM / 2, areaMm2, fill: meshOf(own(M.Manifold.union(slabs))) });
+		const slabs = group.map((p) => {
+			const near = group.filter((q) => Math.abs(q.layer - p.layer) <= 1).map((q) => q.area);
+			const area = own(own(M.CrossSection.union(near)).offset(FILL_OVERLAP_MM, 'Square'));
+			return own(own(area.extrude(LAYER_MM + 2 * FILL_OVERLAP_MM)).translate([0, 0, p.z0 - FILL_OVERLAP_MM]));
+		});
+		const inside = own(M.Manifold.union(slabs).intersect(own(M.Manifold.cube(boxSize(box), false).translate(box.min))));
+		found.push({ layer: group[0]!.layer, z: group[0]!.z0 + LAYER_MM / 2, areaMm2, fill: meshOf(own(inside.subtract(solid))) });
 	}
 	return found.sort((a, b) => b.areaMm2 - a.areaMm2).map((c, id) => ({ id, ...c }));
 }
+
+const boxSize = (box: { min: readonly number[]; max: readonly number[] }): [number, number, number] => [
+	box.max[0]! - box.min[0]!,
+	box.max[1]! - box.min[1]!,
+	box.max[2]! - box.min[2]!,
+];
 
 function meshOf(solid: Manifold): GroupMesh {
 	const mesh = solid.getMesh();
