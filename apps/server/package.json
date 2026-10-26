@@ -13,7 +13,7 @@
 		"build": "node build.mjs"
 	},
 	"dependencies": {
-		"@fastify/static": "^10.1.6",
+		"@fastify/static": "^10.1.7",
 		"@holecraft/core": "0.5.1",
 		"fastify": "^5.12.7"
 	}
