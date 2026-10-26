@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { expect, type Page, test } from '@playwright/test';
-import { newDesign, openPanel, properties, unfoldSections } from './helpers.ts';
+import { field, newDesign, openPanel, properties, unfoldSections } from './helpers.ts';
 import { parseStl } from './meshFiles.ts';
 
 /*
@@ -275,6 +275,35 @@ test('a button that is off says why, in plain text beside it', async ({ page }) 
 	await diameter.blur();
 	await expect(resin(page).getByRole('button', { name: 'Add drain hole' })).toBeEnabled();
 	await expect(resin(page).getByTestId('resin-hole-why')).toHaveCount(0);
+});
+
+test('a pocket the resin cannot reach is warned about, and a drain hole from the base clears the warning', async ({ page }) => {
+	// a second box, turned into an 8 x 8 x 10 mm hole 3 mm up: a sealed void in the cube, 3 mm above the base (a drain is 5 mm deep)
+	await page.getByRole('button', { name: 'Box', exact: true }).press('Enter');
+	for (const [name, value] of [
+		['Width', '8'],
+		['Depth', '8'],
+		['Height', '10'],
+		['Z', '3'],
+	] as const) {
+		await field(page, name).fill(value);
+		await field(page, name).press('Enter');
+	}
+	await properties(page).getByRole('button', { name: 'Hole', exact: true }).click();
+	await page.getByRole('heading', { name: 'Objects' }).click();
+	await page.keyboard.press('Control+a');
+	await page.getByRole('button', { name: 'Group', exact: true }).click();
+	await openPanel(page, 'Edit');
+
+	await expect(resin(page).getByTestId('resin-cavity-why')).toContainText('Closed cavity: about 64 mm²');
+	await resin(page).getByRole('button', { name: 'Add drain hole' }).first().click();
+	await expect(resin(page).getByTestId('resin-cavity-why')).toHaveText(/No closed cavity/);
+});
+
+test('a solid shape has no cavity note', async ({ page }) => {
+	await expect(resin(page).getByRole('button', { name: 'Add vent hole' })).toBeVisible();
+	await page.waitForTimeout(1500); // the check runs once the shape has been left alone
+	await expect(resin(page).getByTestId('resin-cavity')).toHaveCount(0);
 });
 
 test('a locked shape says it is locked, for the holes and for tilting', async ({ page }) => {

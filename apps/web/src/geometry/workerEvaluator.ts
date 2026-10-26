@@ -1,5 +1,5 @@
-import type { MeshData, MeshEdge } from '@holecraft/core';
-import type { GroupMesh, RawMesh, Subtree } from '@holecraft/geometry';
+import type { Design, MeshData, MeshEdge, NodeId } from '@holecraft/core';
+import type { ClosedCavity, GroupMesh, RawMesh, Subtree } from '@holecraft/geometry';
 import type { Evaluator } from './GeometryService.ts';
 import type { WorkerRequest, WorkerResponse } from './geometry.worker.ts';
 
@@ -9,6 +9,8 @@ export interface WorkerEvaluator {
 	edges(subtree: Subtree, meshes: ReadonlyMap<string, MeshData>, treated?: boolean): Promise<MeshEdge[]>;
 	/** An SVG's filled shapes extruded `depth` mm into a solid (see `svgToMesh`). Rejects with a message fit to show. */
 	svg(text: string, depth: number): Promise<RawMesh>;
+	/** The largest closed cavity of a top-level shape as it stands on the plane, or null when it has none (see `findClosedCavity`). */
+	cavity(design: Pick<Design, 'nodes' | 'roots'>, id: NodeId, meshes: ReadonlyMap<string, MeshData>): Promise<ClosedCavity | null>;
 	dispose(): void;
 }
 
@@ -71,6 +73,11 @@ export function createWorkerEvaluator(): WorkerEvaluator {
 			const reply = await ask((id) => ({ kind: 'svg', id, text, depth }));
 			if (!('svg' in reply)) throw unexpected();
 			return reply.svg;
+		},
+		cavity: async (design, targetId, meshes) => {
+			const reply = await ask((id) => ({ kind: 'cavity', id, design, meshes, targetId }));
+			if (!('cavity' in reply)) throw unexpected();
+			return reply.cavity;
 		},
 		dispose: () => failAll(new Error('The geometry worker was shut down')),
 	};
