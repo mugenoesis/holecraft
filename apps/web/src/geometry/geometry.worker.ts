@@ -10,7 +10,7 @@ import {
 	type ExportBody,
 	evaluateGroup,
 	evaluateNode,
-	findClosedCavity,
+	findClosedCavities,
 	type GroupMesh,
 	loadManifold,
 	type RawMesh,
@@ -26,7 +26,7 @@ export type WorkerRequest =
 	| { kind: 'group'; id: number; subtree: Subtree; meshes: ReadonlyMap<string, MeshData> }
 	| { kind: 'edges'; id: number; subtree: Subtree; meshes: ReadonlyMap<string, MeshData>; treated?: boolean }
 	| { kind: 'svg'; id: number; text: string; depth: number }
-	| { kind: 'cavity'; id: number; design: Pick<Design, 'nodes' | 'roots'>; meshes: ReadonlyMap<string, MeshData>; targetId: NodeId }
+	| { kind: 'cavities'; id: number; design: Pick<Design, 'nodes' | 'roots'>; meshes: ReadonlyMap<string, MeshData>; targetId: NodeId }
 	| { kind: 'export'; id: number; design: Pick<Design, 'nodes' | 'roots'>; meshes: ReadonlyMap<string, MeshData>; cutBelowPlane?: boolean }
 	| {
 			kind: 'engrave';
@@ -47,7 +47,7 @@ export type WorkerResponse =
 	| { id: number; bodies: ExportBody[] }
 	| { id: number; engraving: GroupMesh }
 	| { id: number; svg: RawMesh }
-	| { id: number; cavity: ClosedCavity | null }
+	| { id: number; cavities: ClosedCavity[] }
 	| { id: number; error: string };
 
 const scope = self as unknown as {
@@ -87,9 +87,9 @@ scope.onmessage = async ({ data }) => {
 			return;
 		}
 
-		if (data.kind === 'cavity') {
+		if (data.kind === 'cavities') {
 			const shape = evaluateNode(manifold, data.design, data.targetId, data.meshes);
-			scope.postMessage({ id: data.id, cavity: shape ? findClosedCavity(manifold, shape) : null });
+			scope.postMessage({ id: data.id, cavities: shape ? findClosedCavities(manifold, shape) : [] });
 			return;
 		}
 

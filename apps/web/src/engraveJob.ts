@@ -28,6 +28,16 @@ interface Deps {
 	}) => Promise<{ input: MeshShapeInput; mesh: MeshData }>;
 }
 
+/** A mesh as the importer wants a file: a binary STL. */
+export function stlFile(name: string, mesh: GroupMesh) {
+	const bytes = writeStl([{ name, color: '#8d99ae', mesh }]);
+	return {
+		name: `${name}.stl`,
+		size: bytes.byteLength,
+		arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+	};
+}
+
 export type EngraveOutcome =
 	| { error: null; input: MeshShapeInput; bounds: Bounds; mesh: MeshData }
 	| { error: string; input: null; bounds: null };
@@ -52,7 +62,7 @@ function moved(mesh: GroupMesh, m: Mat4 | undefined): GroupMesh {
 }
 
 /** The box a mesh fills. */
-function boundsOf(mesh: GroupMesh): Bounds {
+export function boundsOf(mesh: GroupMesh): Bounds {
 	const min: [number, number, number] = [Infinity, Infinity, Infinity];
 	const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
 	for (let i = 0; i < mesh.positions.length; i += 3) {
@@ -71,13 +81,7 @@ function boundsOf(mesh: GroupMesh): Bounds {
 export async function runEngrave(request: EngraveRequest, deps: Deps): Promise<EngraveOutcome> {
 	try {
 		const fitted = moved(await deps.fit(request), request.into);
-		const bytes = writeStl([{ name: request.name, color: '#8d99ae', mesh: fitted }]);
-		const file = {
-			name: 'engraving.stl',
-			size: bytes.byteLength,
-			arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
-		};
-		const { input, mesh } = await deps.read(file);
+		const { input, mesh } = await deps.read(stlFile('engraving', fitted));
 		return { error: null, input: { ...input, name: request.name.slice(0, 100) }, bounds: boundsOf(fitted), mesh };
 	} catch (error) {
 		return failed(error);

@@ -22,6 +22,7 @@ import * as THREE from 'three';
 import type { GroupResult } from '../geometry/GeometryService.ts';
 import { createBandMarker } from './bandMarker.ts';
 import { CameraRig, FOV_DEG, type Projection } from './CameraRig.ts';
+import { type CavityShape, createCavityMarkers, pickCavity } from './cavityMarkers.ts';
 import { DesignScene } from './DesignScene.ts';
 import { createGhost, placeGhost } from './ghostMarker.ts';
 import type { PlacementTarget } from './placement.ts';
@@ -47,6 +48,8 @@ export interface ViewportOptions {
 	onCameraChange: (state: OrbitState, projection: Projection) => void;
 	/** `down` on press; `click` on release if the pointer never dragged. `id` is null over empty space. */
 	onPick: (id: NodeId | null, additive: boolean, phase: 'down' | 'click') => void;
+	/** A click (no drag) that passes through a closed cavity the view is showing: its number. The shape under it is picked as usual. */
+	onCavityPick?: (id: number) => void;
 	onMoveStart: () => void;
 	/** Total pointer movement on the workplane since the drag began, in mm. */
 	onMove: (delta: [number, number]) => void;
@@ -113,6 +116,7 @@ export class Viewport {
 		meshes?: ReadonlyMap<string, MeshData> | undefined;
 	} = {};
 	private bandMarker: THREE.Group | null = null;
+	private cavityMarkers: THREE.Group | null = null;
 	private multiSelectOn = false;
 	private planeMarker: THREE.Object3D | null = null;
 	private ghost: THREE.Group | null = null;
@@ -378,6 +382,32 @@ export class Viewport {
 			this.scene.add(this.bandMarker);
 		}
 		this.requestRender();
+	}
+
+	/** Shows the closed cavities as translucent volumes (the chosen one stronger), or removes them. */
+	setCavityMarkers(cavities: readonly CavityShape[] | null, selected: number | null): void {
+		if (this.cavityMarkers) {
+			this.scene.remove(this.cavityMarkers);
+			this.cavityMarkers.traverse((o) => {
+				if (o instanceof THREE.Mesh) {
+					o.geometry.dispose();
+					(o.material as THREE.Material).dispose();
+				}
+			});
+			this.cavityMarkers = null;
+		}
+		if (cavities && cavities.length > 0) {
+			this.cavityMarkers = createCavityMarkers(cavities, selected);
+			this.scene.add(this.cavityMarkers);
+		}
+		this.requestRender();
+	}
+
+	/** Tells the cavity under the pointer after a click (the walls around it do not hide it), if the view shows any. */
+	private pickCavityAt(clientX: number, clientY: number): void {
+		if (!this.cavityMarkers || !this.opts.onCavityPick || !this.aim(clientX, clientY)) return;
+		const id = pickCavity(this.cavityMarkers, this.raycaster);
+		if (id !== null) this.opts.onCavityPick(id);
 	}
 
 	/** Shows the Workplane tool's plane as a gridded square on the surface, or removes it. */
@@ -684,6 +714,7 @@ export class Viewport {
 			this.opts.onMarquee(ids, press.additive);
 		} else if (press.mode === null && !this.surfaceToolOn) {
 			this.opts.onPick(press.id, press.additive, 'click');
+			this.pickCavityAt(e.clientX, e.clientY);
 		}
 	}
 

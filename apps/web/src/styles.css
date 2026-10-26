@@ -2809,3 +2809,23 @@ button.primary:disabled {
 .resin-why-ok {
 	border-left-color: var(--ok-text);
 }
+.cavity-list {
+	list-style: none;
+	margin: 0 0 8px;
+	padding: 0;
+}
+.cavity-item {
+	display: flex;
+	justify-content: space-between;
+	width: 100%;
+	margin-bottom: 4px;
+	text-align: left;
+}
+.cavity-item[aria-pressed="true"] {
+	background: var(--accent);
+	border-color: var(--accent);
+	color: #fff;
+}
+.cavity-show {
+	display: block;
+}

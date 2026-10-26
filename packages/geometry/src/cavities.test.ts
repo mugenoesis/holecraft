@@ -1,6 +1,7 @@
+import { signedVolume } from '@holecraft/core';
 import type { ManifoldToplevel } from 'manifold-3d';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { findClosedCavity } from './cavities.ts';
+import { findClosedCavities } from './cavities.ts';
 import { loadManifold } from './load.ts';
 import type { GroupMesh } from './types.ts';
 
@@ -26,44 +27,46 @@ function block(cuts: { size: Vec; at: Vec }[]): GroupMesh {
 /** A sealed void in the middle of the block, 16 x 16 x 10 mm from 5 mm up. */
 const VOID = { size: [16, 16, 10] as Vec, at: [7, 7, 5] as Vec };
 
-describe('findClosedCavity', () => {
+const largest = (mesh: GroupMesh) => findClosedCavities(M, mesh)[0] ?? null;
+
+describe('findClosedCavities', () => {
 	it('finds nothing in a solid block', () => {
-		expect(findClosedCavity(M, block([]))).toBeNull();
+		expect(largest(block([]))).toBeNull();
 	});
 
 	it('finds a sealed void, where it begins', () => {
-		const found = findClosedCavity(M, block([VOID]));
+		const found = largest(block([VOID]));
 		expect(found?.areaMm2).toBeCloseTo(256, 0);
 		expect(found?.z).toBeGreaterThan(5);
 		expect(found?.z).toBeLessThan(6);
 	});
 
 	it('finds a pocket in the top, which faces the film as it is built', () => {
-		const found = findClosedCavity(M, block([{ size: [16, 16, 16], at: [7, 7, 5] }]));
+		const found = largest(block([{ size: [16, 16, 16], at: [7, 7, 5] }]));
 		expect(found?.areaMm2).toBeCloseTo(256, 0);
 	});
 
 	it('takes the model to stand clear of the plate, so a pocket open at its base is open', () => {
-		expect(findClosedCavity(M, block([{ size: [16, 16, 16], at: [7, 7, -1] }]))).toBeNull();
+		expect(largest(block([{ size: [16, 16, 16], at: [7, 7, -1] }]))).toBeNull();
 	});
 
 	it('ignores a cavity under the minimum area', () => {
-		expect(findClosedCavity(M, block([{ size: [4, 4, 6], at: [13, 13, 5] }]))).toBeNull();
+		expect(largest(block([{ size: [4, 4, 6], at: [13, 13, 5] }]))).toBeNull();
 	});
 
 	it('leaves a void with a channel down to the base alone', () => {
 		const channel = { size: [2, 2, 7] as Vec, at: [14, 14, -1] as Vec };
-		expect(findClosedCavity(M, block([VOID, channel]))).toBeNull();
+		expect(largest(block([VOID, channel]))).toBeNull();
 	});
 
 	it('leaves a void with a channel out of the side, from its floor, alone', () => {
 		const channel = { size: [10, 4, 4] as Vec, at: [-1, 13, 5] as Vec };
-		expect(findClosedCavity(M, block([VOID, channel]))).toBeNull();
+		expect(largest(block([VOID, channel]))).toBeNull();
 	});
 
 	it('still finds a void when a channel leads up to it from the top, which is the film side', () => {
 		const channel = { size: [2, 2, 7] as Vec, at: [14, 14, 14] as Vec };
-		expect(findClosedCavity(M, block([VOID, channel]))?.areaMm2).toBeCloseTo(256, 0);
+		expect(largest(block([VOID, channel]))?.areaMm2).toBeCloseTo(256, 0);
 	});
 
 	it('reports the largest cavity', () => {
@@ -71,6 +74,36 @@ describe('findClosedCavity', () => {
 			{ size: [5, 5, 6] as Vec, at: [2, 2, 5] as Vec },
 			{ size: [12, 12, 6] as Vec, at: [15, 15, 5] as Vec },
 		];
-		expect(findClosedCavity(M, block(cuts))?.areaMm2).toBeCloseTo(144, 0);
+		expect(largest(block(cuts))?.areaMm2).toBeCloseTo(144, 0);
+	});
+
+	it('gives every cavity of its own, the largest first, and a tall one is only one cavity', () => {
+		const cuts = [
+			{ size: [6, 6, 6] as Vec, at: [2, 2, 5] as Vec },
+			{ size: [12, 12, 6] as Vec, at: [15, 15, 5] as Vec },
+		];
+		const found = findClosedCavities(M, block(cuts));
+		expect(found.map((c) => Math.round(c.areaMm2))).toEqual([144, 36]);
+		expect(new Set(found.map((c) => c.id)).size).toBe(2);
+		expect(findClosedCavities(M, block([VOID]))).toHaveLength(1);
+	});
+
+	it('joins two columns a bridge higher up connects into one cavity', () => {
+		const cuts = [
+			{ size: [8, 8, 5] as Vec, at: [2, 2, 5] as Vec },
+			{ size: [8, 8, 5] as Vec, at: [18, 2, 5] as Vec },
+			{ size: [18, 2, 2] as Vec, at: [6, 5, 8] as Vec },
+		];
+		expect(findClosedCavities(M, block(cuts))).toHaveLength(1);
+	});
+
+	it('gives the solid that fills a cavity: its size, a little over', () => {
+		const [cavity] = findClosedCavities(M, block([VOID]));
+		const { positions } = cavity!.fill;
+		const z = Array.from({ length: positions.length / 3 }, (_, i) => positions[i * 3 + 2]!);
+		expect(Math.min(...z)).toBeCloseTo(4.98, 1);
+		expect(Math.max(...z)).toBeCloseTo(15.02, 1);
+		expect(signedVolume(cavity!.fill)).toBeGreaterThan(2560);
+		expect(signedVolume(cavity!.fill)).toBeLessThan(2560 * 1.02);
 	});
 });

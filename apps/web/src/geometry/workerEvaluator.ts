@@ -9,8 +9,8 @@ export interface WorkerEvaluator {
 	edges(subtree: Subtree, meshes: ReadonlyMap<string, MeshData>, treated?: boolean): Promise<MeshEdge[]>;
 	/** An SVG's filled shapes extruded `depth` mm into a solid (see `svgToMesh`). Rejects with a message fit to show. */
 	svg(text: string, depth: number): Promise<RawMesh>;
-	/** The largest closed cavity of a top-level shape as it stands on the plane, or null when it has none (see `findClosedCavity`). */
-	cavity(design: Pick<Design, 'nodes' | 'roots'>, id: NodeId, meshes: ReadonlyMap<string, MeshData>): Promise<ClosedCavity | null>;
+	/** Every closed cavity of a top-level shape as it stands on the plane, largest first, with the solid that fills each (see `findClosedCavities`). */
+	cavities(design: Pick<Design, 'nodes' | 'roots'>, id: NodeId, meshes: ReadonlyMap<string, MeshData>): Promise<ClosedCavity[]>;
 	dispose(): void;
 }
 
@@ -74,10 +74,10 @@ export function createWorkerEvaluator(): WorkerEvaluator {
 			if (!('svg' in reply)) throw unexpected();
 			return reply.svg;
 		},
-		cavity: async (design, targetId, meshes) => {
-			const reply = await ask((id) => ({ kind: 'cavity', id, design, meshes, targetId }));
-			if (!('cavity' in reply)) throw unexpected();
-			return reply.cavity;
+		cavities: async (design, targetId, meshes) => {
+			const reply = await ask((id) => ({ kind: 'cavities', id, design, meshes, targetId }));
+			if (!('cavities' in reply)) throw unexpected();
+			return reply.cavities;
 		},
 		dispose: () => failAll(new Error('The geometry worker was shut down')),
 	};

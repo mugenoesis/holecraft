@@ -8,12 +8,13 @@ import {
 	whyNotResinHole,
 	whyNotTilt,
 } from '@holecraft/core';
+import type { ClosedCavity } from '@holecraft/geometry';
 import { type Dispatch, useEffect, useState } from 'react';
-import { CavityNote } from './CavityNote.tsx';
+import { CavityList } from './CavityList.tsx';
 import type { EditorAction } from './editorState.ts';
 import { PanelSection } from './PanelSection.tsx';
 import { SupportsGroup } from './SupportsGroup.tsx';
-import { useClosedCavity } from './useClosedCavity.ts';
+import type { CavityUi } from './useCavityUi.ts';
 import { type Accuracy, MAX_WALL, MIN_WALL, useHollow } from './useHollow.ts';
 import type { SupportsUi } from './useSupportsUi.ts';
 
@@ -28,6 +29,8 @@ interface Props {
 	onMeshAdded: (ref: string, mesh: MeshData) => void;
 	/** What the support points' controls share with the view. */
 	supportsUi: SupportsUi;
+	/** What the cavity list shares with the view. */
+	cavityUi: CavityUi;
 }
 
 const ACCURACIES: readonly { id: Accuracy; label: string }[] = [
@@ -37,7 +40,37 @@ const ACCURACIES: readonly { id: Accuracy; label: string }[] = [
 ];
 
 /** Hollow the selected shape with the Trident slicer: a wall of the given thickness and a cavity inside. */
-function HollowGroup({ design, selection, dispatch, meshes, onMeshAdded }: Omit<Props, 'supportsUi'>) {
+/** The closed cavities of the selected shape, and filling them. */
+function CavityGroup({ ui }: { ui: CavityUi }) {
+	const [filled, setFilled] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	// cavities found again, or no shape to look at, end the "none left" news
+	const found = ui.cavities.length > 0;
+	const nothing = ui.target === null;
+	useEffect(() => {
+		if (found || nothing) setFilled(false);
+	}, [found, nothing]);
+	const fill = async (which: readonly ClosedCavity[]) => {
+		const problem = await ui.fill(which);
+		setError(problem);
+		if (problem === null) setFilled(true);
+	};
+	return (
+		<CavityList
+			cavities={ui.cavities}
+			selected={ui.selected}
+			show={ui.show}
+			busy={ui.busy}
+			filled={filled}
+			error={error}
+			onSelect={ui.setSelected}
+			onShow={ui.setShow}
+			onFill={(which) => void fill(which)}
+		/>
+	);
+}
+
+function HollowGroup({ design, selection, dispatch, meshes, onMeshAdded }: Omit<Props, 'supportsUi' | 'cavityUi'>) {
 	const h = useHollow(design, selection, meshes, onMeshAdded, dispatch);
 	return (
 		<div className="resin-group" role="group" aria-label="Hollow">
@@ -92,7 +125,7 @@ function HollowGroup({ design, selection, dispatch, meshes, onMeshAdded }: Omit<
 }
 
 /** Tools for resin printing: holes for the resin to drain through, and tilting a model so it peels from the film gently. */
-export function ResinPanel({ design, selection, dispatch, meshes, onMeshAdded, supportsUi }: Props) {
+export function ResinPanel({ design, selection, dispatch, meshes, onMeshAdded, supportsUi, cavityUi }: Props) {
 	const [diameter, setDiameter] = useState(String(DEFAULT_DRAIN_DIAMETER));
 	const value = Number(diameter);
 	const validDiameter = diameter.trim() !== '' && value >= MIN_DRAIN_DIAMETER && value <= MAX_DRAIN_DIAMETER;
@@ -100,24 +133,10 @@ export function ResinPanel({ design, selection, dispatch, meshes, onMeshAdded, s
 	const canHole = holeWhy === null;
 	const tiltWhy = whyNotTilt(design, selection);
 	const tilt = tiltWhy === null;
-	const cavity = useClosedCavity(design, selection, meshes);
-	const [drained, setDrained] = useState(false);
-	// a cavity found again ends the "now open" news
-	useEffect(() => {
-		if (cavity) setDrained(false);
-	}, [cavity]);
 
 	return (
 		<PanelSection title="Resin">
-			<CavityNote
-				cavity={cavity}
-				drained={drained}
-				canDrain={canHole}
-				onDrain={() => {
-					dispatch({ type: 'resinHole', kind: 'drain', diameter: value });
-					setDrained(true);
-				}}
-			/>
+			<CavityGroup ui={cavityUi} />
 			<HollowGroup design={design} selection={selection} dispatch={dispatch} meshes={meshes} onMeshAdded={onMeshAdded} />
 			<div className="resin-group" role="group" aria-label="Drain holes">
 				<h3>Drain holes</h3>
