@@ -69,6 +69,14 @@ describe('findClosedCavities', () => {
 		expect(largest(block([VOID, channel]))?.areaMm2).toBeCloseTo(256, 0);
 	});
 
+	it('does not let the fill of a void with a channel spill into the air round the shape', () => {
+		const channel = { size: [2, 2, 7] as Vec, at: [14, 14, 14] as Vec };
+		const fill = largest(block([VOID, channel]))!.fill;
+		// the void is 2560 and the channel up to the top is 2 x 2 x 5: nothing else may be added
+		expect(signedVolume(fill)).toBeGreaterThanOrEqual(2559.9);
+		expect(signedVolume(fill)).toBeLessThan(2600);
+	});
+
 	it('reports the largest cavity', () => {
 		const cuts = [
 			{ size: [5, 5, 6] as Vec, at: [2, 2, 5] as Vec },
@@ -118,5 +126,54 @@ describe('findClosedCavities', () => {
 		// joined to the shape (as the exporter will) nothing is left inside it
 		const plug = new M.Manifold(new M.Mesh({ numProp: 3, vertProperties: cavity!.fill.positions, triVerts: cavity!.fill.indices }));
 		expect(new M.Manifold(m).add(plug).volume()).toBeCloseTo(18000, -1);
+	});
+
+	/** The block with `cut` taken out, the fill of its one cavity, and what is left of the block once the fill is joined to it. */
+	function filled(cut: ReturnType<typeof M.Manifold.cube>, top = 20) {
+		const whole = M.Manifold.cube([30, 30, top]);
+		const shape = whole.subtract(cut);
+		const m = shape.getMesh();
+		const positions = new Float32Array((m.vertProperties.length / m.numProp) * 3);
+		for (let i = 0; i < positions.length / 3; i++) {
+			for (let k = 0; k < 3; k++) positions[i * 3 + k] = m.vertProperties[i * m.numProp + k]!;
+		}
+		const found = findClosedCavities(M, { positions, indices: new Uint32Array(m.triVerts) });
+		let joined = shape;
+		for (const c of found) {
+			joined = joined.add(new M.Manifold(new M.Mesh({ numProp: 3, vertProperties: c.fill.positions, triVerts: c.fill.indices })));
+		}
+		return { found, void: whole.volume() - shape.volume(), left: whole.volume() - joined.volume() };
+	}
+
+	// the half millimetre layers are sampled at their middles, so a ridge or a tip between two of them is wider than either sample
+	it('fills a diamond whose widest ridge falls between two layers, leaving no void', () => {
+		const points = [
+			[8, 0, 0],
+			[-8, 0, 0],
+			[0, 8, 0],
+			[0, -8, 0],
+			[0, 0, 8],
+			[0, 0, -8],
+		] as const;
+		const diamond = M.Manifold.hull(points.map(([x, y, z]) => M.Manifold.cube(0.001, true).translate([15 + x, 15 + y, 10 + z])));
+		const result = filled(diamond);
+		expect(result.found).toHaveLength(1);
+		expect(signedVolume(result.found[0]!.fill)).toBeCloseTo(result.void, 3);
+		expect(result.left).toBeCloseTo(0, 3);
+	});
+
+	it('fills a cone to its tip, leaving no void', () => {
+		const cone = M.Manifold.cylinder(10, 8, 0.0001, 64).translate([15, 15, 5]);
+		const result = filled(cone);
+		expect(result.found).toHaveLength(1);
+		expect(signedVolume(result.found[0]!.fill)).toBeCloseTo(result.void, 3);
+		expect(result.left).toBeCloseTo(0, 3);
+	});
+
+	it('fills a cup open in the top to its wall, leaving no void below the rim', () => {
+		const cup = M.Manifold.cylinder(16, 8, 6, 64).translate([15, 15, 5]);
+		const result = filled(cup);
+		expect(result.found).toHaveLength(1);
+		expect(result.left).toBeCloseTo(0, 3);
 	});
 });
