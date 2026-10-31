@@ -156,7 +156,7 @@ The **Resin** section of the side panel (under Properties) has tools for printin
   and lists every cavity no resin can flow into: a void inside the model, or a pocket in its top, of at least 25 mm². Such a cavity sucks on the film as each
   layer peels (cupping). The list gives each one's size and how high it begins, and the view draws them as translucent amber volumes (the chosen one stronger;
   untick **Show cavities** to hide them). Choose one in the list, or click it in the view, then **Fill selected cavity**, or press **Fill all**: that adds a
-  solid shape that plugs the cavity, grouped with the model and in its colour, as one undo step. The fill follows the cavity in steps of half a millimetre.
+  solid shape that plugs the cavity, grouped with the model and in its colour, as one undo step. The fill is the cavity's own empty space, so it meets the wall exactly and leaves no void behind (a cavity is found from half-millimetre layers, but is filled as it really is).
   Listing never changes the model. The check takes the model to stand on supports, clear of the plate, so a pocket open at its base is
   not reported. A channel only opens a cavity from the layer it starts at, so a drain must reach the cavity's floor, and a hole from the top does not help.
 - **Orientation.** **Tilt 15°, 30° or 45°** turns the selection about the X axis (on top of any turn it has), about its middle, and sets it back on the plane.

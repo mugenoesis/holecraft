@@ -13,7 +13,7 @@ const FRAME_MARGIN_MM = 1;
 /** Below this area (mm²) two regions are only touching, not overlapping. */
 const TOUCH_MM2 = 1e-4;
 
-/** How far (mm) the solid that fills a cavity reaches into the walls around it, so it joins them cleanly. */
+/** How far (mm) the envelope a cavity is filled within is widened, so the sloping walls are inside it. */
 const FILL_OVERLAP_MM = 0.02;
 
 export interface ClosedCavity {
@@ -55,8 +55,8 @@ export function findClosedCavities(M: ManifoldToplevel, mesh: GroupMesh): Closed
 		return thing;
 	};
 	try {
-		const pieces = closedPieces(M, mesh, own);
-		return cavitiesOf(M, pieces, own);
+		const solid = own(new M.Manifold(new M.Mesh({ numProp: 3, vertProperties: mesh.positions, triVerts: mesh.indices })));
+		return cavitiesOf(M, solid, closedPieces(M, solid, own), own);
 	} finally {
 		for (const thing of owned) thing.delete();
 	}
@@ -70,9 +70,8 @@ const overlaps = (a: CrossSection, b: CrossSection): boolean => {
 };
 
 /** The closed holes of every layer, each tagged with the cavity it is part of (joined when a piece touches several). */
-function closedPieces(M: ManifoldToplevel, mesh: GroupMesh, own: <T extends Deletable>(thing: T) => T): Piece[] {
-	const { CrossSection, Manifold, Mesh } = M;
-	const solid = own(new Manifold(new Mesh({ numProp: 3, vertProperties: mesh.positions, triVerts: mesh.indices })));
+function closedPieces(M: ManifoldToplevel, solid: Manifold, own: <T extends Deletable>(thing: T) => T): Piece[] {
+	const { CrossSection } = M;
 	const box = solid.boundingBox();
 	const base = Math.max(0, box.min[2]!);
 	const frame = own(
@@ -113,8 +112,14 @@ function closedPieces(M: ManifoldToplevel, mesh: GroupMesh, own: <T extends Dele
 	return all;
 }
 
-/** The pieces gathered by cavity, as cavities big enough to report, largest first. */
-function cavitiesOf(M: ManifoldToplevel, pieces: Piece[], own: <T extends Deletable>(thing: T) => T): ClosedCavity[] {
+/**
+ * The pieces gathered by cavity, as cavities big enough to report, largest first.
+ *
+ * The layers only say *which* empty space is the cavity; the fill is that space itself, so nothing is left between the layers (a ridge or
+ * a tip between two samples is wider than either). `reachOf` finds the cavity's whole connected void inside its height range, and where
+ * that void also reaches the outside in that range (a channel, a side opening) only the part within an envelope of the cavity's pieces.
+ */
+function cavitiesOf(M: ManifoldToplevel, solid: Manifold, pieces: Piece[], own: <T extends Deletable>(thing: T) => T): ClosedCavity[] {
 	const byCavity = new Map<number, Piece[]>();
 	for (const p of pieces) byCavity.set(p.cavity, [...(byCavity.get(p.cavity) ?? []), p]);
 	const found: Omit<ClosedCavity, 'id'>[] = [];
@@ -122,16 +127,45 @@ function cavitiesOf(M: ManifoldToplevel, pieces: Piece[], own: <T extends Deleta
 		const widest = group.reduce((best, p) => (p.area.area() > best.area.area() ? p : best));
 		const areaMm2 = widest.area.area();
 		if (areaMm2 < MIN_AREA_MM2) continue;
-		const slabs = group.map((p) =>
-			own(
-				own(p.area.offset(FILL_OVERLAP_MM, 'Square'))
-					.extrude(LAYER_MM + 2 * FILL_OVERLAP_MM)
-					.translate([0, 0, p.z0 - FILL_OVERLAP_MM]),
-			),
-		);
-		found.push({ layer: group[0]!.layer, z: group[0]!.z0 + LAYER_MM / 2, areaMm2, fill: meshOf(own(M.Manifold.union(slabs))) });
+		found.push({ layer: group[0]!.layer, z: group[0]!.z0 + LAYER_MM / 2, areaMm2, fill: meshOf(fillOf(M, solid, group, own)) });
 	}
 	return found.sort((a, b) => b.areaMm2 - a.areaMm2).map((c, id) => ({ id, ...c }));
+}
+
+/** The solid that fills one cavity (given as its pieces) to its wall. */
+function fillOf(M: ManifoldToplevel, solid: Manifold, group: Piece[], own: <T extends Deletable>(thing: T) => T): Manifold {
+	const box = solid.boundingBox();
+	// the envelope: each piece widened to the pieces a layer either side, so a sloping wall is inside it
+	const slabs = group.map((p) => {
+		const near = group.filter((q) => Math.abs(q.layer - p.layer) <= 1).map((q) => q.area);
+		const area = own(own(M.CrossSection.union(near)).offset(FILL_OVERLAP_MM, 'Square'));
+		return own(own(area.extrude(LAYER_MM + 2 * FILL_OVERLAP_MM)).translate([0, 0, p.z0 - FILL_OVERLAP_MM]));
+	});
+	const envelope = own(M.Manifold.union(slabs));
+
+	// the empty space of the shape across the cavity's height range, plus a layer either side for a tip between two samples, split
+	// into the pieces that are not joined to each other
+	const lo = Math.max(box.min[2]!, Math.min(...group.map((p) => p.z0)) - LAYER_MM);
+	const hi = Math.min(box.max[2]!, Math.max(...group.map((p) => p.z0)) + 2 * LAYER_MM);
+	const side = [box.max[0]! - box.min[0]! + 2 * FRAME_MARGIN_MM, box.max[1]! - box.min[1]! + 2 * FRAME_MARGIN_MM] as const;
+	const range = own(
+		own(M.Manifold.cube([side[0], side[1], hi - lo], false)).translate([box.min[0]! - FRAME_MARGIN_MM, box.min[1]! - FRAME_MARGIN_MM, lo]),
+	);
+	const space = own(range.subtract(solid));
+	const parts: Manifold[] = [];
+	for (const part of space.decompose().map(own)) {
+		const shared = own(part.intersect(envelope));
+		if (shared.volume() <= TOUCH_MM2) continue; // not this cavity's
+		const bounds = part.boundingBox();
+		const outside =
+			bounds.min[0]! <= box.min[0]! - FRAME_MARGIN_MM + 1e-6 ||
+			bounds.min[1]! <= box.min[1]! - FRAME_MARGIN_MM + 1e-6 ||
+			bounds.max[0]! >= box.max[0]! + FRAME_MARGIN_MM - 1e-6 ||
+			bounds.max[1]! >= box.max[1]! + FRAME_MARGIN_MM - 1e-6;
+		// a part that reaches the outside is the air round the shape too, so it is kept to the cavity's own envelope
+		parts.push(outside ? shared : part);
+	}
+	return own(M.Manifold.union(parts));
 }
 
 function meshOf(solid: Manifold): GroupMesh {
