@@ -10,3 +10,8 @@ data/
 test-results/
 playwright-report/
 coverage/
+
+# models written in code for scripts/model.sh: personal builds stay local, the README and example are tracked
+models/*
+!models/README.md
+!models/example-tray.ts
