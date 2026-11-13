@@ -23,6 +23,7 @@ export * from './mat4.ts';
 export * from './mergeShapes.ts';
 export * from './meshRepair.ts';
 export * from './meshShape.ts';
+export * from './modelBuilder.ts';
 export * from './ops.ts';
 export * from './paintEdits.ts';
 export * from './paintRegions.ts';

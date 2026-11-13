@@ -1,3 +1,4 @@
+export * from './buildModel.ts';
 export * from './cavities.ts';
 export * from './conformText.ts';
 export * from './evaluate.ts';
@@ -9,6 +10,7 @@ export * from './formats/threemf.ts';
 export * from './formats/zip.ts';
 export * from './import/index.ts';
 export * from './load.ts';
+export * from './measure.ts';
 export * from './subtree.ts';
 export * from './toolEdges.ts';
 export * from './types.ts';
